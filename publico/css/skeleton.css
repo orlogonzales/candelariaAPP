@@ -1,0 +1,128 @@
+/**
+ * ==============================================================================
+ * CANDELARIAAPP - INFRAESTRUCTURA VISUAL DE SKELETON LOADERS (skeleton.css)
+ * ==============================================================================
+ * - Extensión semántica sobre Bootstrap 5 Placeholders de Alina
+ * - Efecto Shimmer / Pulso suave integrado con la paleta de Alina
+ * - Variantes: card, table, form, stats, dashboard, list, profile
+ * - Accesibilidad: prefers-reduced-motion y aria-busy
+ * - Soporte nativo para Dark Mode y Light Mode
+ * ==============================================================================
+ */
+
+:root {
+    --skeleton-bg: #e2e8f0;
+    --skeleton-shimmer: #f1f5f9;
+}
+
+body.dark {
+    --skeleton-bg: #1e293b;
+    --skeleton-shimmer: #334155;
+}
+
+/* Animación Shimmer */
+@keyframes candelariaShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.skeleton-shimmer {
+    background: linear-gradient(
+        90deg,
+        var(--skeleton-bg) 25%,
+        var(--skeleton-shimmer) 50%,
+        var(--skeleton-bg) 75%
+    );
+    background-size: 200% 100%;
+    animation: candelariaShimmer 1.6s ease-in-out infinite;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+/* Accesibilidad: Reducción de movimiento */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer {
+        animation: none !important;
+        background: var(--skeleton-bg) !important;
+    }
+}
+
+/* Bloques individuales del Skeleton */
+.skeleton-line {
+    height: 14px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+}
+
+.skeleton-line.lg {
+    height: 22px;
+}
+
+.skeleton-line.sm {
+    height: 10px;
+}
+
+.skeleton-circle {
+    border-radius: 50% !important;
+}
+
+.skeleton-box {
+    border-radius: 8px;
+}
+
+/* ==============================================================================
+ * PLANTILLAS DE VARIANTES SKELETON
+ * ============================================================================== */
+
+/* 1. Skeleton Stats / KPIs */
+.skeleton-stats-widget {
+    padding: 1.25rem;
+    background: transparent;
+}
+.skeleton-stats-widget .stat-icon {
+    width: 48px;
+    height: 48px;
+}
+
+/* 2. Skeleton Table */
+.skeleton-table-wrapper {
+    width: 100%;
+    padding: 0.5rem 0;
+}
+.skeleton-table-wrapper .skeleton-table-row {
+    display: flex;
+    gap: 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+body.dark .skeleton-table-wrapper .skeleton-table-row {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+/* 3. Skeleton Form */
+.skeleton-form-group {
+    margin-bottom: 1.25rem;
+}
+.skeleton-input {
+    height: 38px;
+    border-radius: 6px;
+    width: 100%;
+}
+
+/* 4. Skeleton Card */
+.skeleton-card-container {
+    padding: 1.25rem;
+}
+
+/* 5. Skeleton Error State */
+.skeleton-error-state {
+    padding: 2rem 1rem;
+    text-align: center;
+    border: 1px dashed #ef4444;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.04);
+}

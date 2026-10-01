@@ -1,0 +1,50 @@
+# ==============================================================================
+# CANDELARIAAPP - REGLAS DE ACCESO Y SEGURIDAD HTTP (.htaccess)
+# ==============================================================================
+
+# Deshabilitar listado de directorios
+Options -Indexes
+
+# 1. Denegar acceso a archivos ocultos (.env, .git, etc.)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 2. Denegar acceso a extensiones sensibles de configuracion, logs, dependencias y BD
+<FilesMatch "\.(env|sql|log|md|lock|json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Permitir CORS para fuentes tipográficas
+<IfModule mod_headers.c>
+    <FilesMatch "\.(ttf|ttc|otf|eot|woff|woff2)$">
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 3. Denegar acceso directo a directorios internos del backend y almacenamiento
+    RewriteRule ^(base_datos|almacenamiento|nucleo|aplicacion|configuracion|recursos|rutas|pruebas|docs|vendor)(/.*)?$ - [F,L,NC]
+
+    # 4. Servir archivos estaticos existentes en publico o admin-dashboard
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^(publico|admin-dashboard)/ - [L]
+
+    # 5. Redirigir todas las demas rutas al punto de entrada index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>

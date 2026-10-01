@@ -1,0 +1,49 @@
+# ==============================================================================
+# CANDELARIAAPP - REGLAS DE EXCLUSIÓN GIT (.gitignore)
+# ==============================================================================
+
+# Entorno y Secretos
+.env
+.env.local
+.env.*.local
+*.env
+*.pem
+*.key
+*.cert
+
+# Almacenamiento local (logs, archivos subidos, temporales)
+/almacenamiento/logs/*
+!/almacenamiento/logs/.gitkeep
+/almacenamiento/temporales/*
+!/almacenamiento/temporales/.gitkeep
+/almacenamiento/archivos/*
+!/almacenamiento/archivos/.gitkeep
+
+# Base de datos: respaldos con información sensible
+/base_datos/respaldos/*
+!/base_datos/respaldos/.gitkeep
+!/base_datos/respaldos/README.md
+
+# Dependencias Composer y Node
+/vendor/
+/node_modules/
+
+# IDEs, Editores y Sistema Operativo
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Archivos de caché y temporales de testing
+.phpunit.result.cache
+/tmp/
+
+# Artefactos de diseño binarios no utilizados en runtime
+*.fig
