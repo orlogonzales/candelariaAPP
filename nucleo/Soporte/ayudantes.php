@@ -68,12 +68,20 @@ if (!function_exists('normalizar_minusculas')) {
 if (!function_exists('url_base')) {
     /**
      * Genera una URL absoluta adaptativa a partir de la raíz del host actual.
+     * Sanitiza y valida el host para prevenir vulnerabilidades de Host Header Poisoning.
      */
     function url_base(string $ruta = ''): string
     {
         if (!empty($_SERVER['HTTP_HOST'])) {
+            $rawHost = (string) $_SERVER['HTTP_HOST'];
+            // Validar formato estándar de hostname (con soporte opcional de puerto)
+            if (preg_match('/^[a-zA-Z0-9.\-]+(?::\d+)?$/', $rawHost)) {
+                $host = $rawHost;
+            } else {
+                $host = $_SERVER['SERVER_NAME'] ?? 'localhost';
+            }
+
             $protocolo = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
-            $host = $_SERVER['HTTP_HOST'];
             $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
             $directorio = trim(dirname($scriptName), '/');
             if (str_ends_with($directorio, 'publico')) {

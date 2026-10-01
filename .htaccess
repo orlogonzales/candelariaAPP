@@ -27,12 +27,6 @@ Options -Indexes
     </IfModule>
 </FilesMatch>
 
-# Permitir CORS para fuentes tipográficas
-<IfModule mod_headers.c>
-    <FilesMatch "\.(ttf|ttc|otf|eot|woff|woff2)$">
-        Header set Access-Control-Allow-Origin "*"
-    </FilesMatch>
-</IfModule>
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
