@@ -35,10 +35,21 @@ class AutenticacionMiddleware
 
         // 1. Extraer token desde Cookie o Encabezado Authorization
         $token = ManejadorCookie::extraerDePeticion($cookies);
-        if ($token === null && !empty($servidor['HTTP_AUTHORIZATION'])) {
-            $auth = trim((string) $servidor['HTTP_AUTHORIZATION']);
-            if (preg_match('/^Bearer\s+(.+)$/i', $auth, $coincidencias)) {
-                $token = trim($coincidencias[1]);
+        if ($token === null) {
+            $authHeader = $servidor['HTTP_AUTHORIZATION']
+                ?? $servidor['REDIRECT_HTTP_AUTHORIZATION']
+                ?? null;
+
+            if ($authHeader === null && function_exists('apache_request_headers')) {
+                $headers = apache_request_headers();
+                $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? null;
+            }
+
+            if (!empty($authHeader)) {
+                $auth = trim((string) $authHeader);
+                if (preg_match('/^Bearer\s+(.+)$/i', $auth, $coincidencias)) {
+                    $token = trim($coincidencias[1]);
+                }
             }
         }
 
@@ -84,7 +95,7 @@ class AutenticacionMiddleware
     {
         $uri = $servidor['REQUEST_URI'] ?? '/';
         $accept = $servidor['HTTP_ACCEPT'] ?? '';
-        $esApi = str_starts_with($uri, '/api') || str_contains($accept, 'application/json');
+        $esApi = str_contains($uri, '/api') || str_contains($accept, 'application/json');
 
         if (!headers_sent()) {
             http_response_code(401);
@@ -97,6 +108,7 @@ class AutenticacionMiddleware
                 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                 exit;
             }
+            exit;
         }
     }
 }

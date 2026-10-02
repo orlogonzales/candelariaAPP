@@ -17,7 +17,7 @@ Enrutador::get('/api/v1/estado', function () {
         'datos' => [
             'plataforma' => 'CandelariaAPP',
             'version' => '1.0.0',
-            'fase' => 'F1.1B Autenticación y Sesiones Seguras',
+            'fase' => 'F1.1C RBAC y Autorización Backend',
             'entorno' => entorno('APP_ENV', 'desarrollo'),
             'php' => PHP_VERSION,
             'frontend' => 'Alina Bootstrap 5 + JS Moderno + Fetch API',
@@ -128,6 +128,38 @@ Enrutador::get('/api/v1/auth/sesion', function () {
             'canal'          => $contexto->canalCodigo,
             'correlacion_id' => $contexto->correlacionId,
             'ip'             => $contexto->origenIp,
+        ]
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+});
+
+// Endpoint técnico protegido por Autorización RBAC (Requiere permiso usuarios.ver)
+Enrutador::get('/api/v1/usuarios/lista', function () {
+    header('Content-Type: application/json; charset=utf-8');
+
+    // 1. Verificar Autenticación (401 si falla)
+    $authMiddleware = new \Nucleo\Http\Middleware\AutenticacionMiddleware();
+    $contexto = $authMiddleware->procesar($_SERVER, $_COOKIE, true);
+
+    // 2. Verificar Permiso RBAC (403 si carece de usuarios.ver)
+    $rbacMiddleware = new \Nucleo\Http\Middleware\AutorizacionMiddleware();
+    $rbacMiddleware->verificarPermiso('usuarios.ver', $contexto, true);
+
+    // 3. Operación permitida en Backend
+    $repo = new \Aplicacion\Repositorios\UsuarioRepositorio();
+    $usuarios = $repo->buscarPorOrganizacion($contexto->organizacionId ?? 1, 10, 0);
+
+    return json_encode([
+        'exito'   => true,
+        'codigo'  => 200,
+        'mensaje' => 'Acceso autorizado al padrón de usuarios.',
+        'datos'   => [
+            'total'    => count($usuarios),
+            'usuarios' => array_map(fn($u) => [
+                'id'              => $u->id,
+                'nombre_usuario'  => $u->nombreUsuario,
+                'nombre_completo' => $u->nombreCompleto,
+                'estado'          => $u->estado,
+            ], $usuarios)
         ]
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 });
