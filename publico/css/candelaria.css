@@ -45,25 +45,57 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* ------------------------------------------------------------------------------
- * SUSTITUCIÓN DE PSEUDO-ELEMENTOS DE ALINA (Tabler Icons -> Font Awesome)
- * Resuelve los cuadrados de glifo faltante en las flechas de colapso del menú
+ * RECONCILIACIÓN DEFINITIVA DE INDICADORES DEL SIDEBAR (0 USOS DE TABLER ICONS)
+ * Neutraliza los pseudo-elementos Tabler residuales de Alina con Font Awesome 6
  * ------------------------------------------------------------------------------ */
-.main-side-nav .main-side-menu > ul:not(.collapse) > li .another-level > a::after,
-.main-side-nav .main-side-menu > ul:not(.collapse) > li:not(.no-sub) > a::after {
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    content: "\f054"; /* fa-chevron-right */
-    font-size: 0.75rem;
-    line-height: 1;
-    display: inline-block;
-    color: rgba(var(--secondary), 0.7);
+
+/* 1. Elementos sin hijos (no-sub): NUNCA deben mostrar indicador derecho */
+.main-side-nav .main-side-menu > ul:not(.collapse) > li.no-sub > a::after,
+.main-side-nav .main-side-menu .no-sub > a::after,
+.main-side-nav .main-side-menu li.no-sub > a::after {
+    content: none !important;
+    display: none !important;
 }
 
-.main-side-nav .main-side-menu > ul:not(.collapse) > li [aria-expanded=true]::after {
-    font-family: 'Font Awesome 6 Free';
-    font-weight: 900;
-    content: "\f078"; /* fa-chevron-down */
-    color: rgba(var(--primary), 1);
+/* 2. Elementos con hijos CERRADOS (colapsados o aria-expanded="false"): chevron derecho Font Awesome */
+.main-side-nav .main-side-menu > ul:not(.collapse) > li:not(.no-sub) > a::after,
+.main-side-nav .main-side-menu > ul:not(.collapse) > li:not(.no-sub) > a[aria-expanded="false"]::after,
+.main-side-nav .main-side-menu > ul:not(.collapse) > li .another-level > a::after {
+    font-family: 'Font Awesome 6 Free' !important;
+    font-weight: 900 !important;
+    content: "\f054" !important; /* fa-chevron-right */
+    font-size: 0.75rem !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: rgba(var(--secondary), 0.7) !important;
+    position: absolute !important;
+    top: 50% !important;
+    right: 12px !important;
+    transform: translateY(-50%) !important;
+}
+
+/* 3. Elementos con hijos ABIERTOS (aria-expanded="true"): chevron hacia abajo Font Awesome */
+.main-side-nav .main-side-menu > ul:not(.collapse) > li:not(.no-sub) > a[aria-expanded="true"]::after,
+.main-side-nav .main-side-menu > ul:not(.collapse) > li [aria-expanded="true"]::after {
+    font-family: 'Font Awesome 6 Free' !important;
+    font-weight: 900 !important;
+    content: "\f078" !important; /* fa-chevron-down */
+    color: rgba(var(--primary), 1) !important;
+    font-size: 0.75rem !important;
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: absolute !important;
+    top: 50% !important;
+    right: 12px !important;
+    transform: translateY(-50%) !important;
 }
 
 /* ------------------------------------------------------------------------------

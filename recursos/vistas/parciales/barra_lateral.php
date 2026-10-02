@@ -85,15 +85,11 @@
                 <div class="main-side-menu">
                     <!-- Menú: Principal -->
                     <ul class="main-menu" id="menuPrincipal">
-                        <li>
-                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subDashboard">
+                        <li class="no-sub">
+                            <a href="<?= url_base() ?>" class="active">
                                 <i class="fa-solid fa-gauge-high me-2 text-secondary"></i> Dashboard
                                 <span class="badge bg-gradient-danger badge-dashboard badge-notification ms-2">V1</span>
                             </a>
-                            <ul class="collapse show" id="subDashboard">
-                                <li><a href="<?= url_base() ?>" class="active"><i class="fa-solid fa-circle-dot f-s-10 me-2 text-primary"></i> Vista General</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Métricas Operativas</a></li>
-                            </ul>
                         </li>
                         <li>
                             <a aria-expanded="false" data-bs-toggle="collapse" href="#subEdiciones">
