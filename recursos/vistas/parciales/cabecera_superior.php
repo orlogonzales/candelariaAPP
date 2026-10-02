@@ -41,22 +41,44 @@
                                 </span>
                             </li>
 
-                            <!-- Perfil de Usuario -->
+                            <!-- Perfil de Usuario Dinámico -->
+                            <?php
+                            $contextoOp = \Nucleo\Http\ContextoOperacion::actual();
+                            $nombreUsuarioDisplay = 'USUARIO';
+                            $rolUsuarioDisplay = 'USUARIO';
+                            $avatarUsuarioDisplay = url_activo('alina/images/avatar/01.png');
+
+                            if ($contextoOp !== null && $contextoOp->usuarioId !== null) {
+                                $repoUsr = new \Aplicacion\Repositorios\UsuarioRepositorio();
+                                $usrActual = $repoUsr->buscarPorId($contextoOp->usuarioId);
+                                if ($usrActual !== null) {
+                                    $nombreUsuarioDisplay = $usrActual->nombreCompleto ?: $usrActual->nombreUsuario;
+                                    if (!empty($usrActual->avatarUrl)) {
+                                        $avatarUsuarioDisplay = $usrActual->avatarUrl;
+                                    }
+                                }
+
+                                $repoRol = new \Aplicacion\Repositorios\RolRepositorio();
+                                $rolesUsr = $repoRol->obtenerRolesDeUsuario($contextoOp->usuarioId);
+                                if (!empty($rolesUsr)) {
+                                    $rolUsuarioDisplay = $rolesUsr[0]->nombre;
+                                }
+                            }
+                            ?>
                             <li class="d-flex align-items-center gap-2 ms-2">
                                 <div class="dropdown">
                                     <a href="#" class="d-flex align-items-center gap-2 text-decoration-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <img src="<?= url_activo('alina/images/avatar/01.png') ?>" alt="Usuario" class="w-35 h-35 rounded-circle border">
+                                        <img src="<?= escapar_html($avatarUsuarioDisplay) ?>" alt="Usuario" class="w-35 h-35 rounded-circle border">
                                         <div class="d-none d-xl-flex flex-column text-start">
-                                            <span class="f-s-13 f-w-600 text-dark">O.G. ESTUDIO</span>
-                                            <span class="f-s-11 text-muted">ADMINISTRADOR</span>
+                                            <span class="f-s-13 f-w-600 text-dark"><?= escapar_html($nombreUsuarioDisplay) ?></span>
+                                            <span class="f-s-11 text-muted text-uppercase"><?= escapar_html($rolUsuarioDisplay) ?></span>
                                         </div>
                                     </a>
                                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
                                         <li><h6 class="dropdown-header text-uppercase">Sesión Activa</h6></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-user me-2 text-secondary"></i> Perfil</a></li>
-                                        <li><a class="dropdown-item" href="#"><i class="fa-solid fa-gear me-2 text-secondary"></i> Configuración</a></li>
+                                        <li><a class="dropdown-item" href="<?= url_base('usuarios') ?>"><i class="fa-solid fa-users-gear me-2 text-secondary"></i> Gestión de Usuarios</a></li>
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item text-danger" href="#"><i class="fa-solid fa-right-from-bracket me-2"></i> Cerrar Sesión</a></li>
+                                        <li><a class="dropdown-item text-danger" href="<?= url_base('logout') ?>" id="btnLogoutHeader"><i class="fa-solid fa-right-from-bracket me-2"></i> Cerrar Sesión</a></li>
                                     </ul>
                                 </div>
                             </li>

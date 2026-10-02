@@ -76,6 +76,7 @@ Enrutador::post('/api/v1/auth/login', function () {
                 'correo'          => $usr->correoElectronico,
                 'estado'          => $usr->estado,
             ],
+            'redireccion'    => url_base(),
             'correlacion_id' => $resultado->contexto?->correlacionId,
         ]
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -95,6 +96,7 @@ Enrutador::post('/api/v1/auth/logout', function () {
         $servicio = new \Aplicacion\Seguridad\AutenticacionServicio();
         $servicio->cerrarSesion($token);
     }
+    \Nucleo\Seguridad\ManejadorCookie::destruir();
 
     return json_encode([
         'exito'   => true,
@@ -163,3 +165,18 @@ Enrutador::get('/api/v1/usuarios/lista', function () {
         ]
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 });
+
+// ==============================================================================
+// GESTIÓN INTEGRAL DE USUARIOS Y CONTROL DE ACCESO (MICROLOTE F1.1D)
+// ==============================================================================
+Enrutador::get('/api/v1/usuarios', [\Aplicacion\Controladores\UsuarioControlador::class, 'listar']);
+Enrutador::get('/api/v1/usuarios/{id}', [\Aplicacion\Controladores\UsuarioControlador::class, 'detalle']);
+Enrutador::get('/api/v1/personas/disponibles', [\Aplicacion\Controladores\UsuarioControlador::class, 'personasDisponibles']);
+Enrutador::get('/api/v1/tipos-documento', [\Aplicacion\Controladores\UsuarioControlador::class, 'tiposDocumento']);
+Enrutador::get('/api/v1/roles', [\Aplicacion\Controladores\UsuarioControlador::class, 'roles']);
+Enrutador::post('/api/v1/usuarios', [\Aplicacion\Controladores\UsuarioControlador::class, 'crear']);
+Enrutador::put('/api/v1/usuarios/{id}', [\Aplicacion\Controladores\UsuarioControlador::class, 'actualizar']);
+Enrutador::patch('/api/v1/usuarios/{id}/estado', [\Aplicacion\Controladores\UsuarioControlador::class, 'cambiarEstado']);
+Enrutador::put('/api/v1/usuarios/{id}/roles', [\Aplicacion\Controladores\UsuarioControlador::class, 'sincronizarRoles']);
+Enrutador::post('/api/v1/usuarios/{id}/restablecer-clave', [\Aplicacion\Controladores\UsuarioControlador::class, 'restablecerClave']);
+Enrutador::delete('/api/v1/usuarios/{id}', [\Aplicacion\Controladores\UsuarioControlador::class, 'eliminar']);

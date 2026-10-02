@@ -34,6 +34,11 @@ class Enrutador
         self::agregarRuta('DELETE', $patron, $accion);
     }
 
+    public static function patch(string $patron, Closure|array|string $accion): void
+    {
+        self::agregarRuta('PATCH', $patron, $accion);
+    }
+
     private static function agregarRuta(string $metodo, string $patron, Closure|array|string $accion): void
     {
         self::$rutas[] = [
@@ -48,7 +53,16 @@ class Enrutador
      */
     public static function despachar(): void
     {
-        $metodoActual = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        $metodoActual = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        if ($metodoActual === 'HEAD') {
+            $metodoActual = 'GET';
+        }
+        if ($metodoActual === 'POST') {
+            $override = $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'] ?? $_POST['_method'] ?? null;
+            if ($override && in_array(strtoupper((string) $override), ['PUT', 'PATCH', 'DELETE'], true)) {
+                $metodoActual = strtoupper((string) $override);
+            }
+        }
         $uriCompleta = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 
         // Normalizar URI eliminando el subdirectorio de Laragon si está presente

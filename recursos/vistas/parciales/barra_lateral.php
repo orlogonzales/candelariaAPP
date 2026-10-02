@@ -91,6 +91,11 @@
                                 <span class="badge bg-gradient-danger badge-dashboard badge-notification ms-2">V1</span>
                             </a>
                         </li>
+                        <li class="no-sub">
+                            <a href="<?= url_base('usuarios') ?>" id="navPrincipalUsuarios">
+                                <i class="fa-solid fa-users-gear me-2 text-secondary"></i> Padrón de Usuarios
+                            </a>
+                        </li>
                         <li>
                             <a aria-expanded="false" data-bs-toggle="collapse" href="#subEdiciones">
                                 <i class="fa-solid fa-calendar-check me-2 text-secondary"></i> Ediciones Candelaria
@@ -184,6 +189,18 @@
 
                     <!-- Menú: Configuración -->
                     <ul class="main-menu" id="menuConfiguracion" style="display: none;">
+                        <li>
+                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subSeguridad">
+                                <i class="fa-solid fa-user-shield me-2 text-secondary"></i> Control de Acceso
+                            </a>
+                            <ul class="collapse show" id="subSeguridad">
+                                <li>
+                                    <a href="<?= url_base('usuarios') ?>" id="navConfigUsuarios">
+                                        <i class="fa-solid fa-users-gear me-2 text-secondary"></i> Padrón de Usuarios
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                         <li>
                             <a aria-expanded="true" data-bs-toggle="collapse" href="#subConfig">
                                 <i class="fa-solid fa-sliders me-2 text-secondary"></i> Parámetros

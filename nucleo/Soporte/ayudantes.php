@@ -83,7 +83,7 @@ if (!function_exists('url_base')) {
 
             $protocolo = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
             $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
-            $directorio = trim(dirname($scriptName), '/');
+            $directorio = trim(str_replace('\\', '/', dirname($scriptName)), '/');
             if (str_ends_with($directorio, 'publico')) {
                 $directorio = trim(substr($directorio, 0, -7), '/');
             }

@@ -32,5 +32,7 @@ echo Vista::parcial('cabecera_superior', [
 echo Vista::parcial('pie_pagina');
 
 // 6. Scripts y cierre de documento
-echo Vista::parcial('scripts');
+echo Vista::parcial('scripts', [
+    'scriptAdicional' => $scriptAdicional ?? null
+]);
 ?>

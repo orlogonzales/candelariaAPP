@@ -20,6 +20,7 @@ class Usuario
         public readonly string $contrasenaHash,
         public readonly bool $esSuperadminPlataforma = false,
         public readonly ?string $avatarUrl = null,
+        public readonly ?string $telefonoWhatsapp = null,
         public readonly string $estado = 'ACTIVO', // 'ACTIVO', 'INACTIVO', 'BLOQUEADO'
         public readonly int $intentosFallidos = 0,
         public readonly ?string $bloqueadoHasta = null,
@@ -76,6 +77,7 @@ class Usuario
             contrasenaHash: (string) $datos['contrasena_hash'],
             esSuperadminPlataforma: (bool) ($datos['es_superadmin_plataforma'] ?? false),
             avatarUrl: $datos['avatar_url'] ?? null,
+            telefonoWhatsapp: $datos['telefono_whatsapp'] ?? null,
             estado: (string) ($datos['estado'] ?? 'ACTIVO'),
             intentosFallidos: (int) ($datos['intentos_fallidos'] ?? 0),
             bloqueadoHasta: $datos['bloqueado_hasta'] ?? null,

@@ -53,6 +53,11 @@ class AutenticacionMiddleware
             }
         }
 
+        if ($token === null && (string) entorno('APP_ENV') === 'desarrollo' && !empty($_GET['token_sesion'])) {
+            $token = (string) $_GET['token_sesion'];
+            ManejadorCookie::emitir($token);
+        }
+
         $ip = $servidor['REMOTE_ADDR'] ?? '127.0.0.1';
         $agenteUsuario = $servidor['HTTP_USER_AGENT'] ?? null;
         $correlacionId = ContextoOperacion::extraerDeEncabezados($servidor);

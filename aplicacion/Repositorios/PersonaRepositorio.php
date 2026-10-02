@@ -114,4 +114,38 @@ class PersonaRepositorio
 
         return array_map(fn(array $f) => Persona::desdeArreglo($f), $stmt->fetchAll());
     }
+
+    /**
+     * Retorna la lista de personas activas de una organización que aún no tienen una cuenta de usuario vinculada.
+     * Reutilizado en modal de creación para vincular persona existente (respetando restricción uk_usuarios_persona).
+     * @return array
+     */
+    public function buscarDisponiblesSinUsuario(int $organizacionId): array
+    {
+        $sql = "SELECT p.*, td.codigo AS tipo_documento_codigo, td.nombre AS tipo_documento_nombre
+                FROM `personas` p
+                INNER JOIN `tipos_documento` td ON td.id = p.tipo_documento_id
+                LEFT JOIN `usuarios` u ON u.persona_id = p.id
+                WHERE p.organizacion_id = :organizacion_id
+                  AND p.estado = 'ACTIVO'
+                  AND u.id IS NULL
+                ORDER BY p.apellidos ASC, p.nombres ASC, p.razon_social ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([':organizacion_id' => $organizacionId]);
+
+        return array_map(function (array $f) {
+            $persona = Persona::desdeArreglo($f);
+            return [
+                'id'                    => $persona->id,
+                'tipo_persona'          => $persona->tipoPersona,
+                'nombre_completo'       => $persona->obtenerNombreCompleto(),
+                'tipo_documento_id'     => $persona->tipoDocumentoId,
+                'tipo_documento_codigo' => $f['tipo_documento_codigo'],
+                'numero_documento'      => $persona->numeroDocumento,
+                'correo_electronico'    => $persona->correoElectronico,
+                'telefono_whatsapp'     => $persona->telefonoWhatsapp,
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
 }

@@ -192,27 +192,47 @@ const CandelariaUI = {
  */
 class CandelariaClienteApi {
     constructor(urlBase = '') {
-        this.urlBase = urlBase || (window.location.origin + '/api/v1');
+        const raiz = window.CANDELARIA_BASE_URL || window.location.origin;
+        this.urlBase = urlBase || (raiz.replace(/\/$/, '') + '/api/v1');
     }
 
     async peticion(endpoint, opciones = {}) {
         const url = `${this.urlBase}/${endpoint.replace(/^\//, '')}`;
+        const metodo = (opciones.metodo || 'GET').toUpperCase();
+
+        const encabezados = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            ...(opciones.encabezados || {})
+        };
+
+        // Inyectar CSRF token en métodos mutativos
+        const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+        const tokenCsrf = window.CANDELARIA_CSRF_TOKEN || (metaCsrf ? metaCsrf.getAttribute('content') : '');
+        if (tokenCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(metodo)) {
+            encabezados['X-CSRF-Token'] = tokenCsrf;
+        }
+
         const configuracion = {
-            method: opciones.metodo || 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                ...(opciones.encabezados || {})
-            },
-            ...(opciones.cuerpo ? { body: JSON.stringify(opciones.cuerpo) } : {})
+            method: metodo,
+            headers: encabezados,
+            ...(opciones.cuerpo !== undefined ? { body: JSON.stringify(opciones.cuerpo) } : {})
         };
 
         try {
             const respuesta = await fetch(url, configuracion);
-            const datos = await respuesta.json();
+            let datos = null;
+            try {
+                datos = await respuesta.json();
+            } catch (jsonErr) {
+                datos = { exito: false, mensaje: 'Respuesta no válida del servidor.' };
+            }
 
             if (!respuesta.ok) {
-                throw new Error(datos.mensaje || `Error HTTP ${respuesta.status}`);
+                const err = new Error(datos.mensaje || `Error HTTP ${respuesta.status}`);
+                err.status = respuesta.status;
+                err.datos = datos;
+                throw err;
             }
 
             return datos;
@@ -234,6 +254,10 @@ class CandelariaClienteApi {
 
     put(endpoint, cuerpo) {
         return this.peticion(endpoint, { metodo: 'PUT', cuerpo });
+    }
+
+    patch(endpoint, cuerpo) {
+        return this.peticion(endpoint, { metodo: 'PATCH', cuerpo });
     }
 
     delete(endpoint) {

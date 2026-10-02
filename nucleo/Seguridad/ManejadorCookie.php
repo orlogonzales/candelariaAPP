@@ -43,6 +43,14 @@ class ManejadorCookie
     }
 
     /**
+     * Alias semántico para invalidar y destruir la cookie de sesión.
+     */
+    public static function destruir(): bool
+    {
+        return self::eliminar();
+    }
+
+    /**
      * Extrae el token de sesión desde las cookies de la petición.
      */
     public static function extraerDePeticion(?array $cookies = null): ?string
