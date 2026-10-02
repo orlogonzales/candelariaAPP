@@ -1,9 +1,9 @@
 -- ==============================================================================
 -- CANDELARIAAPP - ESQUEMA OFICIAL REPRODUCIBLE (esquema_base.sql)
 -- ==============================================================================
--- Motor: MySQL 8.0+ / MariaDB 10.5+
+-- Motor: MySQL 8.0+ / MariaDB 10.5+ (Probado en MySQL 8.4 LTS)
 -- Juego de caracteres: utf8mb4 / Colación: utf8mb4_unicode_ci
--- Arquitectura: SaaS-Ready, API-First, Foundation Fase 0
+-- Arquitectura: SaaS-Ready, API-First, Fase 1.1A
 -- Convención: Nomenclatura en español estricta
 -- ==============================================================================
 
@@ -83,7 +83,7 @@ CREATE TABLE `capacidades_plan` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Módulos y capacidades habilitadas por cada plan';
 
 -- ------------------------------------------------------------------------------
--- 4. USUARIOS, ROLES Y PERMISOS
+-- 4. SEGURIDAD: ROLES Y PERMISOS
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `roles`;
 CREATE TABLE `roles` (
@@ -102,7 +102,7 @@ DROP TABLE IF EXISTS `permisos`;
 CREATE TABLE `permisos` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `modulo_id` INT UNSIGNED NOT NULL,
-    `codigo` VARCHAR(80) NOT NULL COMMENT 'ej. clientes.ver, pagos.registrar',
+    `codigo` VARCHAR(80) NOT NULL COMMENT 'ej. usuarios.ver, usuarios.crear',
     `nombre` VARCHAR(120) NOT NULL,
     `descripcion` VARCHAR(255) DEFAULT NULL,
     FOREIGN KEY (`modulo_id`) REFERENCES `modulos` (`id`) ON DELETE CASCADE,
@@ -118,25 +118,86 @@ CREATE TABLE `rol_permisos` (
     FOREIGN KEY (`permiso_id`) REFERENCES `permisos` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Asociación de permisos a roles';
 
+-- ------------------------------------------------------------------------------
+-- 5. IDENTIDAD: DOCUMENTOS Y PERSONAS
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `tipos_documento`;
+CREATE TABLE `tipos_documento` (
+    `id` TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `codigo` VARCHAR(20) NOT NULL COMMENT 'DNI, RUC, PASAPORTE, CARNET_EXTRANJERIA, CEDULA, OTRO',
+    `nombre` VARCHAR(60) NOT NULL,
+    `aplica_a` ENUM('NATURAL', 'JURIDICA', 'AMBOS') NOT NULL DEFAULT 'AMBOS',
+    `longitud_exacta` TINYINT UNSIGNED DEFAULT NULL,
+    `es_alfanumerico` TINYINT(1) NOT NULL DEFAULT 0,
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_tipos_documento_codigo` (`codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Catálogo extensible de tipos de documentos de identidad';
+
+DROP TABLE IF EXISTS `personas`;
+CREATE TABLE `personas` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `tipo_persona` ENUM('NATURAL', 'JURIDICA') NOT NULL DEFAULT 'NATURAL',
+    `tipo_documento_id` TINYINT UNSIGNED NOT NULL,
+    `numero_documento` VARCHAR(30) NOT NULL,
+    `nombres` VARCHAR(100) DEFAULT NULL COMMENT 'Obligatorio si tipo_persona = NATURAL',
+    `apellidos` VARCHAR(100) DEFAULT NULL COMMENT 'Obligatorio si tipo_persona = NATURAL',
+    `razon_social` VARCHAR(200) DEFAULT NULL COMMENT 'Obligatorio si tipo_persona = JURIDICA',
+    `nombre_comercial` VARCHAR(150) DEFAULT NULL COMMENT 'Nombre comercial opcional para naturales y jurídicas',
+    `correo_electronico` VARCHAR(150) DEFAULT NULL,
+    `telefono_movil` VARCHAR(30) DEFAULT NULL,
+    `telefono_whatsapp` VARCHAR(30) DEFAULT NULL COMMENT 'Opcional a nivel persona general; regla de obligatoriedad comercial aplica en clientes',
+    `direccion` VARCHAR(255) DEFAULT NULL,
+    `ciudad` VARCHAR(100) DEFAULT NULL COMMENT 'Sin default hardcodeado a Puno',
+    `codigo_pais` CHAR(2) NOT NULL DEFAULT 'PE' COMMENT 'Código ISO 3166-1 alpha-2',
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `metadatos_json` JSON DEFAULT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`tipo_documento_id`) REFERENCES `tipos_documento` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_personas_org_doc` (`organizacion_id`, `tipo_documento_id`, `numero_documento`),
+    KEY `idx_personas_tipo` (`tipo_persona`),
+    KEY `idx_personas_estado` (`estado`),
+    KEY `idx_personas_apellidos` (`apellidos`),
+    KEY `idx_personas_razon_social` (`razon_social`),
+    CONSTRAINT `chk_personas_tipo_consistencia` CHECK (
+        (`tipo_persona` = 'NATURAL' AND `nombres` IS NOT NULL AND `apellidos` IS NOT NULL AND `razon_social` IS NULL)
+        OR
+        (`tipo_persona` = 'JURIDICA' AND `razon_social` IS NOT NULL AND `nombres` IS NULL AND `apellidos` IS NULL)
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Registro canónico de identidades físicas y jurídicas';
+
+-- ------------------------------------------------------------------------------
+-- 6. USUARIOS Y CUENTAS DE ACCESO
+-- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `usuarios`;
 CREATE TABLE `usuarios` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `organizacion_id` INT UNSIGNED DEFAULT NULL COMMENT 'NULL si es Superadmin de Plataforma',
-    `nombre_completo` VARCHAR(150) NOT NULL,
-    `correo_electronico` VARCHAR(150) NOT NULL,
-    `telefono_whatsapp` VARCHAR(30) NOT NULL,
+    `persona_id` INT UNSIGNED NOT NULL,
+    `nombre_usuario` VARCHAR(60) NOT NULL COMMENT 'Identificador único de login del usuario',
+    `nombre_completo` VARCHAR(150) NOT NULL COMMENT 'Nombre desnormalizado para visualización rápida',
+    `correo_electronico` VARCHAR(150) NOT NULL COMMENT 'Correo de acceso y notificaciones',
+    `telefono_whatsapp` VARCHAR(30) DEFAULT NULL,
     `contrasena_hash` VARCHAR(255) NOT NULL,
     `es_superadmin_plataforma` TINYINT(1) NOT NULL DEFAULT 0,
     `avatar_url` VARCHAR(255) DEFAULT NULL,
     `estado` ENUM('ACTIVO', 'INACTIVO', 'BLOQUEADO') NOT NULL DEFAULT 'ACTIVO',
+    `intentos_fallidos` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `bloqueado_hasta` DATETIME DEFAULT NULL,
     `ultimo_acceso_en` DATETIME DEFAULT NULL,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`persona_id`) REFERENCES `personas` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_usuarios_persona` (`persona_id`),
+    UNIQUE KEY `uk_usuarios_nombre_usuario` (`nombre_usuario`),
     UNIQUE KEY `uk_usuarios_correo` (`correo_electronico`),
     KEY `idx_usuarios_organizacion` (`organizacion_id`),
     KEY `idx_usuarios_estado` (`estado`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Cuentas de usuario de la plataforma';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Cuentas de usuario vinculadas obligatoriamente a personas reales';
 
 DROP TABLE IF EXISTS `usuario_roles`;
 CREATE TABLE `usuario_roles` (
@@ -148,7 +209,7 @@ CREATE TABLE `usuario_roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Asignación de roles a usuarios';
 
 -- ------------------------------------------------------------------------------
--- 5. EDICIONES CANDELARIA
+-- 7. EDICIONES CANDELARIA
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `ediciones_candelaria`;
 CREATE TABLE `ediciones_candelaria` (
@@ -172,7 +233,7 @@ CREATE TABLE `ediciones_candelaria` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Ediciones anuales de la Festividad de la Candelaria';
 
 -- ------------------------------------------------------------------------------
--- 6. MENÚ DINÁMICO
+-- 8. MENÚ DINÁMICO
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `menu_opciones`;
 CREATE TABLE `menu_opciones` (
@@ -196,7 +257,7 @@ CREATE TABLE `menu_opciones` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Opciones de navegación dinámica (hasta 3 niveles)';
 
 -- ------------------------------------------------------------------------------
--- 7. SESIONES Y AUDITORÍA
+-- 9. SESIONES WEB
 -- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `sesiones`;
 CREATE TABLE `sesiones` (
@@ -210,26 +271,71 @@ CREATE TABLE `sesiones` (
     KEY `idx_sesiones_actividad` (`ultima_actividad`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Almacenamiento seguro de sesiones web';
 
+-- ------------------------------------------------------------------------------
+-- 10. ACTORES DE SISTEMA Y CANALES
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `actores_sistema`;
+CREATE TABLE `actores_sistema` (
+    `id` SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `codigo` VARCHAR(50) NOT NULL COMMENT 'Identificador técnico estable y único',
+    `nombre` VARCHAR(100) NOT NULL,
+    `descripcion` VARCHAR(255) DEFAULT NULL,
+    `es_critico` TINYINT(1) NOT NULL DEFAULT 0,
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_actores_sistema_codigo` (`codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Catálogo controlado de identidades técnicas / actores virtuales del sistema';
+
+DROP TABLE IF EXISTS `canales`;
+CREATE TABLE `canales` (
+    `id` TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `codigo` VARCHAR(30) NOT NULL COMMENT 'APP, WEB, API, APP_MOVIL, WHATSAPP, IMPORTACION, API_PARTNER',
+    `nombre` VARCHAR(80) NOT NULL,
+    `descripcion` VARCHAR(255) DEFAULT NULL,
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_canales_codigo` (`codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Catálogo extensible de canales de ingreso de operaciones';
+
+-- ------------------------------------------------------------------------------
+-- 11. AUDITORÍA DE OPERACIONES (INMUTABLE Y DUAL CON RESTRICCIÓN ESTRUCTURAL)
+-- ------------------------------------------------------------------------------
 DROP TABLE IF EXISTS `auditoria_operaciones`;
 CREATE TABLE `auditoria_operaciones` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `organizacion_id` INT UNSIGNED DEFAULT NULL,
+    `actor_tipo` ENUM('HUMANO', 'SISTEMA') NOT NULL DEFAULT 'HUMANO',
     `usuario_id` INT UNSIGNED DEFAULT NULL,
+    `actor_sistema_id` SMALLINT UNSIGNED DEFAULT NULL,
+    `canal_id` TINYINT UNSIGNED NOT NULL,
+    `correlacion_id` VARCHAR(64) NOT NULL COMMENT 'UUID v4 para rastreo transversal de operaciones',
     `modulo` VARCHAR(60) NOT NULL,
     `accion` VARCHAR(60) NOT NULL COMMENT 'CREAR, ACTUALIZAR, ELIMINAR, AUTENTICAR, ETC.',
     `entidad_tipo` VARCHAR(80) NOT NULL,
     `entidad_id` VARCHAR(80) NOT NULL,
     `datos_previos_json` JSON DEFAULT NULL,
     `datos_nuevos_json` JSON DEFAULT NULL,
-    `direccion_ip` VARCHAR(45) NOT NULL,
+    `origen_ip` VARCHAR(45) DEFAULT NULL COMMENT 'Nullable para CLI, crons y workers sin cliente HTTP',
     `agente_usuario` TEXT DEFAULT NULL,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE SET NULL,
-    FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`actor_sistema_id`) REFERENCES `actores_sistema` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`canal_id`) REFERENCES `canales` (`id`) ON DELETE RESTRICT,
     KEY `idx_auditoria_org` (`organizacion_id`),
     KEY `idx_auditoria_usuario` (`usuario_id`),
+    KEY `idx_auditoria_actor_sistema` (`actor_sistema_id`),
+    KEY `idx_auditoria_canal` (`canal_id`),
+    KEY `idx_auditoria_correlacion` (`correlacion_id`),
     KEY `idx_auditoria_modulo` (`modulo`),
-    KEY `idx_auditoria_creado` (`creado_en`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pista de auditoría inmutable de operaciones sensibles';
+    KEY `idx_auditoria_entidad` (`entidad_tipo`, `entidad_id`),
+    KEY `idx_auditoria_creado` (`creado_en`),
+    CONSTRAINT `chk_auditoria_actor` CHECK (
+        (`actor_tipo` = 'HUMANO' AND `usuario_id` IS NOT NULL AND `actor_sistema_id` IS NULL)
+        OR
+        (`actor_tipo` = 'SISTEMA' AND `usuario_id` IS NULL AND `actor_sistema_id` IS NOT NULL)
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pista de auditoría inmutable de operaciones sensibles con validación estructural de actor';
 
 SET FOREIGN_KEY_CHECKS = 1;
