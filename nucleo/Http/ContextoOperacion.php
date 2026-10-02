@@ -12,6 +12,18 @@ use InvalidArgumentException;
  */
 class ContextoOperacion
 {
+    private static ?self $actual = null;
+
+    public static function establecerActual(?self $contexto): void
+    {
+        self::$actual = $contexto;
+    }
+
+    public static function actual(): ?self
+    {
+        return self::$actual;
+    }
+
     public function __construct(
         public readonly string $actorTipo, // 'HUMANO' | 'SISTEMA'
         public readonly ?int $usuarioId,
@@ -65,6 +77,36 @@ class ContextoOperacion
     }
 
     /**
+     * Resuelve de forma segura el identificador de correlación HTTP recibido.
+     * Si el candidato cumple la política (16 a 64 caracteres alfanuméricos/guiones), se propaga.
+     * Si es nulo, inválido o sospechoso, genera un nuevo UUID v4 criptográfico.
+     */
+    public static function resolverCorrelacionId(?string $candidato): string
+    {
+        if ($candidato !== null) {
+            $candidatoLimpio = trim($candidato);
+            if (preg_match('/^[a-zA-Z0-9\-_]{16,64}$/', $candidatoLimpio)) {
+                return $candidatoLimpio;
+            }
+        }
+
+        return self::generarCorrelacionId();
+    }
+
+    /**
+     * Extrae y resuelve el identificador de correlación desde la matriz de servidor HTTP ($_SERVER).
+     */
+    public static function extraerDeEncabezados(array $servidor): string
+    {
+        $candidato = $servidor['HTTP_X_CORRELATION_ID']
+            ?? $servidor['HTTP_X_CORRELACION_ID']
+            ?? $servidor['HTTP_X_REQUEST_ID']
+            ?? null;
+
+        return self::resolverCorrelacionId(is_string($candidato) ? $candidato : null);
+    }
+
+    /**
      * Crea un contexto para operación ejecutada por un usuario humano autenticado.
      */
     public static function paraHumano(
@@ -84,7 +126,7 @@ class ContextoOperacion
             actorSistemaCodigo: null,
             canalId: $canalId,
             canalCodigo: $canalCodigo,
-            correlacionId: $correlacionId ?: self::generarCorrelacionId(),
+            correlacionId: self::resolverCorrelacionId($correlacionId),
             origenIp: $origenIp,
             agenteUsuario: $agenteUsuario,
             organizacionId: $organizacionId,
@@ -113,7 +155,7 @@ class ContextoOperacion
             actorSistemaCodigo: $actorSistemaCodigo,
             canalId: $canalId,
             canalCodigo: $canalCodigo,
-            correlacionId: $correlacionId ?: self::generarCorrelacionId(),
+            correlacionId: self::resolverCorrelacionId($correlacionId),
             origenIp: $origenIp,
             agenteUsuario: $agenteUsuario,
             organizacionId: $organizacionId,
