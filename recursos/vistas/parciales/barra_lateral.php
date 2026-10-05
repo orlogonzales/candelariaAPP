@@ -2,13 +2,16 @@
 $contextoBarra = \Nucleo\Http\ContextoOperacion::actual();
 $puedeVerOrg = false;
 $puedeVerUsuarios = false;
+$puedeVerConfigGeneral = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
     $puedeVerUsuarios = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'usuarios.ver');
+    $puedeVerConfigGeneral = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'configuracion_organizacion.ver')
+        || $authzBarra->tienePermiso($contextoBarra->usuarioId, 'configuracion_plataforma.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
-$esConfig = in_array($seccionActual, ['usuarios', 'organizacion'], true);
+$esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
 $orgOperativa = $repoOrgBarra->buscarPorId($contextoBarra->organizacionId ?? 10000);
@@ -214,6 +217,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'O.G. Estudio Creativo';
                         <li class="no-sub">
                             <a href="<?= url_base('configuracion/organizacion') ?>" id="navConfigOrganizacion" class="<?= $seccionActual === 'organizacion' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-building me-2 text-secondary"></i> Organización
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerConfigGeneral): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('configuracion/general') ?>" id="navConfigGeneral" class="<?= $seccionActual === 'configuracion_general' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-sliders me-2 text-secondary"></i> Configuración General
                             </a>
                         </li>
                         <?php endif; ?>

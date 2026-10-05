@@ -188,3 +188,9 @@ Enrutador::get('/api/v1/organizacion', [\Aplicacion\Controladores\OrganizacionCo
 Enrutador::put('/api/v1/organizacion', [\Aplicacion\Controladores\OrganizacionControlador::class, 'actualizar']);
 Enrutador::post('/api/v1/organizacion/branding/logo', [\Aplicacion\Controladores\OrganizacionControlador::class, 'actualizarLogo']);
 Enrutador::post('/api/v1/organizacion/branding/isotipo', [\Aplicacion\Controladores\OrganizacionControlador::class, 'actualizarIsotipo']);
+
+// ==============================================================================
+// GESTIÓN DE CONFIGURACIÓN GENERAL Y PARÁMETROS OPERATIVOS (MICROLOTE F1.2C)
+// ==============================================================================
+Enrutador::get('/api/v1/configuracion', [\Aplicacion\Controladores\ConfiguracionControlador::class, 'listar']);
+Enrutador::put('/api/v1/configuracion', [\Aplicacion\Controladores\ConfiguracionControlador::class, 'actualizar']);

@@ -119,3 +119,36 @@ Enrutador::get('/configuracion/organizacion', function () {
         'scriptAdicional' => url_base('publico/js/organizacion.js')
     ], 'principal');
 });
+
+// 6. Módulo de Configuración — Configuración General y Parámetros Operativos (F1.2C)
+Enrutador::get('/configuracion/general', function () {
+    $authMiddleware = new AutenticacionMiddleware();
+    $contexto = $authMiddleware->procesar($_SERVER, $_COOKIE, false);
+
+    if ($contexto === null) {
+        header('Location: ' . url_base('login'));
+        exit;
+    }
+
+    $authzMiddleware = new AutorizacionMiddleware();
+    $puedeOrg = $authzMiddleware->verificarPermiso('configuracion_organizacion.ver', $contexto, false);
+    $puedePlat = $authzMiddleware->verificarPermiso('configuracion_plataforma.ver', $contexto, false);
+
+    if (!$puedeOrg && !$puedePlat) {
+        http_response_code(403);
+        return Vista::renderizar('errores/403', [
+            'titulo'        => 'Acceso Denegado | CandelariaAPP',
+            'subtitulo'     => 'Configuración General',
+            'tituloSeccion' => 'Error 403',
+            'mensaje'       => 'No cuenta con los privilegios necesarios (configuracion_organizacion.ver o configuracion_plataforma.ver) para consultar la configuración general.'
+        ], 'principal');
+    }
+
+    return Vista::renderizar('configuracion/general', [
+        'titulo'          => 'Configuración General | CandelariaAPP',
+        'subtitulo'       => 'Parámetros Operativos y Soberanía del Sistema',
+        'tituloSeccion'   => 'Configuración General',
+        'seccionActiva'   => 'configuracion_general',
+        'scriptAdicional' => url_base('publico/js/configuracion_general.js')
+    ], 'principal');
+});

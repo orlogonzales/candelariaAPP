@@ -337,11 +337,18 @@ class OrganizacionControlador
 
     /**
      * Resuelve el ID de la organización a partir del contexto autenticado (Anti-IDOR).
+     * Gobernanza: Fail-closed estricto. Cero fallback silencioso a IDs mágicos.
      */
     private function resolverOrganizacionId(ContextoOperacion $contexto): int
     {
-        // En V1 single-tenant operativo, el ID siempre proviene de la sesión activa
-        return $contexto->organizacionId ?? 10000;
+        if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+            if (!headers_sent()) {
+                http_response_code(403);
+            }
+            throw new AccesoDenegadoExcepcion('Contexto organizacional ausente o inválido para la sesión activa.');
+        }
+
+        return $contexto->organizacionId;
     }
 
     /**

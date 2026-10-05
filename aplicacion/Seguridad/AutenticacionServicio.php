@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Aplicacion\Seguridad;
 
+use Aplicacion\Configuracion\ConfiguracionServicio;
 use Aplicacion\Entidades\Sesion;
 use Aplicacion\Entidades\Usuario;
 use Aplicacion\Repositorios\ActorSistemaRepositorio;
@@ -29,6 +30,7 @@ class AutenticacionServicio
     private SesionRepositorio $sesionRepo;
     private AuditoriaRepositorio $auditoriaRepo;
     private ActorSistemaRepositorio $actorSistemaRepo;
+    private ?ConfiguracionServicio $configServicio;
 
     public const MENSAJE_CREDENCIALES_INVALIDAS = 'Credenciales de acceso incorrectas.';
     public const MENSAJE_CUENTA_INACTIVA        = 'La cuenta de usuario se encuentra inactiva.';
@@ -39,7 +41,8 @@ class AutenticacionServicio
         ?SesionRepositorio $sesionRepo = null,
         ?AuditoriaRepositorio $auditoriaRepo = null,
         ActorSistemaRepositorio|PDO|null $actorSistemaRepoOPdo = null,
-        ?PDO $pdo = null
+        ?PDO $pdo = null,
+        ?ConfiguracionServicio $configServicio = null
     ) {
         if ($actorSistemaRepoOPdo instanceof PDO) {
             $this->pdo = $actorSistemaRepoOPdo;
@@ -51,6 +54,7 @@ class AutenticacionServicio
         $this->usuarioRepo = $usuarioRepo ?? new UsuarioRepositorio($this->pdo);
         $this->sesionRepo = $sesionRepo ?? new SesionRepositorio($this->pdo);
         $this->auditoriaRepo = $auditoriaRepo ?? new AuditoriaRepositorio($this->pdo);
+        $this->configServicio = $configServicio ?? new ConfiguracionServicio(pdo: $this->pdo);
     }
 
     /**
@@ -139,9 +143,14 @@ class AutenticacionServicio
 
         // 5. Verificación criptográfica con password_verify nativo
         if (!$usuario->verificarContrasena($contrasenaPlana)) {
-            // Manejar incremento de intentos fallidos
-            $maxIntentos = ConfiguracionSeguridad::maxIntentosFallidos();
-            $minutosBloqueo = ConfiguracionSeguridad::minutosBloqueo();
+            // Manejar incremento de intentos fallidos consumiendo configuración gobernada
+            $maxIntentos = $this->configServicio !== null
+                ? (int) $this->configServicio->obtenerPlataforma('plataforma.max_intentos_login', ConfiguracionSeguridad::maxIntentosFallidos())
+                : ConfiguracionSeguridad::maxIntentosFallidos();
+
+            $minutosBloqueo = $this->configServicio !== null
+                ? (int) $this->configServicio->obtenerPlataforma('plataforma.minutos_bloqueo_login', ConfiguracionSeguridad::minutosBloqueo())
+                : ConfiguracionSeguridad::minutosBloqueo();
 
             $this->usuarioRepo->registrarIntentoFallido($usuario->id, $maxIntentos, $minutosBloqueo);
 

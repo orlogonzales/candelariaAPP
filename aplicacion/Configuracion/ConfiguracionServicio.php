@@ -7,6 +7,7 @@ namespace Aplicacion\Configuracion;
 use Aplicacion\Autorizacion\AutorizacionServicio;
 use Aplicacion\Entidades\ParametroConfiguracion;
 use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
+use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use Aplicacion\Repositorios\AuditoriaRepositorio;
 use Aplicacion\Repositorios\ConfiguracionRepositorio;
 use Aplicacion\Repositorios\OrganizacionRepositorio;
@@ -96,17 +97,57 @@ class ConfiguracionServicio
     }
 
     /**
+     * Retorna la lista de parámetros soberanos de PLATAFORMA.
+     * @return ParametroConfiguracion[]
+     * @throws AccesoDenegadoExcepcion
+     */
+    public function listarPlataforma(int $operadorId): array
+    {
+        if (!$this->authzServicio->esSuperadmin($operadorId) && !$this->authzServicio->tienePermiso($operadorId, 'configuracion_plataforma.ver')) {
+            throw new AccesoDenegadoExcepcion(
+                'Acceso denegado: se requiere permiso para consultar la configuración soberana de plataforma.'
+            );
+        }
+
+        return $this->configRepo->obtenerParametrosPlataforma();
+    }
+
+    /**
+     * Retorna la lista de parámetros operativos de una ORGANIZACIÓN.
+     * @return ParametroConfiguracion[]
+     * @throws AccesoDenegadoExcepcion
+     */
+    public function listarOrganizacion(int $organizacionId, int $operadorId): array
+    {
+        if (!$this->authzServicio->verificarAlcanceOrganizacion($operadorId, $organizacionId)) {
+            throw new AccesoDenegadoExcepcion(
+                'Acceso denegado: el operador no cuenta con alcance sobre la organización especificada.'
+            );
+        }
+
+        if (!$this->authzServicio->tienePermiso($operadorId, 'configuracion_organizacion.ver')) {
+            throw new AccesoDenegadoExcepcion(
+                "Acceso denegado: se requiere el permiso 'configuracion_organizacion.ver'."
+            );
+        }
+
+        return $this->configRepo->obtenerParametrosOrganizacion($organizacionId);
+    }
+
+    /**
      * Actualiza un parámetro soberano de PLATAFORMA.
      * Gobernanza: Exclusivo para Superadministrador de Plataforma.
      *
      * @throws AccesoDenegadoExcepcion
+     * @throws ConflictoConcurrenciaExcepcion
      * @throws InvalidArgumentException
      */
     public function actualizarPlataforma(
         string $codigo,
         mixed $nuevoValor,
         int $operadorId,
-        ContextoOperacion $contexto
+        ContextoOperacion $contexto,
+        ?string $actualizadoEnEsperado = null
     ): void {
         // 1. Autorización: Exclusivo para Superadmin de Plataforma
         if (!$this->authzServicio->esSuperadmin($operadorId)) {
@@ -129,18 +170,31 @@ class ConfiguracionServicio
             );
         }
 
-        // 3. Validar tipo y reglas
+        // 3. Concurrencia optimista
+        if ($actualizadoEnEsperado !== null && $param->actualizadoEn !== null) {
+            if ($param->actualizadoEn !== $actualizadoEnEsperado) {
+                throw new ConflictoConcurrenciaExcepcion(
+                    "El parámetro de plataforma '{$codigo}' fue modificado concurrentemente por otro operador (actualizado en {$param->actualizadoEn})."
+                );
+            }
+        }
+
+        // 4. Validar tipo y reglas
         $valorString = $this->formatearYValidarValor($param->tipoDato, $nuevoValor, $param->reglasValidacion);
+
+        if ($codigo === 'plataforma.zona_horaria' && !in_array($valorString, timezone_identifiers_list(), true)) {
+            throw new InvalidArgumentException("La zona horaria '{$valorString}' no es un identificador IANA válido.");
+        }
 
         $valorPrevio = $param->valor;
 
-        // 4. Persistir
+        // 5. Persistir
         $this->configRepo->actualizarValor($codigo, null, $valorString);
 
-        // 5. Invalidar caché
+        // 6. Invalidar caché
         unset($this->cache['plataforma:' . trim($codigo)]);
 
-        // 6. Auditar cambio sin secretos
+        // 7. Auditar cambio sin secretos
         $this->auditoriaRepo->registrar(
             contexto: $contexto,
             modulo: 'configuracion',
@@ -157,6 +211,7 @@ class ConfiguracionServicio
      * Gobernanza: Requiere pertenencia al tenant y permiso configuracion_organizacion.editar.
      *
      * @throws AccesoDenegadoExcepcion
+     * @throws ConflictoConcurrenciaExcepcion
      * @throws InvalidArgumentException
      */
     public function actualizarOrganizacion(
@@ -164,7 +219,8 @@ class ConfiguracionServicio
         string $codigo,
         mixed $nuevoValor,
         int $operadorId,
-        ContextoOperacion $contexto
+        ContextoOperacion $contexto,
+        ?string $actualizadoEnEsperado = null
     ): void {
         // 1. Aislamiento Anti-IDOR
         if (!$this->authzServicio->verificarAlcanceOrganizacion($operadorId, $organizacionId)) {
@@ -194,18 +250,27 @@ class ConfiguracionServicio
             );
         }
 
-        // 4. Validar tipo y reglas
+        // 4. Concurrencia optimista
+        if ($actualizadoEnEsperado !== null && $param->actualizadoEn !== null) {
+            if ($param->actualizadoEn !== $actualizadoEnEsperado) {
+                throw new ConflictoConcurrenciaExcepcion(
+                    "El parámetro '{$codigo}' fue modificado concurrentemente por otro operador (actualizado en {$param->actualizadoEn})."
+                );
+            }
+        }
+
+        // 5. Validar tipo y reglas
         $valorString = $this->formatearYValidarValor($param->tipoDato, $nuevoValor, $param->reglasValidacion);
 
         $valorPrevio = $param->valor;
 
-        // 5. Persistir
+        // 6. Persistir
         $this->configRepo->actualizarValor($codigo, $organizacionId, $valorString);
 
-        // 6. Invalidar caché
+        // 7. Invalidar caché
         unset($this->cache["org:{$organizacionId}:" . trim($codigo)]);
 
-        // 7. Auditar cambio sin secretos
+        // 8. Auditar cambio sin secretos
         $this->auditoriaRepo->registrar(
             contexto: $contexto,
             modulo: 'configuracion',
