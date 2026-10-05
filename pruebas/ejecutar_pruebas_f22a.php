@@ -72,10 +72,10 @@ $colsEsperadasClientes = [
     'id', 'organizacion_id', 'persona_id', 'estado_comercial',
     'consentimiento_operativo', 'consentimiento_operativo_en',
     'consentimiento_promocional', 'consentimiento_promocional_en',
-    'origen_captacion', 'notas_comerciales', 'creado_en', 'actualizado_en'
+    'notas_comerciales', 'creado_en', 'actualizado_en'
 ];
 $diffClientes = array_diff($colsEsperadasClientes, $colsClientes);
-afirmar(empty($diffClientes) && count($colsClientes) === 12, "1.4: Tabla 'clientes' contiene exactamente las 12 columnas oficiales");
+afirmar(empty($diffClientes) && count($colsClientes) === 11, "1.4: Tabla 'clientes' contiene exactamente las 11 columnas oficiales (saneada sin origen_captacion)");
 
 // 1.4: Existencia y columnas de tabla 'consentimientos_cliente'
 $stmtColsCons = $pdo->query("SHOW COLUMNS FROM `consentimientos_cliente`");

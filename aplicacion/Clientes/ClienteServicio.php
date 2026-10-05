@@ -130,7 +130,6 @@ class ClienteServicio
                 consentimientoOperativoEn: null,
                 consentimientoPromocional: false,
                 consentimientoPromocionalEn: null,
-                origenCaptacion: !empty($datosComerciales['origen_captacion']) ? (string) $datosComerciales['origen_captacion'] : null,
                 notasComerciales: !empty($datosComerciales['notas_comerciales']) ? (string) $datosComerciales['notas_comerciales'] : null
             );
 

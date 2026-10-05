@@ -22,7 +22,6 @@ class Cliente
         public readonly ?string $consentimientoOperativoEn = null,
         public readonly bool $consentimientoPromocional = false,
         public readonly ?string $consentimientoPromocionalEn = null,
-        public readonly ?string $origenCaptacion = null,
         public readonly ?string $notasComerciales = null,
         public readonly ?string $creadoEn = null,
         public readonly ?string $actualizadoEn = null
@@ -47,7 +46,6 @@ class Cliente
             consentimientoOperativoEn: $datos['consentimiento_operativo_en'] ?? null,
             consentimientoPromocional: !empty($datos['consentimiento_promocional']),
             consentimientoPromocionalEn: $datos['consentimiento_promocional_en'] ?? null,
-            origenCaptacion: $datos['origen_captacion'] ?? null,
             notasComerciales: $datos['notas_comerciales'] ?? null,
             creadoEn: $datos['creado_en'] ?? null,
             actualizadoEn: $datos['actualizado_en'] ?? null
@@ -69,7 +67,6 @@ class Cliente
             'consentimiento_operativo_en' => $this->consentimientoOperativoEn,
             'consentimiento_promocional'  => $this->consentimientoPromocional,
             'consentimiento_promocional_en'=> $this->consentimientoPromocionalEn,
-            'origen_captacion'            => $this->origenCaptacion,
             'notas_comerciales'           => $this->notasComerciales,
             'creado_en'                   => $this->creadoEn,
             'actualizado_en'              => $this->actualizadoEn,

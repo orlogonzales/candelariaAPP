@@ -32,12 +32,12 @@ class ClienteRepositorio
                     `organizacion_id`, `persona_id`, `estado_comercial`,
                     `consentimiento_operativo`, `consentimiento_operativo_en`,
                     `consentimiento_promocional`, `consentimiento_promocional_en`,
-                    `origen_captacion`, `notas_comerciales`
+                    `notas_comerciales`
                 ) VALUES (
                     :organizacion_id, :persona_id, :estado_comercial,
                     :consentimiento_operativo, :consentimiento_operativo_en,
                     :consentimiento_promocional, :consentimiento_promocional_en,
-                    :origen_captacion, :notas_comerciales
+                    :notas_comerciales
                 )";
 
         $stmt = $this->pdo->prepare($sql);
@@ -49,7 +49,6 @@ class ClienteRepositorio
             ':consentimiento_operativo_en' => $cliente->consentimientoOperativoEn,
             ':consentimiento_promocional'  => $cliente->consentimientoPromocional ? 1 : 0,
             ':consentimiento_promocional_en'=> $cliente->consentimientoPromocionalEn,
-            ':origen_captacion'            => $cliente->origenCaptacion ? normalizar_mayusculas($cliente->origenCaptacion) : null,
             ':notas_comerciales'           => $cliente->notasComerciales !== null ? trim($cliente->notasComerciales) : null,
         ]);
 
@@ -213,19 +212,17 @@ class ClienteRepositorio
     }
 
     /**
-     * Actualiza datos comerciales generales (origen, notas).
+     * Actualiza notas comerciales generales del cliente.
      */
-    public function actualizarDatosComerciales(int $clienteId, ?string $origenCaptacion, ?string $notasComerciales): bool
+    public function actualizarNotasComerciales(int $clienteId, ?string $notasComerciales): bool
     {
         $sql = "UPDATE `clientes`
-                SET `origen_captacion`  = :origen,
-                    `notas_comerciales` = :notas
+                SET `notas_comerciales` = :notas
                 WHERE `id` = :id";
 
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute([
             ':id'     => $clienteId,
-            ':origen' => $origenCaptacion ? normalizar_mayusculas($origenCaptacion) : null,
             ':notas'  => $notasComerciales !== null ? trim($notasComerciales) : null,
         ]);
     }
