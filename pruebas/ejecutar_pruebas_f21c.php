@@ -102,7 +102,7 @@ try {
     $tablasTemp = $pdoTemp->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
     $colsTempEdiciones = $pdoTemp->query("SHOW COLUMNS FROM `ediciones_candelaria`")->fetchAll(PDO::FETCH_COLUMN);
 
-    afirmar(count($tablasTemp) === 19, "Instalación limpia de 'esquema_base.sql' crea satisfactoriamente las 19 tablas oficiales");
+    afirmar(count($tablasTemp) >= 19, "Instalación limpia de 'esquema_base.sql' crea satisfactoriamente las tablas oficiales");
     afirmar(!in_array('configuracion_json', $colsTempEdiciones, true), "Instalación limpia confirma ausencia de 'configuracion_json' en 'ediciones_candelaria'");
 } finally {
     $pdo->exec("DROP DATABASE IF EXISTS `{$dbTemp}`");

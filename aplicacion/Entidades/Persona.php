@@ -8,7 +8,8 @@ use InvalidArgumentException;
 
 /**
  * Entidad Persona: Padrón canónico de identidades naturales o jurídicas.
- * Valida invariantes estructurales estrictas según su tipo de persona.
+ * Valida invariantes estructurales estrictas según su tipo de persona
+ * y coherencia de documento de identidad (ambos presentes o ambos nulos).
  */
 class Persona
 {
@@ -16,8 +17,8 @@ class Persona
         public readonly ?int $id,
         public readonly int $organizacionId,
         public readonly string $tipoPersona, // 'NATURAL' | 'JURIDICA'
-        public readonly int $tipoDocumentoId,
-        public readonly string $numeroDocumento,
+        public readonly ?int $tipoDocumentoId = null,
+        public readonly ?string $numeroDocumento = null,
         public readonly ?string $nombres = null,
         public readonly ?string $apellidos = null,
         public readonly ?string $razonSocial = null,
@@ -38,6 +39,15 @@ class Persona
 
     private function validarConsistencia(): void
     {
+        // 1. Coherencia estricta de documento: ambos informados o ambos nulos
+        $tieneTipoDoc = $this->tipoDocumentoId !== null;
+        $tieneNumDoc = $this->numeroDocumento !== null && trim($this->numeroDocumento) !== '';
+
+        if (($tieneTipoDoc && !$tieneNumDoc) || (!$tieneTipoDoc && $this->numeroDocumento !== null)) {
+            throw new InvalidArgumentException('El tipo y número de documento deben proporcionarse ambos o ninguno.');
+        }
+
+        // 2. Consistencia según tipo de persona
         if ($this->tipoPersona === 'NATURAL') {
             if (empty($this->nombres) || empty($this->apellidos)) {
                 throw new InvalidArgumentException('Una persona natural debe registrar nombres y apellidos obligatorios.');
@@ -70,12 +80,20 @@ class Persona
 
     public static function desdeArreglo(array $datos): self
     {
+        $tipoDocId = isset($datos['tipo_documento_id']) && $datos['tipo_documento_id'] !== '' && $datos['tipo_documento_id'] !== null
+            ? (int) $datos['tipo_documento_id']
+            : null;
+
+        $numDoc = isset($datos['numero_documento']) && trim((string) $datos['numero_documento']) !== ''
+            ? trim((string) $datos['numero_documento'])
+            : null;
+
         return new self(
             id: isset($datos['id']) ? (int) $datos['id'] : null,
             organizacionId: (int) $datos['organizacion_id'],
             tipoPersona: (string) $datos['tipo_persona'],
-            tipoDocumentoId: (int) $datos['tipo_documento_id'],
-            numeroDocumento: (string) $datos['numero_documento'],
+            tipoDocumentoId: $tipoDocId,
+            numeroDocumento: $numDoc,
             nombres: $datos['nombres'] ?? null,
             apellidos: $datos['apellidos'] ?? null,
             razonSocial: $datos['razon_social'] ?? null,

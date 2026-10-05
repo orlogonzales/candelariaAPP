@@ -151,8 +151,8 @@ CREATE TABLE `personas` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `organizacion_id` INT UNSIGNED NOT NULL,
     `tipo_persona` ENUM('NATURAL', 'JURIDICA') NOT NULL DEFAULT 'NATURAL',
-    `tipo_documento_id` TINYINT UNSIGNED NOT NULL,
-    `numero_documento` VARCHAR(30) NOT NULL,
+    `tipo_documento_id` TINYINT UNSIGNED DEFAULT NULL,
+    `numero_documento` VARCHAR(30) DEFAULT NULL,
     `nombres` VARCHAR(100) DEFAULT NULL COMMENT 'Obligatorio si tipo_persona = NATURAL',
     `apellidos` VARCHAR(100) DEFAULT NULL COMMENT 'Obligatorio si tipo_persona = NATURAL',
     `razon_social` VARCHAR(200) DEFAULT NULL COMMENT 'Obligatorio si tipo_persona = JURIDICA',
@@ -174,10 +174,16 @@ CREATE TABLE `personas` (
     KEY `idx_personas_estado` (`estado`),
     KEY `idx_personas_apellidos` (`apellidos`),
     KEY `idx_personas_razon_social` (`razon_social`),
+    KEY `idx_personas_org_whatsapp` (`organizacion_id`, `telefono_whatsapp`),
     CONSTRAINT `chk_personas_tipo_consistencia` CHECK (
         (`tipo_persona` = 'NATURAL' AND `nombres` IS NOT NULL AND `apellidos` IS NOT NULL AND `razon_social` IS NULL)
         OR
         (`tipo_persona` = 'JURIDICA' AND `razon_social` IS NOT NULL AND `nombres` IS NULL AND `apellidos` IS NULL)
+    ),
+    CONSTRAINT `chk_personas_documento_coherencia` CHECK (
+        (`tipo_documento_id` IS NULL AND `numero_documento` IS NULL)
+        OR
+        (`tipo_documento_id` IS NOT NULL AND `numero_documento` IS NOT NULL)
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Registro canónico de identidades físicas y jurídicas';
 
@@ -386,4 +392,59 @@ CREATE TABLE `parametros_configuracion` (
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Parámetros gobernados y tipados de configuración por ámbito (Plataforma y Organización)';
 
+-- ------------------------------------------------------------------------------
+-- 13. CLIENTES Y PERFILES COMERCIALES
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `clientes`;
+CREATE TABLE `clientes` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `persona_id` INT UNSIGNED NOT NULL,
+    `estado_comercial` ENUM('CONTACTO', 'PROSPECTO', 'CLIENTE', 'INACTIVO') NOT NULL DEFAULT 'CONTACTO',
+    `consentimiento_operativo` TINYINT(1) NOT NULL DEFAULT 0,
+    `consentimiento_operativo_en` DATETIME DEFAULT NULL,
+    `consentimiento_promocional` TINYINT(1) NOT NULL DEFAULT 0,
+    `consentimiento_promocional_en` DATETIME DEFAULT NULL,
+    `origen_captacion` VARCHAR(50) DEFAULT NULL COMMENT 'ej. WHATSAPP, FERIA, RECOMENDADO, ORGANICO',
+    `notas_comerciales` TEXT DEFAULT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`persona_id`) REFERENCES `personas` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_clientes_org_persona` (`organizacion_id`, `persona_id`),
+    KEY `idx_clientes_estado` (`estado_comercial`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Perfil comercial único y transversal por persona y tenant';
+
+-- ------------------------------------------------------------------------------
+-- 14. CONSENTIMIENTOS DE CLIENTE (BITÁCORA APPEND-ONLY)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `consentimientos_cliente`;
+CREATE TABLE `consentimientos_cliente` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `cliente_id` INT UNSIGNED NOT NULL,
+    `tipo` ENUM('OPERATIVO', 'PROMOCIONAL') NOT NULL,
+    `accion` ENUM('OTORGAR', 'REVOCAR') NOT NULL,
+    `canal` VARCHAR(50) NOT NULL COMMENT 'Canal de recepción del consentimiento (ej. WHATSAPP, WEB, PRESENCIAL)',
+    `motivo` VARCHAR(255) DEFAULT NULL,
+    `actor_tipo` VARCHAR(20) NOT NULL COMMENT 'HUMANO o SISTEMA',
+    `usuario_id` INT UNSIGNED DEFAULT NULL,
+    `actor_sistema_id` SMALLINT UNSIGNED DEFAULT NULL,
+    `correlacion_id` VARCHAR(64) NOT NULL COMMENT 'UUID v4 para correlación y trazabilidad',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`actor_sistema_id`) REFERENCES `actores_sistema` (`id`) ON DELETE RESTRICT,
+    KEY `idx_consentimientos_cliente_tipo` (`cliente_id`, `tipo`),
+    KEY `idx_consentimientos_org` (`organizacion_id`),
+    KEY `idx_consentimientos_correlacion` (`correlacion_id`),
+    CONSTRAINT `chk_consentimientos_actor` CHECK (
+        (`actor_tipo` = 'HUMANO' AND `usuario_id` IS NOT NULL AND `actor_sistema_id` IS NULL)
+        OR
+        (`actor_tipo` = 'SISTEMA' AND `usuario_id` IS NULL AND `actor_sistema_id` IS NOT NULL)
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Historial de auditoría append-only para consentimientos operativos y promocionales';
+
 SET FOREIGN_KEY_CHECKS = 1;
+
