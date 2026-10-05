@@ -120,6 +120,45 @@ class AutorizacionMiddleware
     }
 
     /**
+     * Comprueba si el usuario es superadministrador.
+     */
+    public function esSuperadmin(int $usuarioId): bool
+    {
+        return $this->autorizacionServicio->esSuperadmin($usuarioId);
+    }
+
+    /**
+     * Valida si un operador puede asignar la lista de roles especificada.
+     * @param int[] $rolesIds
+     */
+    public function puedeAsignarRoles(int $operadorId, array $rolesIds): bool
+    {
+        return $this->autorizacionServicio->puedeAsignarRoles($operadorId, $rolesIds);
+    }
+
+    /**
+     * Verifica si el operador tiene alcance sobre los recursos de una organización (anti-IDOR).
+     */
+    public function verificarAlcanceOrganizacion(int $operadorId, int $recursoOrganizacionId): bool
+    {
+        return $this->autorizacionServicio->verificarAlcanceOrganizacion($operadorId, $recursoOrganizacionId);
+    }
+
+    /**
+     * Retorna los roles asignables por el operador en sesión.
+     * @return \Aplicacion\Entidades\Rol[]
+     */
+    public function obtenerRolesAsignables(int $operadorId, ?int $organizacionId = null): array
+    {
+        return $this->autorizacionServicio->obtenerRolesAsignables($operadorId, $organizacionId);
+    }
+
+    public function obtenerServicio(): AutorizacionServicio
+    {
+        return $this->autorizacionServicio;
+    }
+
+    /**
      * Emite la respuesta de error HTTP uniforme y detiene la ejecución si aplica.
      */
     private function denegarAcceso(int $codigoHttp, string $mensaje): void

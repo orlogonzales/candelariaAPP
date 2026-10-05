@@ -27,7 +27,8 @@ INSERT INTO `actores_sistema` (`id`, `codigo`, `nombre`, `descripcion`, `es_crit
 (2, 'CHECKOUT_PASARELA', 'Pasarela de Pagos', 'Confirmaciones asíncronas y webhooks de pasarela de pagos', 1, 1),
 (3, 'WORKER_CONCILIACION', 'Worker de Conciliación', 'Proceso automático nocturno de conciliación bancaria', 1, 1),
 (4, 'IMPORTADOR_DATOS', 'Importador de Datos', 'Procesos masivos de migración e importación', 0, 1),
-(5, 'SISTEMA_CLI', 'Consola del Sistema (CLI)', 'Comandos de mantenimiento ejecutados por terminal CLI', 1, 1)
+(5, 'SISTEMA_CLI', 'Consola del Sistema (CLI)', 'Comandos de mantenimiento ejecutados por terminal CLI', 1, 1),
+(6, 'SEGURIDAD_AUTH', 'Motor de Autenticación y Control de Acceso', 'Subsistema de control de acceso, verificación de credenciales y auditoría de eventos de seguridad preautenticación', 1, 1)
 ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
 
 -- ------------------------------------------------------------------------------

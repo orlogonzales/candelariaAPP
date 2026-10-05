@@ -98,16 +98,33 @@ class Enrutador
                 array_shift($coincidencias); // Quitar coincidencia global
                 $accion = $ruta['accion'];
 
-                if ($accion instanceof Closure) {
-                    echo call_user_func_array($accion, $coincidencias);
-                    return;
-                }
+                try {
+                    if ($accion instanceof Closure) {
+                        echo call_user_func_array($accion, $coincidencias);
+                        return;
+                    }
 
-                if (is_array($accion) && count($accion) === 2) {
-                    [$clase, $metodo] = $accion;
-                    $instancia = new $clase();
-                    echo call_user_func_array([$instancia, $metodo], $coincidencias);
-                    return;
+                    if (is_array($accion) && count($accion) === 2) {
+                        [$clase, $metodo] = $accion;
+                        $instancia = new $clase();
+                        echo call_user_func_array([$instancia, $metodo], $coincidencias);
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    if (str_starts_with($uriLimpia, '/api/')) {
+                        if (!headers_sent()) {
+                            http_response_code(500);
+                            header('Content-Type: application/json; charset=utf-8');
+                        }
+                        echo json_encode([
+                            'exito'   => false,
+                            'codigo'  => 500,
+                            'mensaje' => 'Error interno del servidor.',
+                            'datos'   => null,
+                        ], JSON_UNESCAPED_UNICODE);
+                        return;
+                    }
+                    throw $e;
                 }
             }
         }

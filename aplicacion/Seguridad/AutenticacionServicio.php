@@ -6,6 +6,7 @@ namespace Aplicacion\Seguridad;
 
 use Aplicacion\Entidades\Sesion;
 use Aplicacion\Entidades\Usuario;
+use Aplicacion\Repositorios\ActorSistemaRepositorio;
 use Aplicacion\Repositorios\AuditoriaRepositorio;
 use Aplicacion\Repositorios\SesionRepositorio;
 use Aplicacion\Repositorios\UsuarioRepositorio;
@@ -27,6 +28,7 @@ class AutenticacionServicio
     private UsuarioRepositorio $usuarioRepo;
     private SesionRepositorio $sesionRepo;
     private AuditoriaRepositorio $auditoriaRepo;
+    private ActorSistemaRepositorio $actorSistemaRepo;
 
     public const MENSAJE_CREDENCIALES_INVALIDAS = 'Credenciales de acceso incorrectas.';
     public const MENSAJE_CUENTA_INACTIVA        = 'La cuenta de usuario se encuentra inactiva.';
@@ -36,9 +38,16 @@ class AutenticacionServicio
         ?UsuarioRepositorio $usuarioRepo = null,
         ?SesionRepositorio $sesionRepo = null,
         ?AuditoriaRepositorio $auditoriaRepo = null,
+        ActorSistemaRepositorio|PDO|null $actorSistemaRepoOPdo = null,
         ?PDO $pdo = null
     ) {
-        $this->pdo = $pdo ?? Conexion::obtenerInstancia();
+        if ($actorSistemaRepoOPdo instanceof PDO) {
+            $this->pdo = $actorSistemaRepoOPdo;
+            $this->actorSistemaRepo = new ActorSistemaRepositorio($this->pdo);
+        } else {
+            $this->pdo = $pdo ?? Conexion::obtenerInstancia();
+            $this->actorSistemaRepo = $actorSistemaRepoOPdo ?? new ActorSistemaRepositorio($this->pdo);
+        }
         $this->usuarioRepo = $usuarioRepo ?? new UsuarioRepositorio($this->pdo);
         $this->sesionRepo = $sesionRepo ?? new SesionRepositorio($this->pdo);
         $this->auditoriaRepo = $auditoriaRepo ?? new AuditoriaRepositorio($this->pdo);
@@ -66,19 +75,10 @@ class AutenticacionServicio
         if ($usuario === null) {
             password_verify($contrasenaPlana, '$2y$10$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUV0123456789');
 
-            $contextoSistema = ContextoOperacion::paraSistema(
-                actorSistemaId: 1, // SISTEMA_CLI / Núcleo
-                actorSistemaCodigo: 'SISTEMA_CLI',
-                canalId: 1, // APP
-                canalCodigo: 'APP',
-                origenIp: $ip,
-                agenteUsuario: $agenteUsuario,
-                organizacionId: null,
-                correlacionId: $correlacion
-            );
+            $contextoSeguridad = $this->crearContextoPreautenticacion($ip, $agenteUsuario, $correlacion, null);
 
             $this->auditoriaRepo->registrar(
-                contexto: $contextoSistema,
+                contexto: $contextoSeguridad,
                 modulo: 'autenticacion',
                 accion: 'LOGIN_FALLIDO',
                 entidadTipo: 'usuario',
@@ -96,19 +96,10 @@ class AutenticacionServicio
 
         // 3. Validar estado: INACTIVO
         if ($usuario->estado === 'INACTIVO') {
-            $contextoSistema = ContextoOperacion::paraSistema(
-                actorSistemaId: 1,
-                actorSistemaCodigo: 'SISTEMA_CLI',
-                canalId: 1,
-                canalCodigo: 'APP',
-                origenIp: $ip,
-                agenteUsuario: $agenteUsuario,
-                organizacionId: $usuario->organizacionId,
-                correlacionId: $correlacion
-            );
+            $contextoSeguridad = $this->crearContextoPreautenticacion($ip, $agenteUsuario, $correlacion, $usuario->organizacionId);
 
             $this->auditoriaRepo->registrar(
-                contexto: $contextoSistema,
+                contexto: $contextoSeguridad,
                 modulo: 'autenticacion',
                 accion: 'LOGIN_FALLIDO',
                 entidadTipo: 'usuario',
@@ -126,29 +117,20 @@ class AutenticacionServicio
 
         // 4. Validar estado: BLOQUEADO
         if ($usuario->estaBloqueado()) {
-            $contextoSistema = ContextoOperacion::paraSistema(
-                actorSistemaId: 1,
-                actorSistemaCodigo: 'SISTEMA_CLI',
-                canalId: 1,
-                canalCodigo: 'APP',
-                origenIp: $ip,
-                agenteUsuario: $agenteUsuario,
-                organizacionId: $usuario->organizacionId,
-                correlacionId: $correlacion
-            );
+            $contextoSeguridad = $this->crearContextoPreautenticacion($ip, $agenteUsuario, $correlacion, $usuario->organizacionId);
 
             $this->auditoriaRepo->registrar(
-                contexto: $contextoSistema,
+                contexto: $contextoSeguridad,
                 modulo: 'autenticacion',
                 accion: 'LOGIN_FALLIDO',
                 entidadTipo: 'usuario',
                 entidadId: (string) $usuario->id,
                 datosPrevios: null,
                 datosNuevos: [
-                    'identificador' => $identificador,
-                    'motivo'        => 'CUENTA_BLOQUEADA',
+                    'identificador'   => $identificador,
+                    'motivo'          => 'CUENTA_BLOQUEADA',
                     'bloqueado_hasta' => $usuario->bloqueadoHasta,
-                    'ip'            => $ip,
+                    'ip'              => $ip,
                 ]
             );
 
@@ -166,20 +148,11 @@ class AutenticacionServicio
             $usuarioActualizado = $this->usuarioRepo->buscarPorId($usuario->id);
             $seBloqueo = $usuarioActualizado !== null && $usuarioActualizado->estaBloqueado();
 
-            $contextoSistema = ContextoOperacion::paraSistema(
-                actorSistemaId: 1,
-                actorSistemaCodigo: 'SISTEMA_CLI',
-                canalId: 1,
-                canalCodigo: 'APP',
-                origenIp: $ip,
-                agenteUsuario: $agenteUsuario,
-                organizacionId: $usuario->organizacionId,
-                correlacionId: $correlacion
-            );
+            $contextoSeguridad = $this->crearContextoPreautenticacion($ip, $agenteUsuario, $correlacion, $usuario->organizacionId);
 
             if ($seBloqueo) {
                 $this->auditoriaRepo->registrar(
-                    contexto: $contextoSistema,
+                    contexto: $contextoSeguridad,
                     modulo: 'seguridad',
                     accion: 'BLOQUEO',
                     entidadTipo: 'usuario',
@@ -195,7 +168,7 @@ class AutenticacionServicio
             }
 
             $this->auditoriaRepo->registrar(
-                contexto: $contextoSistema,
+                contexto: $contextoSeguridad,
                 modulo: 'autenticacion',
                 accion: 'LOGIN_FALLIDO',
                 entidadTipo: 'usuario',
@@ -445,5 +418,31 @@ class AutenticacionServicio
     public function obtenerSesionesActivasUsuario(int $usuarioId): array
     {
         return $this->sesionRepo->buscarActivasPorUsuario($usuarioId);
+    }
+
+    /**
+     * Construye un contexto de seguridad para eventos preautenticación atribuido formalmente al motor de autenticación.
+     * Cumple con la restricción chk_auditoria_actor (SISTEMA, usuario_id = null, actor_sistema_id no nulo).
+     */
+    private function crearContextoPreautenticacion(
+        string $ip,
+        ?string $agenteUsuario,
+        string $correlacion,
+        ?int $organizacionId = null,
+        int $canalId = 1,
+        string $canalCodigo = 'APP'
+    ): ContextoOperacion {
+        $actorId = $this->actorSistemaRepo->obtenerIdPorCodigo('SEGURIDAD_AUTH');
+
+        return ContextoOperacion::paraSistema(
+            actorSistemaId: $actorId,
+            actorSistemaCodigo: 'SEGURIDAD_AUTH',
+            canalId: $canalId,
+            canalCodigo: $canalCodigo,
+            origenIp: $ip,
+            agenteUsuario: $agenteUsuario,
+            organizacionId: $organizacionId,
+            correlacionId: $correlacion
+        );
     }
 }

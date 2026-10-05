@@ -93,7 +93,13 @@ afirmar(
 // ==============================================================================
 // 2. AUTENTICACIÓN EXITOSA DE LA CUENTA ORLANDO
 // ==============================================================================
-$claveOrlando = 'Cand26!acd7c69b$';
+$claveOrlando = 'TestF11D_' . bin2hex(random_bytes(6)) . '!';
+$usrOrlandoObj = $usuarioRepo->buscarPorNombreUsuario('orlando');
+if ($usrOrlandoObj !== null) {
+    $usuarioRepo->actualizarContrasenaHash($usrOrlandoObj->id, password_hash($claveOrlando, PASSWORD_DEFAULT));
+    $usuarioRepo->actualizarEstado($usrOrlandoObj->id, 'ACTIVO');
+    $usuarioRepo->restablecerIntentosFallidos($usrOrlandoObj->id);
+}
 $loginRes = $authServicio->autenticar('orlando', $claveOrlando, '127.0.0.1', 'CLI-Tester');
 
 afirmar(
@@ -339,7 +345,7 @@ try {
     );
 
     // --- 15. POST /api/v1/usuarios/{id}/restablecer-clave ---
-    $nuevaClaveTemp = 'Cand26!NuevoPass$';
+    $nuevaClaveTemp = 'TestReset_' . bin2hex(random_bytes(6)) . '!';
     $hashTemp = password_hash($nuevaClaveTemp, PASSWORD_DEFAULT);
     $usuarioRepo->actualizarContrasenaHash($nuevoUsrId, $hashTemp);
     $usuarioRepo->restablecerIntentosFallidos($nuevoUsrId);

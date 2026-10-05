@@ -58,12 +58,86 @@ class AutorizacionServicio
         }
 
         // 2. Comprobar si ostenta rango de Superadministrador de Plataforma
-        if ($usuario->esSuperadminPlataforma || $this->rolRepo->usuarioTieneRol($usuarioId, 'superadmin_plataforma')) {
+        if ($this->esSuperadmin($usuarioId)) {
             return true;
         }
 
         // 3. Evaluar asignación a través de la matriz de roles y permisos
         return $this->permisoRepo->usuarioTienePermiso($usuarioId, $codigoPermiso);
+    }
+
+    /**
+     * Comprueba si el usuario ostenta el rango supremo de Superadministrador de Plataforma.
+     */
+    public function esSuperadmin(int $usuarioId): bool
+    {
+        $usuario = $this->usuarioRepo->buscarPorId($usuarioId);
+        if ($usuario === null || $usuario->estado !== 'ACTIVO' || $usuario->estaBloqueado()) {
+            return false;
+        }
+
+        return (bool) $usuario->esSuperadminPlataforma || $this->rolRepo->usuarioTieneRol($usuarioId, 'superadmin_plataforma');
+    }
+
+    /**
+     * Valida si un operador tiene autorización para asignar los roles indicados.
+     * H-02: Ningún operador que no sea superadministrador puede asignar 'superadmin_plataforma'.
+     *
+     * @param int[] $rolesIds
+     */
+    public function puedeAsignarRoles(int $operadorId, array $rolesIds): bool
+    {
+        if (empty($rolesIds)) {
+            return true;
+        }
+
+        $esSuperadmin = $this->esSuperadmin($operadorId);
+
+        foreach ($rolesIds as $rId) {
+            $rol = $this->rolRepo->buscarPorId((int) $rId);
+            if ($rol !== null && $rol->codigo === 'superadmin_plataforma') {
+                if (!$esSuperadmin) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Valida el aislamiento multi-tenant IDOR.
+     * H-03: Solo un superadministrador puede operar de forma cross-tenant.
+     * Los operadores estándar solo pueden operar sobre recursos de su misma organización.
+     */
+    public function verificarAlcanceOrganizacion(int $operadorId, int $recursoOrganizacionId): bool
+    {
+        if ($this->esSuperadmin($operadorId)) {
+            return true;
+        }
+
+        $operador = $this->usuarioRepo->buscarPorId($operadorId);
+        if ($operador === null || $operador->estado !== 'ACTIVO' || $operador->estaBloqueado()) {
+            return false;
+        }
+
+        return $operador->organizacionId === $recursoOrganizacionId;
+    }
+
+    /**
+     * Retorna los roles que pueden ser visualizados/asignados por el operador.
+     * H-04: Si el operador no es superadmin, se oculta 'superadmin_plataforma'.
+     *
+     * @return Rol[]
+     */
+    public function obtenerRolesAsignables(int $operadorId, ?int $organizacionId = null): array
+    {
+        $roles = $this->rolRepo->obtenerTodos($organizacionId);
+        if ($this->esSuperadmin($operadorId)) {
+            return $roles;
+        }
+
+        return array_values(array_filter($roles, fn(Rol $r) => $r->codigo !== 'superadmin_plataforma'));
     }
 
     /**
@@ -131,7 +205,7 @@ class AutorizacionServicio
             return [];
         }
 
-        if ($usuario->esSuperadminPlataforma || $this->rolRepo->usuarioTieneRol($usuarioId, 'superadmin_plataforma')) {
+        if ($this->esSuperadmin($usuarioId)) {
             return array_map(fn($p) => $p->codigo, $this->permisoRepo->obtenerTodos());
         }
 

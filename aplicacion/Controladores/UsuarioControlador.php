@@ -77,12 +77,19 @@ class UsuarioControlador
      */
     public function detalle(string $id): string
     {
-        $this->verificarSesionYPermiso('usuarios.ver');
+        $contexto = $this->verificarSesionYPermiso('usuarios.ver');
         $idInt = (int) $id;
 
         $usuario = $this->usuarioRepo->obtenerDetallePorId($idInt);
         if ($usuario === null) {
             return $this->responderJson(false, 404, 'Usuario no encontrado.');
+        }
+
+        // H-03: Aislamiento Multi-tenant IDOR (404 uniforme si es de otra organización)
+        if ($contexto->usuarioId !== null) {
+            if (!$this->authzMiddleware->verificarAlcanceOrganizacion($contexto->usuarioId, (int) $usuario['organizacion_id'])) {
+                return $this->responderJson(false, 404, 'Usuario no encontrado.');
+            }
         }
 
         return $this->responderJson(true, 200, 'Detalle de usuario obtenido.', [
@@ -125,12 +132,13 @@ class UsuarioControlador
 
     /**
      * GET /api/v1/roles
-     * Retorna el catálogo de roles disponibles.
+     * Retorna el catálogo de roles disponibles filtrados según rango del operador (H-04).
      */
     public function roles(): string
     {
         $contexto = $this->verificarSesionYPermiso('usuarios.roles');
-        $roles = $this->rolRepo->obtenerTodos($contexto->organizacionId);
+        $operadorId = $contexto->usuarioId ?? 0;
+        $roles = $this->authzMiddleware->obtenerRolesAsignables($operadorId, $contexto->organizacionId);
 
         return $this->responderJson(true, 200, 'Catálogo de roles obtenido.', [
             'roles' => array_map(fn($r) => [
@@ -172,34 +180,52 @@ class UsuarioControlador
             return $this->responderJson(false, 400, 'La contraseña debe contener al menos 8 caracteres.');
         }
 
-        // 2. Validar unicidad de login y correo
-        if ($this->usuarioRepo->buscarPorNombreUsuario($nombreUsuario) !== null) {
-            return $this->responderJson(false, 400, 'El nombre de usuario ya está registrado en el sistema.');
-        }
-        if ($this->usuarioRepo->buscarPorCorreo($correo) !== null) {
-            return $this->responderJson(false, 400, 'El correo electrónico ya está registrado en el sistema.');
+        $roles = !empty($datos['roles']) && is_array($datos['roles'])
+            ? array_map('intval', $datos['roles'])
+            : [];
+
+        // H-02: Validación temprana de privilegios para impedir escalamiento
+        if (!empty($roles) && !$this->authzMiddleware->puedeAsignarRoles($contexto->usuarioId ?? 0, $roles)) {
+            return $this->responderJson(false, 403, 'Acceso denegado: no tiene privilegios para asignar uno o más de los roles especificados.');
         }
 
-        // 3. Resolver Persona
-        $modoPersona = (string) ($datos['modo_persona'] ?? 'existente');
-        $personaId = null;
-        $nombreCompleto = '';
-
-        $this->pdo->beginTransaction();
+        $transaccionPropia = false;
         try {
+            // 2. Validar unicidad de login y correo
+            if ($this->usuarioRepo->buscarPorNombreUsuario($nombreUsuario) !== null) {
+                return $this->responderJson(false, 400, 'El nombre de usuario ya está registrado en el sistema.');
+            }
+            if ($this->usuarioRepo->buscarPorCorreo($correo) !== null) {
+                return $this->responderJson(false, 400, 'El correo electrónico ya está registrado en el sistema.');
+            }
+
+            // 3. Resolver Persona
+            $modoPersona = (string) ($datos['modo_persona'] ?? 'existente');
+            $personaId = null;
+            $nombreCompleto = '';
+
+            if (!$this->pdo->inTransaction()) {
+                $this->pdo->beginTransaction();
+                $transaccionPropia = true;
+            }
+
             if ($modoPersona === 'nueva') {
                 $tipoPersona = strtoupper(trim((string) ($datos['tipo_persona'] ?? 'NATURAL')));
                 $tipoDocId = (int) ($datos['tipo_documento_id'] ?? 1);
                 $numDoc = trim((string) ($datos['numero_documento'] ?? ''));
 
                 if (empty($numDoc)) {
-                    $this->pdo->rollBack();
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
                     return $this->responderJson(false, 400, 'El número de documento de la persona es obligatorio.');
                 }
 
                 // Verificar si ya existe persona con ese documento en el tenant
                 if ($this->personaRepo->buscarPorDocumento($orgId, $tipoDocId, $numDoc) !== null) {
-                    $this->pdo->rollBack();
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
                     return $this->responderJson(false, 400, 'Ya existe una persona registrada con ese tipo y número de documento.');
                 }
 
@@ -210,18 +236,24 @@ class UsuarioControlador
 
                 if ($tipoPersona === 'NATURAL') {
                     if (empty($nombres) || empty($apellidos)) {
-                        $this->pdo->rollBack();
+                        if ($transaccionPropia && $this->pdo->inTransaction()) {
+                            $this->pdo->rollBack();
+                        }
                         return $this->responderJson(false, 400, 'Nombres y apellidos son obligatorios para persona natural.');
                     }
                     $nombreCompleto = normalizar_mayusculas("{$nombres} {$apellidos}");
                 } elseif ($tipoPersona === 'JURIDICA') {
                     if (empty($razonSocial)) {
-                        $this->pdo->rollBack();
+                        if ($transaccionPropia && $this->pdo->inTransaction()) {
+                            $this->pdo->rollBack();
+                        }
                         return $this->responderJson(false, 400, 'La razón social es obligatoria para persona jurídica.');
                     }
                     $nombreCompleto = normalizar_mayusculas($nombreComercial ? "{$razonSocial} ({$nombreComercial})" : $razonSocial);
                 } else {
-                    $this->pdo->rollBack();
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
                     return $this->responderJson(false, 400, 'Tipo de persona inválido.');
                 }
 
@@ -248,19 +280,25 @@ class UsuarioControlador
             } else {
                 $personaId = (int) ($datos['persona_id'] ?? 0);
                 if ($personaId <= 0) {
-                    $this->pdo->rollBack();
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
                     return $this->responderJson(false, 400, 'Debe seleccionar una persona existente válida.');
                 }
 
                 $personaExistente = $this->personaRepo->buscarPorId($personaId);
                 if ($personaExistente === null || $personaExistente->organizacionId !== $orgId) {
-                    $this->pdo->rollBack();
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
                     return $this->responderJson(false, 404, 'La persona seleccionada no existe en la organización.');
                 }
 
                 // Verificar que no tenga ya un usuario asignado (restricción uk_usuarios_persona)
                 if ($this->usuarioRepo->buscarPorPersonaId($personaId) !== null) {
-                    $this->pdo->rollBack();
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->rollBack();
+                    }
                     return $this->responderJson(false, 400, 'La persona seleccionada ya cuenta con un usuario asignado.');
                 }
 
@@ -285,11 +323,7 @@ class UsuarioControlador
 
             $usuarioId = $this->usuarioRepo->crear($usuario);
 
-            // 5. Asignar roles seleccionados
-            $roles = !empty($datos['roles']) && is_array($datos['roles'])
-                ? array_map('intval', $datos['roles'])
-                : [];
-
+            // 5. Asignar roles seleccionados (previamente validados)
             if (!empty($roles)) {
                 $this->rolRepo->sincronizarRolesUsuario($usuarioId, $roles);
             }
@@ -312,17 +346,19 @@ class UsuarioControlador
                 ]
             );
 
-            $this->pdo->commit();
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->commit();
+            }
 
             return $this->responderJson(true, 201, 'Usuario creado exitosamente.', [
                 'id'             => $usuarioId,
                 'nombre_usuario' => $nombreUsuario,
             ]);
         } catch (\Throwable $e) {
-            if ($this->pdo->inTransaction()) {
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
-            return $this->responderJson(false, 500, 'Error interno al registrar usuario: ' . $e->getMessage());
+            return $this->responderJson(false, 500, 'Error interno al registrar usuario.');
         }
     }
 
@@ -336,7 +372,7 @@ class UsuarioControlador
         $this->verificarCsrf($contexto);
 
         $idInt = (int) $id;
-        $usuario = $this->usuarioRepo->buscarPorId($idInt);
+        $usuario = $this->obtenerUsuarioAutorizado($idInt, $contexto);
         if ($usuario === null) {
             return $this->responderJson(false, 404, 'Usuario no encontrado.');
         }
@@ -419,7 +455,7 @@ class UsuarioControlador
         $this->verificarCsrf($contexto);
 
         $idInt = (int) $id;
-        $usuario = $this->usuarioRepo->buscarPorId($idInt);
+        $usuario = $this->obtenerUsuarioAutorizado($idInt, $contexto);
         if ($usuario === null) {
             return $this->responderJson(false, 404, 'Usuario no encontrado.');
         }
@@ -466,13 +502,18 @@ class UsuarioControlador
         $this->verificarCsrf($contexto);
 
         $idInt = (int) $id;
-        $usuario = $this->usuarioRepo->buscarPorId($idInt);
+        $usuario = $this->obtenerUsuarioAutorizado($idInt, $contexto);
         if ($usuario === null) {
             return $this->responderJson(false, 404, 'Usuario no encontrado.');
         }
 
         $datos = $this->obtenerCuerpo();
         $rolesNuevos = array_map('intval', (array) ($datos['roles'] ?? []));
+
+        // H-02: Prevención de escalamiento de privilegios
+        if (!empty($rolesNuevos) && !$this->authzMiddleware->puedeAsignarRoles($contexto->usuarioId ?? 0, $rolesNuevos)) {
+            return $this->responderJson(false, 403, 'Acceso denegado: no tiene privilegios para asignar uno o más de los roles especificados.');
+        }
 
         $rolesPrevios = array_map(fn($r) => $r->id, $this->rolRepo->obtenerRolesDeUsuario($idInt));
 
@@ -501,7 +542,7 @@ class UsuarioControlador
         $this->verificarCsrf($contexto);
 
         $idInt = (int) $id;
-        $usuario = $this->usuarioRepo->buscarPorId($idInt);
+        $usuario = $this->obtenerUsuarioAutorizado($idInt, $contexto);
         if ($usuario === null) {
             return $this->responderJson(false, 404, 'Usuario no encontrado.');
         }
@@ -552,6 +593,26 @@ class UsuarioControlador
             405,
             'La eliminación física de usuarios está prohibida por directriz de gobernanza y auditoría. Utilice la desactivación de cuenta en su lugar.'
         );
+    }
+
+    /**
+     * Resuelve y valida el acceso al usuario dentro del alcance de la organización (Anti-IDOR).
+     * Si no existe o pertenece a otra organización sin ser superadmin, retorna null (HTTP 404).
+     */
+    private function obtenerUsuarioAutorizado(int $id, ContextoOperacion $contexto): ?Usuario
+    {
+        $usuario = $this->usuarioRepo->buscarPorId($id);
+        if ($usuario === null) {
+            return null;
+        }
+
+        if ($contexto->usuarioId !== null) {
+            if (!$this->authzMiddleware->verificarAlcanceOrganizacion($contexto->usuarioId, $usuario->organizacionId)) {
+                return null;
+            }
+        }
+
+        return $usuario;
     }
 
     /**

@@ -117,7 +117,7 @@ if ($rolAdmin === null) {
     exit(1);
 }
 
-$rolRepo->asignarRolAUsuario($usuarioId, $rolAdmin->id);
+$rolRepo->sincronizarRolesUsuario($usuarioId, [$rolAdmin->id]);
 
 // 6. Reportar salida UNA SOLA VEZ por consola para el usuario
 echo "\n============================================================\n";
