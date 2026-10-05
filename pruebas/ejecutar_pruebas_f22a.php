@@ -121,9 +121,14 @@ try {
     $pdoTemp->exec($sqlEsquema);
     $tablasTemp = $pdoTemp->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
 
+    $colsTempPersonas = $pdoTemp->query("SHOW COLUMNS FROM `personas`")->fetchAll(PDO::FETCH_COLUMN);
+
     afirmar(in_array('clientes', $tablasTemp, true), "1.7: Instalación limpia incluye tabla 'clientes'");
     afirmar(in_array('consentimientos_cliente', $tablasTemp, true), "1.8: Instalación limpia incluye tabla 'consentimientos_cliente'");
     afirmar(count($tablasTemp) >= 21, "1.9: Instalación limpia de 'esquema_base.sql' crea las 21 tablas canónicas sin errores");
+    afirmar(!in_array('metadatos_json', array_column($colsPersonas, 'Field'), true), "1.10: Columna 'metadatos_json' ausente en 'personas' de la BD activa");
+    afirmar(!in_array('metadatos_json', $colsTempPersonas, true), "1.11: Instalación limpia confirma ausencia de 'metadatos_json' en 'personas'");
+    afirmar(count($colsTempPersonas) === 18, "1.12: Tabla 'personas' tiene exactamente 18 columnas oficiales sin bolsa JSON");
 } finally {
     $pdo->exec("DROP DATABASE IF EXISTS `{$dbTemp}`");
 }

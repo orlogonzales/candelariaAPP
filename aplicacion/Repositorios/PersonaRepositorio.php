@@ -31,12 +31,12 @@ class PersonaRepositorio
                     `organizacion_id`, `tipo_persona`, `tipo_documento_id`, `numero_documento`,
                     `nombres`, `apellidos`, `razon_social`, `nombre_comercial`,
                     `correo_electronico`, `telefono_movil`, `telefono_whatsapp`,
-                    `direccion`, `ciudad`, `codigo_pais`, `estado`, `metadatos_json`
+                    `direccion`, `ciudad`, `codigo_pais`, `estado`
                 ) VALUES (
                     :organizacion_id, :tipo_persona, :tipo_documento_id, :numero_documento,
                     :nombres, :apellidos, :razon_social, :nombre_comercial,
                     :correo_electronico, :telefono_movil, :telefono_whatsapp,
-                    :direccion, :ciudad, :codigo_pais, :estado, :metadatos_json
+                    :direccion, :ciudad, :codigo_pais, :estado
                 )";
 
         $stmt = $this->pdo->prepare($sql);
@@ -56,7 +56,6 @@ class PersonaRepositorio
             ':ciudad'             => $persona->ciudad ? normalizar_mayusculas($persona->ciudad) : null,
             ':codigo_pais'        => normalizar_mayusculas($persona->codigoPais),
             ':estado'             => $persona->estado,
-            ':metadatos_json'     => $persona->metadatos ? json_encode($persona->metadatos, JSON_UNESCAPED_UNICODE) : null,
         ]);
 
         return (int) $this->pdo->lastInsertId();
@@ -85,8 +84,7 @@ class PersonaRepositorio
                     `direccion`         = :direccion,
                     `ciudad`            = :ciudad,
                     `codigo_pais`       = :codigo_pais,
-                    `estado`            = :estado,
-                    `metadatos_json`    = :metadatos_json
+                    `estado`            = :estado
                 WHERE `id` = :id AND `organizacion_id` = :organizacion_id";
 
         $stmt = $this->pdo->prepare($sql);
@@ -107,7 +105,6 @@ class PersonaRepositorio
             ':ciudad'             => $persona->ciudad ? normalizar_mayusculas($persona->ciudad) : null,
             ':codigo_pais'        => normalizar_mayusculas($persona->codigoPais),
             ':estado'             => $persona->estado,
-            ':metadatos_json'     => $persona->metadatos ? json_encode($persona->metadatos, JSON_UNESCAPED_UNICODE) : null,
         ]);
     }
 

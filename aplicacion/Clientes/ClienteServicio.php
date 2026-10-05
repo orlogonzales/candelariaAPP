@@ -109,8 +109,7 @@ class ClienteServicio
                     direccion: $persona->direccion,
                     ciudad: $persona->ciudad,
                     codigoPais: $persona->codigoPais,
-                    estado: $persona->estado,
-                    metadatos: $persona->metadatos
+                    estado: $persona->estado
                 );
                 $this->personaRepo->actualizar($personaActualizada);
             }
@@ -238,8 +237,7 @@ class ClienteServicio
                             direccion: $personaExistente->direccion,
                             ciudad: $personaExistente->ciudad,
                             codigoPais: $personaExistente->codigoPais,
-                            estado: $personaExistente->estado,
-                            metadatos: $personaExistente->metadatos
+                            estado: $personaExistente->estado
                         );
                         $this->personaRepo->actualizar($personaActualizada);
                     }

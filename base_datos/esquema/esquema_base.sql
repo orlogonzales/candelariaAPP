@@ -164,7 +164,6 @@ CREATE TABLE `personas` (
     `ciudad` VARCHAR(100) DEFAULT NULL COMMENT 'Sin default hardcodeado a Puno',
     `codigo_pais` CHAR(2) NOT NULL DEFAULT 'PE' COMMENT 'Código ISO 3166-1 alpha-2',
     `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
-    `metadatos_json` JSON DEFAULT NULL,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,

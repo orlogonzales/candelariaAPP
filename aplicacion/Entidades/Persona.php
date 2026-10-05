@@ -10,6 +10,7 @@ use InvalidArgumentException;
  * Entidad Persona: Padrón canónico de identidades naturales o jurídicas.
  * Valida invariantes estructurales estrictas según su tipo de persona
  * y coherencia de documento de identidad (ambos presentes o ambos nulos).
+ * Modelo estrictamente tipado sin contenedores JSON genéricos.
  */
 class Persona
 {
@@ -30,7 +31,6 @@ class Persona
         public readonly ?string $ciudad = null,
         public readonly string $codigoPais = 'PE',
         public readonly string $estado = 'ACTIVO',
-        public readonly ?array $metadatos = null,
         public readonly ?string $creadoEn = null,
         public readonly ?string $actualizadoEn = null
     ) {
@@ -105,7 +105,6 @@ class Persona
             ciudad: $datos['ciudad'] ?? null,
             codigoPais: (string) ($datos['codigo_pais'] ?? 'PE'),
             estado: (string) ($datos['estado'] ?? 'ACTIVO'),
-            metadatos: isset($datos['metadatos_json']) ? (is_string($datos['metadatos_json']) ? json_decode($datos['metadatos_json'], true) : $datos['metadatos_json']) : null,
             creadoEn: $datos['creado_en'] ?? null,
             actualizadoEn: $datos['actualizado_en'] ?? null
         );
