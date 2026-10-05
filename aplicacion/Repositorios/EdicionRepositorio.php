@@ -186,11 +186,18 @@ class EdicionRepositorio
             $stmtLock = $this->pdo->prepare("SELECT `id` FROM `organizaciones` WHERE `id` = :org_id FOR UPDATE");
             $stmtLock->execute([':org_id' => $organizacionId]);
 
-            // 1. Desmarcar todas las ediciones del tenant
+            // 1. Validar que la edición exista y pertenezca legítimamente a la organización
+            $stmtVal = $this->pdo->prepare("SELECT `id` FROM `ediciones_candelaria` WHERE `id` = :id AND `organizacion_id` = :org_id");
+            $stmtVal->execute([':id' => $id, ':org_id' => $organizacionId]);
+            if (!$stmtVal->fetchColumn()) {
+                throw new \InvalidArgumentException("No se encontró la edición con ID {$id} para la organización {$organizacionId}.");
+            }
+
+            // 2. Desmarcar todas las ediciones del tenant
             $stmtReset = $this->pdo->prepare("UPDATE `ediciones_candelaria` SET `es_actual` = 0 WHERE `organizacion_id` = :org_id");
             $stmtReset->execute([':org_id' => $organizacionId]);
 
-            // 2. Marcar la edición seleccionada
+            // 3. Marcar la edición seleccionada
             $stmtSet = $this->pdo->prepare("UPDATE `ediciones_candelaria` SET `es_actual` = 1 WHERE `id` = :id AND `organizacion_id` = :org_id");
             $stmtSet->execute([':id' => $id, ':org_id' => $organizacionId]);
 

@@ -353,7 +353,7 @@ class ModuloEdiciones {
         const form = document.getElementById('formCrearEdicion');
         const btnGuardar = document.getElementById('btnGuardarCrear');
 
-        const codigo = document.getElementById('crearCodigo').value.trim().toUpperCase();
+        const codigo = document.getElementById('crearCodigo').value.trim().toLowerCase();
         const anio = parseInt(document.getElementById('crearAnio').value, 10);
         const nombre = document.getElementById('crearNombre').value.trim();
         const fechaInicio = document.getElementById('crearFechaInicio').value.trim();

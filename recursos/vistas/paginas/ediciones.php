@@ -102,8 +102,8 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="crearCodigo" class="form-label f-w-600 f-s-13">Código Slug <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="crearCodigo" name="codigo" placeholder="Ej. CANDELARIA_2027" required maxlength="50" style="text-transform: uppercase;">
-                            <div class="form-text f-s-11">Identificador único alfanumérico (ej: CANDELARIA_2027).</div>
+                            <input type="text" class="form-control" id="crearCodigo" name="codigo" placeholder="Ej. candelaria-2027" required maxlength="50" style="text-transform: lowercase;">
+                            <div class="form-text f-s-11">Identificador slug canónico en minúsculas (ej: candelaria-2027).</div>
                         </div>
                         <div class="col-md-6">
                             <label for="crearAnio" class="form-label f-w-600 f-s-13">Año de la Festividad <span class="text-danger">*</span></label>

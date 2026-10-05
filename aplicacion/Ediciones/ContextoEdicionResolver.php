@@ -36,11 +36,11 @@ class ContextoEdicionResolver
     public function resolver(ContextoOperacion $contexto, ?string $edicionIdCandidato = null): ContextoOperacion
     {
         // 1. Contexto Explícito presente
-        if ($edicionIdCandidato !== null && trim($edicionIdCandidato) !== '') {
+        if ($edicionIdCandidato !== null) {
             $candidatoLimpio = trim($edicionIdCandidato);
 
-            // Validar formato numérico entero positivo estricto
-            if (!ctype_digit($candidatoLimpio) || (int) $candidatoLimpio <= 0) {
+            // Validar formato numérico entero positivo estricto (rechaza vacío, espacios, alfanuméricos, negativos o cero)
+            if ($candidatoLimpio === '' || !ctype_digit($candidatoLimpio) || (int) $candidatoLimpio <= 0) {
                 throw new InvalidArgumentException(
                     "El identificador de edición contextual '{$edicionIdCandidato}' debe ser un número entero mayor a 0."
                 );
@@ -87,7 +87,11 @@ class ContextoEdicionResolver
         }
 
         $candidato = $servidor['HTTP_X_EDICION_ID'] ?? $servidor['HTTP_X_EDICION'] ?? null;
-        $candidatoStr = is_string($candidato) ? $candidato : null;
+        if ($candidato !== null) {
+            $candidatoStr = is_scalar($candidato) ? (string) $candidato : '__INVALID__';
+        } else {
+            $candidatoStr = null;
+        }
 
         return $this->resolver($contexto, $candidatoStr);
     }
