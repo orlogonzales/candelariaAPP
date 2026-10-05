@@ -203,3 +203,14 @@ Enrutador::post('/api/v1/organizacion/branding/isotipo', [\Aplicacion\Controlado
 // ==============================================================================
 Enrutador::get('/api/v1/configuracion', [\Aplicacion\Controladores\ConfiguracionControlador::class, 'listar']);
 Enrutador::put('/api/v1/configuracion', [\Aplicacion\Controladores\ConfiguracionControlador::class, 'actualizar']);
+
+// ==============================================================================
+// GESTIÓN DE EDICIONES CANDELARIA Y CONTEXTO ACTIVO (MICROLOTE F2.1B)
+// ==============================================================================
+Enrutador::get('/api/v1/ediciones', [\Aplicacion\Controladores\EdicionControlador::class, 'listar']);
+Enrutador::get('/api/v1/ediciones/{id}', [\Aplicacion\Controladores\EdicionControlador::class, 'detalle']);
+Enrutador::post('/api/v1/ediciones', [\Aplicacion\Controladores\EdicionControlador::class, 'crear']);
+Enrutador::put('/api/v1/ediciones/{id}', [\Aplicacion\Controladores\EdicionControlador::class, 'actualizar']);
+Enrutador::post('/api/v1/ediciones/{id}/estado', [\Aplicacion\Controladores\EdicionControlador::class, 'cambiarEstado']);
+Enrutador::post('/api/v1/ediciones/{id}/seleccionar-actual', [\Aplicacion\Controladores\EdicionControlador::class, 'seleccionarActual']);
+Enrutador::get('/api/v1/contexto/edicion', [\Aplicacion\Controladores\EdicionControlador::class, 'contextoActual']);

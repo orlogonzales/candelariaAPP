@@ -3,12 +3,14 @@ $contextoBarra = \Nucleo\Http\ContextoOperacion::actual();
 $puedeVerOrg = false;
 $puedeVerUsuarios = false;
 $puedeVerConfigGeneral = false;
+$puedeVerEdiciones = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
     $puedeVerUsuarios = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'usuarios.ver');
     $puedeVerConfigGeneral = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'configuracion_organizacion.ver')
         || $authzBarra->tienePermiso($contextoBarra->usuarioId, 'configuracion_plataforma.ver');
+    $puedeVerEdiciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'ediciones.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
@@ -122,15 +124,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                                 <i class="fa-solid fa-users-gear me-2 text-secondary"></i> Padrón de Usuarios
                             </a>
                         </li>
-                        <li>
-                            <a aria-expanded="false" data-bs-toggle="collapse" href="#subEdiciones">
+                        <?php if ($puedeVerEdiciones): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('ediciones') ?>" id="navPrincipalEdiciones" class="<?= $seccionActual === 'ediciones' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-calendar-check me-2 text-secondary"></i> Ediciones Candelaria
                             </a>
-                            <ul class="collapse" id="subEdiciones">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Candelaria 2027 (Activa)</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Historial de Ediciones</a></li>
-                            </ul>
                         </li>
+                        <?php endif; ?>
                     </ul>
 
                     <!-- Menú: Clientes y CRM -->

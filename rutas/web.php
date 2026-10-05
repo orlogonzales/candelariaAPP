@@ -152,3 +152,33 @@ Enrutador::get('/configuracion/general', function () {
         'scriptAdicional' => url_base('publico/js/configuracion_general.js')
     ], 'principal');
 });
+
+// 7. Módulo de Gestión de Ediciones Candelaria (F2.1B)
+Enrutador::get('/ediciones', function () {
+    $authMiddleware = new AutenticacionMiddleware();
+    $contexto = $authMiddleware->procesar($_SERVER, $_COOKIE, false);
+
+    if ($contexto === null) {
+        header('Location: ' . url_base('login'));
+        exit;
+    }
+
+    $authzMiddleware = new AutorizacionMiddleware();
+    if (!$authzMiddleware->verificarPermiso('ediciones.ver', $contexto, false)) {
+        http_response_code(403);
+        return Vista::renderizar('errores/403', [
+            'titulo'        => 'Acceso Denegado | CandelariaAPP',
+            'subtitulo'     => 'Ediciones Candelaria',
+            'tituloSeccion' => 'Error 403',
+            'mensaje'       => 'No cuenta con los privilegios necesarios (ediciones.ver) para consultar las ediciones.'
+        ], 'principal');
+    }
+
+    return Vista::renderizar('ediciones', [
+        'titulo'          => 'Ediciones Candelaria | CandelariaAPP',
+        'subtitulo'       => 'Ciclo de Vida y Gestión de Festividades',
+        'tituloSeccion'   => 'Ediciones Candelaria',
+        'seccionActiva'   => 'ediciones',
+        'scriptAdicional' => url_base('publico/js/ediciones.js')
+    ], 'principal');
+});

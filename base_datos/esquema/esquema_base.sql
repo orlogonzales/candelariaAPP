@@ -236,7 +236,6 @@ CREATE TABLE `ediciones_candelaria` (
     `descripcion` VARCHAR(255) DEFAULT NULL COMMENT 'Lema o descripción general de la edición',
     `es_actual` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 si es la edición operativa activa por defecto del tenant',
     `flyer_oficial_url` VARCHAR(255) DEFAULT NULL COMMENT 'Ruta relativa de imagen publicitaria oficial',
-    `configuracion_json` JSON DEFAULT NULL COMMENT 'Parámetros e hitos específicos de la edición',
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE CASCADE,

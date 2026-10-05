@@ -31,7 +31,6 @@ class Edicion
     public readonly ?string $descripcion;
     public readonly bool $esActual;
     public readonly ?string $flyerOficialUrl;
-    public readonly ?array $configuracion;
     public readonly ?string $creadoEn;
     public readonly ?string $actualizadoEn;
 
@@ -47,7 +46,6 @@ class Edicion
         ?string $descripcion = null,
         bool $esActual = false,
         ?string $flyerOficialUrl = null,
-        ?array $configuracion = null,
         ?string $creadoEn = null,
         ?string $actualizadoEn = null
     ) {
@@ -62,7 +60,6 @@ class Edicion
         $this->descripcion      = $descripcion !== null ? trim($descripcion) : null;
         $this->esActual         = $esActual;
         $this->flyerOficialUrl  = !empty($flyerOficialUrl) ? trim($flyerOficialUrl) : null;
-        $this->configuracion    = $configuracion;
         $this->creadoEn         = $creadoEn;
         $this->actualizadoEn    = $actualizadoEn;
     }
@@ -155,7 +152,6 @@ class Edicion
             'descripcion'        => $this->descripcion,
             'es_actual'          => $this->esActual,
             'flyer_oficial_url'  => $this->flyerOficialUrl,
-            'configuracion'      => $this->configuracion,
             'creado_en'          => $this->creadoEn,
             'actualizado_en'     => $this->actualizadoEn,
         ];

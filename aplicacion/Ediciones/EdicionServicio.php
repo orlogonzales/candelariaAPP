@@ -65,7 +65,6 @@ class EdicionServicio
         $fechaFin = (string) ($datos['fecha_fin'] ?? '');
         $descripcion = isset($datos['descripcion']) ? (string) $datos['descripcion'] : null;
         $esActual = !empty($datos['es_actual']);
-        $configuracion = isset($datos['configuracion']) && is_array($datos['configuracion']) ? $datos['configuracion'] : null;
 
         // 3. Comprobar unicidad de año y código en el tenant
         if ($this->edicionRepo->existeAnio($organizacionId, $anio)) {
@@ -88,8 +87,7 @@ class EdicionServicio
             estado: EstadoEdicion::PREOPERACION,
             descripcion: $descripcion,
             esActual: $esActual,
-            flyerOficialUrl: null,
-            configuracion: $configuracion
+            flyerOficialUrl: null
         );
 
         $transaccionPropia = false;
@@ -162,9 +160,6 @@ class EdicionServicio
         $nuevaFechaInicio = isset($datos['fecha_inicio']) ? (string) $datos['fecha_inicio'] : $edicionActual->fechaInicio;
         $nuevaFechaFin = isset($datos['fecha_fin']) ? (string) $datos['fecha_fin'] : $edicionActual->fechaFin;
         $nuevaDescripcion = array_key_exists('descripcion', $datos) ? (string) $datos['descripcion'] : $edicionActual->descripcion;
-        $nuevaConfig = array_key_exists('configuracion', $datos) && is_array($datos['configuracion'])
-            ? $datos['configuracion']
-            : $edicionActual->configuracion;
 
         $edicionModificada = new Edicion(
             id: $edicionActual->id,
@@ -178,7 +173,6 @@ class EdicionServicio
             descripcion: $nuevaDescripcion,
             esActual: $edicionActual->esActual,
             flyerOficialUrl: $edicionActual->flyerOficialUrl,
-            configuracion: $nuevaConfig,
             creadoEn: $edicionActual->creadoEn,
             actualizadoEn: $edicionActual->actualizadoEn
         );
@@ -283,7 +277,6 @@ class EdicionServicio
             descripcion: $edicion->descripcion,
             esActual: $edicion->esActual,
             flyerOficialUrl: $edicion->flyerOficialUrl,
-            configuracion: $edicion->configuracion,
             creadoEn: $edicion->creadoEn,
             actualizadoEn: $edicion->actualizadoEn
         );

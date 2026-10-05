@@ -4,7 +4,7 @@
         <header class="header-main">
             <div class="container-fluid">
                 <div class="row align-items-center">
-                    <div class="col-6 head-left">
+                    <div class="col-md-5 col-sm-6 col-5 head-left">
                         <div class="d-flex align-items-center gap-3">
                             <span class="cursor-pointer main-side-toggle" title="Alternar Menú">
                                <i class="fa-solid fa-bars-staggered f-s-20 text-secondary"></i>
@@ -15,10 +15,23 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 head-right">
-                        <ul class="d-flex gap-3 align-items-center justify-content-end mb-0 list-unstyled">
+                    <div class="col-md-7 col-sm-6 col-7 head-right">
+                        <ul class="d-flex gap-2 gap-sm-3 align-items-center justify-content-end mb-0 list-unstyled">
+                            <!-- Selector Global de Edición de Trabajo (F2.1B - Por Pestaña) -->
+                            <li class="head-edicion-container">
+                                <div class="dropdown" id="contenedorSelectorEdicion">
+                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle d-flex align-items-center gap-2 py-1 px-2 px-md-3 b-r-8 shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Edición de trabajo activa para esta pestaña">
+                                        <i class="fa-solid fa-calendar-star text-warning"></i>
+                                        <span class="f-s-12 f-w-600 text-dark text-truncate d-inline-block" style="max-width: 140px;" id="textoEdicionGlobal">Cargando...</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow py-2" id="listaEdicionesGlobal" style="min-width: 260px;">
+                                        <li><span class="dropdown-item-text text-muted f-s-12"><i class="fa-solid fa-spinner fa-spin me-1"></i> Sincronizando...</span></li>
+                                    </ul>
+                                </div>
+                            </li>
+
                             <!-- Maximizar Pantalla -->
-                            <li class="head-maximize-screen d-none d-sm-block">
+                            <li class="head-maximize-screen d-none d-md-block">
                                 <span class="h-40 w-40 d-flex-center b-r-50 head-icon cursor-pointer" title="Pantalla Completa">
                                     <i class="fa-solid fa-expand text-secondary"></i>
                                 </span>
@@ -47,6 +60,8 @@
                             $nombreUsuarioDisplay = 'USUARIO';
                             $rolUsuarioDisplay = 'USUARIO';
                             $avatarUsuarioDisplay = url_activo('alina/images/avatar/01.png');
+                            $puedeVerOrgHeader = false;
+                            $puedeVerEdicionesHeader = false;
 
                             if ($contextoOp !== null && $contextoOp->usuarioId !== null) {
                                 $repoUsr = new \Aplicacion\Repositorios\UsuarioRepositorio();
@@ -66,6 +81,7 @@
 
                                 $authzHeader = new \Aplicacion\Autorizacion\AutorizacionServicio();
                                 $puedeVerOrgHeader = $authzHeader->tienePermiso($contextoOp->usuarioId, 'organizacion.ver');
+                                $puedeVerEdicionesHeader = $authzHeader->tienePermiso($contextoOp->usuarioId, 'ediciones.ver');
                             }
                             ?>
                             <li class="d-flex align-items-center gap-2 ms-2">
@@ -79,8 +95,11 @@
                                     </a>
                                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
                                         <li><h6 class="dropdown-header text-uppercase">Sesión Activa</h6></li>
-                                        <?php if ($puedeVerOrgHeader ?? false): ?>
+                                        <?php if ($puedeVerOrgHeader): ?>
                                         <li><a class="dropdown-item" href="<?= url_base('configuracion/organizacion') ?>"><i class="fa-solid fa-building me-2 text-secondary"></i> Ficha de Organización</a></li>
+                                        <?php endif; ?>
+                                        <?php if ($puedeVerEdicionesHeader): ?>
+                                        <li><a class="dropdown-item" href="<?= url_base('ediciones') ?>"><i class="fa-solid fa-calendar-check me-2 text-secondary"></i> Ediciones Candelaria</a></li>
                                         <?php endif; ?>
                                         <li><a class="dropdown-item" href="<?= url_base('usuarios') ?>"><i class="fa-solid fa-users-gear me-2 text-secondary"></i> Gestión de Usuarios</a></li>
                                         <li><hr class="dropdown-divider"></li>

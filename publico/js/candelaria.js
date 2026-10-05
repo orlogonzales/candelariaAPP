@@ -213,6 +213,12 @@ class CandelariaClienteApi {
             encabezados['X-CSRF-Token'] = tokenCsrf;
         }
 
+        // Inyectar contexto explícito de edición por pestaña desde sessionStorage (F2.1B)
+        const edicionContextoId = sessionStorage.getItem('candelaria_edicion_trabajo_id');
+        if (edicionContextoId && !encabezados['X-Edicion-Id']) {
+            encabezados['X-Edicion-Id'] = edicionContextoId;
+        }
+
         const configuracion = {
             method: metodo,
             headers: encabezados,
@@ -265,7 +271,131 @@ class CandelariaClienteApi {
     }
 }
 
+/**
+ * Gestor oficial del Contexto de Edición de Trabajo por Pestaña (F2.1B).
+ * Utiliza exclusivamente sessionStorage para garantizar aislamiento estricto por pestaña.
+ */
+const CandelariaContextoEdicion = {
+    CLAVE_SESSION_ID: 'candelaria_edicion_trabajo_id',
+    CLAVE_SESSION_NOMBRE: 'candelaria_edicion_trabajo_nombre',
+    CLAVE_SESSION_CODIGO: 'candelaria_edicion_trabajo_codigo',
+
+    escaparHtml(str) {
+        return String(str ?? '').replace(/[&<>"']/g, m => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        })[m]);
+    },
+
+    obtenerEdicionId() {
+        const id = sessionStorage.getItem(this.CLAVE_SESSION_ID);
+        return id ? parseInt(id, 10) : null;
+    },
+
+    establecerEdicion(id, nombre, codigo) {
+        sessionStorage.setItem(this.CLAVE_SESSION_ID, id);
+        if (nombre) sessionStorage.setItem(this.CLAVE_SESSION_NOMBRE, nombre);
+        if (codigo) sessionStorage.setItem(this.CLAVE_SESSION_CODIGO, codigo);
+        this.actualizarUISelector(id, nombre);
+        document.dispatchEvent(new CustomEvent('candelaria:edicion-cambiada', {
+            detail: { id, nombre, codigo }
+        }));
+    },
+
+    actualizarUISelector(id, nombre) {
+        const spanTexto = document.getElementById('textoEdicionGlobal');
+        if (spanTexto && nombre) {
+            spanTexto.textContent = nombre;
+        }
+        const items = document.querySelectorAll('.item-selector-edicion');
+        items.forEach(item => {
+            if (parseInt(item.dataset.edicionId, 10) === parseInt(id, 10)) {
+                item.classList.add('active', 'bg-light-primary');
+            } else {
+                item.classList.remove('active', 'bg-light-primary');
+            }
+        });
+    },
+
+    async sincronizarContextoInicial() {
+        try {
+            const res = await window.CandelariaApi.get('contexto/edicion');
+            if (!res.exito || !res.datos) return;
+
+            const datos = res.datos;
+            const edicionActual = datos.edicion_trabajo;
+            const idEnSesion = this.obtenerEdicionId();
+
+            if (!idEnSesion && edicionActual) {
+                // Primera carga: la pestaña no tenía selección, se guarda la edición institucional inicial
+                this.establecerEdicion(edicionActual.id, edicionActual.nombre, edicionActual.codigo);
+            } else if (idEnSesion) {
+                const nombreGuardado = sessionStorage.getItem(this.CLAVE_SESSION_NOMBRE);
+                this.actualizarUISelector(idEnSesion, nombreGuardado || (edicionActual ? edicionActual.nombre : 'Edición Seleccionada'));
+            }
+
+            this.renderizarListaDropdown(datos.ediciones || [], idEnSesion || (edicionActual ? edicionActual.id : null));
+        } catch (e) {
+            console.warn('[CandelariaContextoEdicion] Sincronización de contexto inicial omitida o fallida:', e);
+        }
+    },
+
+    renderizarListaDropdown(ediciones, idActivo) {
+        const listaUl = document.getElementById('listaEdicionesGlobal');
+        if (!listaUl) return;
+
+        if (!ediciones.length) {
+            listaUl.innerHTML = '<li><span class="dropdown-item-text text-muted f-s-12">No hay ediciones registradas</span></li>';
+            return;
+        }
+
+        let html = '<li><h6 class="dropdown-header text-uppercase f-s-11 text-muted">Edición de Trabajo (Esta Pestaña)</h6></li>';
+        ediciones.forEach(ed => {
+            const esSeleccionada = parseInt(ed.id, 10) === parseInt(idActivo, 10);
+            const badgeActual = ed.es_actual ? '<span class="badge bg-success-subtle text-success ms-2 f-s-10">ACTUAL</span>' : '';
+            html += `
+                <li>
+                    <a class="dropdown-item item-selector-edicion d-flex align-items-center justify-content-between py-2 px-3 ${esSeleccionada ? 'active bg-light-primary text-primary f-w-600' : ''}"
+                       href="javascript:void(0)"
+                       data-edicion-id="${ed.id}"
+                       data-edicion-nombre="${this.escaparHtml(ed.nombre)}"
+                       data-edicion-codigo="${this.escaparHtml(ed.codigo)}">
+                        <div class="d-flex flex-column text-start me-2">
+                            <span class="f-s-13">${this.escaparHtml(ed.nombre)}</span>
+                            <span class="f-s-11 text-muted">Año ${ed.anio} &bull; ${this.escaparHtml(ed.estado_etiqueta || ed.estado)}</span>
+                        </div>
+                        ${badgeActual}
+                    </a>
+                </li>
+            `;
+        });
+
+        const baseUrl = window.CANDELARIA_BASE_URL ? window.CANDELARIA_BASE_URL.replace(/\/$/, '') : '';
+        html += '<li><hr class="dropdown-divider my-1"></li>';
+        html += `<li><a class="dropdown-item f-s-12 text-primary" href="${baseUrl}/ediciones"><i class="fa-solid fa-sliders me-1"></i> Administrar Ediciones</a></li>`;
+
+        listaUl.innerHTML = html;
+
+        listaUl.querySelectorAll('.item-selector-edicion').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const id = parseInt(link.dataset.edicionId, 10);
+                const nombre = link.dataset.edicionNombre;
+                const codigo = link.dataset.edicionCodigo;
+                CandelariaContextoEdicion.establecerEdicion(id, nombre, codigo);
+            });
+        });
+    }
+};
+
 // Inicialización global en la ventana
 window.Candelaria = new CandelariaApp();
 window.CandelariaUI = CandelariaUI;
 window.CandelariaApi = new CandelariaClienteApi();
+window.CandelariaContextoEdicion = CandelariaContextoEdicion;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Sincronizar contexto solo si existe contenedor de selector o sesión activa
+    if (document.getElementById('contenedorSelectorEdicion')) {
+        CandelariaContextoEdicion.sincronizarContextoInicial();
+    }
+});

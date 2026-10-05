@@ -31,6 +31,9 @@
     <!-- DataTables CSS (Alina Vendor) -->
     <link rel="stylesheet" href="<?= url_activo('alina/vendor/datatable/jquery.dataTables.min.css') ?>">
 
+    <!-- Flatpickr CSS (Alina Vendor) -->
+    <link rel="stylesheet" href="<?= url_activo('alina/vendor/flatpickr/flatpickr.min.css') ?>">
+
     <!-- Capa Derivada CandelariaAPP (Sobrescritura tipográfica, tooltips y personalización) -->
     <link rel="stylesheet" href="<?= url_base('publico/css/candelaria.css') ?>">
 

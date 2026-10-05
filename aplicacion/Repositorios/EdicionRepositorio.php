@@ -34,11 +34,11 @@ class EdicionRepositorio
         $sql = "INSERT INTO `ediciones_candelaria` (
                     `organizacion_id`, `codigo`, `nombre`, `anio`, `estado`,
                     `fecha_inicio`, `fecha_fin`, `descripcion`, `es_actual`,
-                    `flyer_oficial_url`, `configuracion_json`
+                    `flyer_oficial_url`
                 ) VALUES (
                     :organizacion_id, :codigo, :nombre, :anio, :estado,
                     :fecha_inicio, :fecha_fin, :descripcion, :es_actual,
-                    :flyer_oficial_url, :configuracion_json
+                    :flyer_oficial_url
                 )";
 
         $stmt = $this->pdo->prepare($sql);
@@ -53,7 +53,6 @@ class EdicionRepositorio
             ':descripcion'        => $edicion->descripcion,
             ':es_actual'          => $edicion->esActual ? 1 : 0,
             ':flyer_oficial_url'  => $edicion->flyerOficialUrl,
-            ':configuracion_json' => $edicion->configuracion !== null ? json_encode($edicion->configuracion, JSON_UNESCAPED_UNICODE) : null,
         ]);
 
         return (int) $this->pdo->lastInsertId();
@@ -94,8 +93,7 @@ class EdicionRepositorio
                     `fecha_inicio`       = :fecha_inicio,
                     `fecha_fin`          = :fecha_fin,
                     `descripcion`        = :descripcion,
-                    `flyer_oficial_url`  = :flyer_oficial_url,
-                    `configuracion_json` = :configuracion_json
+                    `flyer_oficial_url`  = :flyer_oficial_url
                 WHERE `id` = :id AND `organizacion_id` = :organizacion_id";
 
         $stmt = $this->pdo->prepare($sql);
@@ -108,7 +106,6 @@ class EdicionRepositorio
             ':fecha_fin'          => $edicion->fechaFin,
             ':descripcion'        => $edicion->descripcion,
             ':flyer_oficial_url'  => $edicion->flyerOficialUrl,
-            ':configuracion_json' => $edicion->configuracion !== null ? json_encode($edicion->configuracion, JSON_UNESCAPED_UNICODE) : null,
         ]);
     }
 
@@ -251,13 +248,6 @@ class EdicionRepositorio
      */
     private function hidratar(array $f): Edicion
     {
-        $configuracion = null;
-        if (!empty($f['configuracion_json'])) {
-            $configuracion = is_array($f['configuracion_json'])
-                ? $f['configuracion_json']
-                : json_decode((string) $f['configuracion_json'], true);
-        }
-
         return new Edicion(
             id: (int) $f['id'],
             organizacionId: (int) $f['organizacion_id'],
@@ -270,7 +260,6 @@ class EdicionRepositorio
             descripcion: $f['descripcion'] !== null ? (string) $f['descripcion'] : null,
             esActual: (bool) $f['es_actual'],
             flyerOficialUrl: $f['flyer_oficial_url'] !== null ? (string) $f['flyer_oficial_url'] : null,
-            configuracion: $configuracion,
             creadoEn: (string) $f['creado_en'],
             actualizadoEn: (string) $f['actualizado_en']
         );

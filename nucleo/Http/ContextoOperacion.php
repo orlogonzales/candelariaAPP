@@ -35,7 +35,9 @@ class ContextoOperacion
         public readonly ?string $origenIp = null,
         public readonly ?string $agenteUsuario = null,
         public readonly ?int $organizacionId = null,
-        public readonly array $metadatos = []
+        public readonly array $metadatos = [],
+        public readonly ?int $edicionTrabajoId = null,
+        public readonly string $origenEdicion = 'AUSENTE' // 'EXPLICITA' | 'INSTITUCIONAL' | 'AUSENTE'
     ) {
         $this->validarInvariantes();
     }
@@ -62,6 +64,23 @@ class ContextoOperacion
 
         if (empty($this->correlacionId) || strlen($this->correlacionId) < 16) {
             throw new InvalidArgumentException('El correlacionId debe tener al menos 16 caracteres válidos.');
+        }
+
+        if (!in_array($this->origenEdicion, ['EXPLICITA', 'INSTITUCIONAL', 'AUSENTE'], true)) {
+            throw new InvalidArgumentException("Origen de edición de trabajo no soportado: {$this->origenEdicion}");
+        }
+
+        if ($this->edicionTrabajoId !== null) {
+            if ($this->edicionTrabajoId <= 0) {
+                throw new InvalidArgumentException('El identificador de edición de trabajo debe ser mayor a 0.');
+            }
+            if ($this->origenEdicion === 'AUSENTE') {
+                throw new InvalidArgumentException('Se requiere especificar un origen (EXPLICITA o INSTITUCIONAL) para una edición de trabajo asignada.');
+            }
+        } else {
+            if ($this->origenEdicion !== 'AUSENTE') {
+                throw new InvalidArgumentException('El origen de edición debe ser AUSENTE cuando no existe edición de trabajo.');
+            }
         }
     }
 
@@ -117,7 +136,9 @@ class ContextoOperacion
         ?string $agenteUsuario = null,
         ?int $organizacionId = null,
         ?string $correlacionId = null,
-        array $metadatos = []
+        array $metadatos = [],
+        ?int $edicionTrabajoId = null,
+        string $origenEdicion = 'AUSENTE'
     ): self {
         return new self(
             actorTipo: 'HUMANO',
@@ -130,7 +151,9 @@ class ContextoOperacion
             origenIp: $origenIp,
             agenteUsuario: $agenteUsuario,
             organizacionId: $organizacionId,
-            metadatos: $metadatos
+            metadatos: $metadatos,
+            edicionTrabajoId: $edicionTrabajoId,
+            origenEdicion: $origenEdicion
         );
     }
 
@@ -146,7 +169,9 @@ class ContextoOperacion
         ?string $agenteUsuario = null,
         ?int $organizacionId = null,
         ?string $correlacionId = null,
-        array $metadatos = []
+        array $metadatos = [],
+        ?int $edicionTrabajoId = null,
+        string $origenEdicion = 'AUSENTE'
     ): self {
         return new self(
             actorTipo: 'SISTEMA',
@@ -159,7 +184,31 @@ class ContextoOperacion
             origenIp: $origenIp,
             agenteUsuario: $agenteUsuario,
             organizacionId: $organizacionId,
-            metadatos: $metadatos
+            metadatos: $metadatos,
+            edicionTrabajoId: $edicionTrabajoId,
+            origenEdicion: $origenEdicion
+        );
+    }
+
+    /**
+     * Retorna una nueva instancia inmutable clonada asociando el contexto de edición de trabajo resuelto.
+     */
+    public function conEdicionTrabajo(?int $edicionTrabajoId, string $origenEdicion = 'EXPLICITA'): self
+    {
+        return new self(
+            actorTipo: $this->actorTipo,
+            usuarioId: $this->usuarioId,
+            actorSistemaId: $this->actorSistemaId,
+            actorSistemaCodigo: $this->actorSistemaCodigo,
+            canalId: $this->canalId,
+            canalCodigo: $this->canalCodigo,
+            correlacionId: $this->correlacionId,
+            origenIp: $this->origenIp,
+            agenteUsuario: $this->agenteUsuario,
+            organizacionId: $this->organizacionId,
+            metadatos: $this->metadatos,
+            edicionTrabajoId: $edicionTrabajoId,
+            origenEdicion: $origenEdicion
         );
     }
 }

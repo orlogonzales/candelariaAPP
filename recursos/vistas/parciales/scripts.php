@@ -14,6 +14,9 @@
 <script src="<?= url_activo('alina/vendor/datatable/jquery.dataTables.min.js') ?>"></script>
 <script src="<?= url_activo('alina/vendor/datatable/dataTables.responsive.min.js') ?>"></script>
 
+<!-- Flatpickr (Alina Vendor) -->
+<script src="<?= url_activo('alina/vendor/flatpickr/flatpickr.js') ?>"></script>
+
 <!-- Skeleton Loaders Centralizado CandelariaAPP -->
 <script src="<?= url_base('publico/js/skeleton.js') ?>"></script>
 
