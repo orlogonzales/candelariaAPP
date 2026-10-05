@@ -23,6 +23,28 @@ class ProtectorCsrf
     }
 
     /**
+     * Obtiene el token CSRF del contexto activo o genera uno nuevo.
+     */
+    public static function obtenerOCrearToken(): string
+    {
+        $contexto = \Nucleo\Http\ContextoOperacion::actual();
+        if ($contexto !== null && !empty($contexto->metadatos['csrf_token'])) {
+            return (string) $contexto->metadatos['csrf_token'];
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['_csrf_token'])) {
+            return (string) $_SESSION['_csrf_token'];
+        }
+
+        $nuevo = self::generarToken();
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['_csrf_token'] = $nuevo;
+        }
+
+        return $nuevo;
+    }
+
+    /**
      * Valida de manera segura un token CSRF comparándolo en tiempo constante.
      * Retorna false ante tokens nulos, vacíos o dispares, previniendo timing attacks.
      */

@@ -32,7 +32,8 @@ Options -Indexes
     RewriteEngine On
 
     # 3. Denegar acceso directo a directorios internos del backend y almacenamiento
-    RewriteRule ^(base_datos|almacenamiento|nucleo|aplicacion|configuracion|recursos|rutas|pruebas|docs|vendor)(/.*)?$ - [F,L,NC]
+    RewriteRule ^(base_datos|almacenamiento|nucleo|aplicacion|recursos|rutas|pruebas|docs|vendor)(/.*)?$ - [F,L,NC]
+    RewriteRule ^configuracion/.*\.php$ - [F,L,NC]
 
     # 4. Servir archivos estaticos existentes en publico o admin-dashboard
     RewriteCond %{REQUEST_FILENAME} -f

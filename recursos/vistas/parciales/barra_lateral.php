@@ -1,16 +1,37 @@
+<?php
+$contextoBarra = \Nucleo\Http\ContextoOperacion::actual();
+$puedeVerOrg = false;
+$puedeVerUsuarios = false;
+if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
+    $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
+    $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
+    $puedeVerUsuarios = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'usuarios.ver');
+}
+$seccionActual = $seccionActiva ?? 'dashboard';
+$esConfig = in_array($seccionActual, ['usuarios', 'organizacion'], true);
+
+$repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
+$orgOperativa = $repoOrgBarra->buscarPorId($contextoBarra->organizacionId ?? 10000);
+$isotipoOrg = $orgOperativa?->isotipoUrl ? url_subida($orgOperativa->isotipoUrl) : null;
+$nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'O.G. Estudio Creativo';
+?>
     <!-- Navegación y Barras Laterales (Alina + CandelariaAPP) -->
     <nav class="app-navbar">
         <!-- 1. Barra Lateral Compacta (Semi-Side-Nav) con Tooltips Funcionales -->
         <div class="semi-side-nav">
             <div class="py-4">
-               <span class="bg-white text-dark h-40 w-40 d-flex-center b-r-12 mx-auto shadow-sm" title="O.G. Estudio Creativo">
-                   <span class="f-w-700 f-s-16">OG</span>
+               <span class="bg-white text-dark h-40 w-40 d-flex-center b-r-12 mx-auto shadow-sm overflow-hidden" title="<?= escapar_html($nombreOrgDisplay) ?>">
+                   <?php if (!empty($isotipoOrg)): ?>
+                       <img src="<?= escapar_html($isotipoOrg) ?>" alt="Isotipo" class="w-100 h-100 object-fit-contain p-1">
+                   <?php else: ?>
+                       <span class="f-w-700 f-s-16">OG</span>
+                   <?php endif; ?>
                </span>
             </div>
 
             <ul class="navbar-menu-list" role="tablist">
                 <li class="nav-item">
-                    <a href="#" class="nav-link active" data-target="menuPrincipal" title="PANEL PRINCIPAL" aria-label="Panel Principal" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <a href="#" class="nav-link <?= !$esConfig ? 'active' : '' ?>" data-target="menuPrincipal" title="PANEL PRINCIPAL" aria-label="Panel Principal" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
                     </a>
                 </li>
@@ -46,7 +67,7 @@
                 </li>
 
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="menuConfiguracion" title="CONFIGURACIÓN Y PLATAFORMA" aria-label="Configuración y Plataforma" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <a href="#" class="nav-link <?= $esConfig ? 'active' : '' ?>" data-target="menuConfiguracion" title="CONFIGURACIÓN Y PLATAFORMA" aria-label="Configuración y Plataforma" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-sliders" aria-hidden="true"></i>
                     </a>
                 </li>
@@ -66,7 +87,7 @@
                         <span class="text-danger f-s-24"><i class="fa-solid fa-fire-flame-curved"></i></span>
                         <div class="d-flex flex-column">
                             <span class="f-s-18 f-w-700 text-dark tracking-wide">CANDELARIA<span class="text-danger">APP</span></span>
-                            <span class="f-s-11 text-muted text-uppercase">O.G. Estudio Creativo</span>
+                            <span class="f-s-11 text-muted text-uppercase"><?= escapar_html($nombreOrgDisplay) ?></span>
                         </div>
                     </div>
                 </a>
@@ -188,25 +209,33 @@
                     </ul>
 
                     <!-- Menú: Configuración -->
-                    <ul class="main-menu" id="menuConfiguracion" style="display: none;">
+                    <ul class="main-menu" id="menuConfiguracion" style="<?= $esConfig ? 'display: block;' : 'display: none;' ?>">
+                        <?php if ($puedeVerOrg): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('configuracion/organizacion') ?>" id="navConfigOrganizacion" class="<?= $seccionActual === 'organizacion' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-building me-2 text-secondary"></i> Organización
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerUsuarios): ?>
                         <li>
                             <a aria-expanded="true" data-bs-toggle="collapse" href="#subSeguridad">
                                 <i class="fa-solid fa-user-shield me-2 text-secondary"></i> Control de Acceso
                             </a>
                             <ul class="collapse show" id="subSeguridad">
                                 <li>
-                                    <a href="<?= url_base('usuarios') ?>" id="navConfigUsuarios">
+                                    <a href="<?= url_base('usuarios') ?>" id="navConfigUsuarios" class="<?= $seccionActual === 'usuarios' ? 'active' : '' ?>">
                                         <i class="fa-solid fa-users-gear me-2 text-secondary"></i> Padrón de Usuarios
                                     </a>
                                 </li>
                             </ul>
                         </li>
+                        <?php endif; ?>
                         <li>
                             <a aria-expanded="true" data-bs-toggle="collapse" href="#subConfig">
                                 <i class="fa-solid fa-sliders me-2 text-secondary"></i> Parámetros
                             </a>
                             <ul class="collapse show" id="subConfig">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Organización / Tenant</a></li>
                                 <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Catálogo Comercial</a></li>
                                 <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Auditoría de Operaciones</a></li>
                             </ul>

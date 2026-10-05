@@ -180,3 +180,11 @@ Enrutador::patch('/api/v1/usuarios/{id}/estado', [\Aplicacion\Controladores\Usua
 Enrutador::put('/api/v1/usuarios/{id}/roles', [\Aplicacion\Controladores\UsuarioControlador::class, 'sincronizarRoles']);
 Enrutador::post('/api/v1/usuarios/{id}/restablecer-clave', [\Aplicacion\Controladores\UsuarioControlador::class, 'restablecerClave']);
 Enrutador::delete('/api/v1/usuarios/{id}', [\Aplicacion\Controladores\UsuarioControlador::class, 'eliminar']);
+
+// ==============================================================================
+// GESTIÓN DE ORGANIZACIÓN Y BRANDING (MICROLOTE F1.2B)
+// ==============================================================================
+Enrutador::get('/api/v1/organizacion', [\Aplicacion\Controladores\OrganizacionControlador::class, 'detalle']);
+Enrutador::put('/api/v1/organizacion', [\Aplicacion\Controladores\OrganizacionControlador::class, 'actualizar']);
+Enrutador::post('/api/v1/organizacion/branding/logo', [\Aplicacion\Controladores\OrganizacionControlador::class, 'actualizarLogo']);
+Enrutador::post('/api/v1/organizacion/branding/isotipo', [\Aplicacion\Controladores\OrganizacionControlador::class, 'actualizarIsotipo']);

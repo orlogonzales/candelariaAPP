@@ -89,3 +89,33 @@ Enrutador::get('/usuarios', function () {
         'scriptAdicional' => url_base('publico/js/usuarios.js')
     ], 'principal');
 });
+
+// 5. Módulo de Configuración — Ficha de Organización y Branding (F1.2B)
+Enrutador::get('/configuracion/organizacion', function () {
+    $authMiddleware = new AutenticacionMiddleware();
+    $contexto = $authMiddleware->procesar($_SERVER, $_COOKIE, false);
+
+    if ($contexto === null) {
+        header('Location: ' . url_base('login'));
+        exit;
+    }
+
+    $authzMiddleware = new AutorizacionMiddleware();
+    if (!$authzMiddleware->verificarPermiso('organizacion.ver', $contexto, false)) {
+        http_response_code(403);
+        return Vista::renderizar('errores/403', [
+            'titulo'        => 'Acceso Denegado | CandelariaAPP',
+            'subtitulo'     => 'Configuración de Organización',
+            'tituloSeccion' => 'Error 403',
+            'mensaje'       => 'No cuenta con los privilegios necesarios (organizacion.ver) para consultar la ficha de organización.'
+        ], 'principal');
+    }
+
+    return Vista::renderizar('configuracion/organizacion', [
+        'titulo'          => 'Ficha de Organización | CandelariaAPP',
+        'subtitulo'       => 'Configuración Institucional y Branding',
+        'tituloSeccion'   => 'Organización',
+        'seccionActiva'   => 'organizacion',
+        'scriptAdicional' => url_base('publico/js/organizacion.js')
+    ], 'principal');
+});

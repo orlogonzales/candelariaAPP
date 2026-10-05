@@ -108,3 +108,17 @@ if (!function_exists('url_activo')) {
         return url_base('publico/activos/' . $rutaLimpia);
     }
 }
+
+if (!function_exists('url_subida')) {
+    /**
+     * Genera la URL pública hacia un recurso subido en el almacenamiento institucional.
+     */
+    function url_subida(?string $ruta = ''): string
+    {
+        if (empty($ruta)) {
+            return '';
+        }
+        $rutaLimpia = ltrim($ruta, '/');
+        return url_base('publico/' . $rutaLimpia);
+    }
+}

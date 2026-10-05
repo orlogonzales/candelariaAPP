@@ -63,6 +63,9 @@
                                 if (!empty($rolesUsr)) {
                                     $rolUsuarioDisplay = $rolesUsr[0]->nombre;
                                 }
+
+                                $authzHeader = new \Aplicacion\Autorizacion\AutorizacionServicio();
+                                $puedeVerOrgHeader = $authzHeader->tienePermiso($contextoOp->usuarioId, 'organizacion.ver');
                             }
                             ?>
                             <li class="d-flex align-items-center gap-2 ms-2">
@@ -76,6 +79,9 @@
                                     </a>
                                     <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
                                         <li><h6 class="dropdown-header text-uppercase">Sesión Activa</h6></li>
+                                        <?php if ($puedeVerOrgHeader ?? false): ?>
+                                        <li><a class="dropdown-item" href="<?= url_base('configuracion/organizacion') ?>"><i class="fa-solid fa-building me-2 text-secondary"></i> Ficha de Organización</a></li>
+                                        <?php endif; ?>
                                         <li><a class="dropdown-item" href="<?= url_base('usuarios') ?>"><i class="fa-solid fa-users-gear me-2 text-secondary"></i> Gestión de Usuarios</a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item text-danger" href="<?= url_base('logout') ?>" id="btnLogoutHeader"><i class="fa-solid fa-right-from-bracket me-2"></i> Cerrar Sesión</a></li>
