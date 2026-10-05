@@ -61,11 +61,10 @@ class OrganizacionControlador
     {
         try {
             $contexto = $this->verificarSesionYPermiso('organizacion.ver');
+            $orgId = $this->resolverOrganizacionId($contexto);
         } catch (AccesoDenegadoExcepcion $e) {
             return $this->responderJson(false, $e->getCode() ?: 403, $e->getMessage());
         }
-
-        $orgId = $this->resolverOrganizacionId($contexto);
 
         $org = $this->orgRepo->buscarPorId($orgId);
         if ($org === null) {
@@ -90,13 +89,13 @@ class OrganizacionControlador
         try {
             $contexto = $this->verificarSesionYPermiso('organizacion.editar');
             $this->validarCsrf($contexto);
+            $orgId = $this->resolverOrganizacionId($contexto);
         } catch (AccesoDenegadoExcepcion $e) {
             return $this->responderJson(false, $e->getCode() ?: 403, $e->getMessage());
         } catch (InvalidArgumentException $e) {
             return $this->responderJson(false, 403, $e->getMessage());
         }
 
-        $orgId = $this->resolverOrganizacionId($contexto);
         $orgExistente = $this->orgRepo->buscarPorId($orgId);
         if ($orgExistente === null) {
             return $this->responderJson(false, 404, 'Organización no encontrada.');
@@ -104,7 +103,21 @@ class OrganizacionControlador
 
         $cuerpo = $this->obtenerCuerpoPeticion();
 
-        // 1. Validaciones y normalizaciones estrictas
+        // 1. Verificación de concurrencia optimista
+        $actualizadoEnEsperado = isset($cuerpo['actualizado_en_esperado']) ? trim((string) $cuerpo['actualizado_en_esperado']) : null;
+        if ($actualizadoEnEsperado !== null && $actualizadoEnEsperado !== '' && $orgExistente->actualizadoEn !== null) {
+            $tsEsperado = strtotime($actualizadoEnEsperado);
+            $tsActual   = strtotime($orgExistente->actualizadoEn);
+            if ($tsEsperado !== false && $tsActual !== false && $tsEsperado !== $tsActual) {
+                return $this->responderJson(
+                    false,
+                    409,
+                    'Conflicto de concurrencia: la información de la organización fue modificada por otro usuario (' . $orgExistente->actualizadoEn . '). Actualice la página para obtener la última versión.'
+                );
+            }
+        }
+
+        // 2. Validaciones y normalizaciones estrictas
         $nombreComercial = trim((string) ($cuerpo['nombre_comercial'] ?? ''));
         if (empty($nombreComercial)) {
             return $this->responderJson(false, 422, 'El nombre comercial de la organización es obligatorio.');
@@ -229,13 +242,13 @@ class OrganizacionControlador
         try {
             $contexto = $this->verificarSesionYPermiso('branding.editar');
             $this->validarCsrf($contexto);
+            $orgId = $this->resolverOrganizacionId($contexto);
         } catch (AccesoDenegadoExcepcion $e) {
             return $this->responderJson(false, $e->getCode() ?: 403, $e->getMessage());
         } catch (InvalidArgumentException $e) {
             return $this->responderJson(false, 403, $e->getMessage());
         }
 
-        $orgId = $this->resolverOrganizacionId($contexto);
         $orgExistente = $this->orgRepo->buscarPorId($orgId);
         if ($orgExistente === null) {
             return $this->responderJson(false, 404, 'Organización no encontrada.');

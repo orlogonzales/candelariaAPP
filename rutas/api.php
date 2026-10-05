@@ -146,9 +146,18 @@ Enrutador::get('/api/v1/usuarios/lista', function () {
     $rbacMiddleware = new \Nucleo\Http\Middleware\AutorizacionMiddleware();
     $rbacMiddleware->verificarPermiso('usuarios.ver', $contexto, true);
 
-    // 3. Operación permitida en Backend
+    // 3. Operación permitida en Backend (Fail-closed estricto si no hay tenant)
+    if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+        http_response_code(403);
+        return json_encode([
+            'exito'   => false,
+            'codigo'  => 403,
+            'mensaje' => 'Contexto organizacional ausente o inválido para la sesión activa.'
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    }
+
     $repo = new \Aplicacion\Repositorios\UsuarioRepositorio();
-    $usuarios = $repo->buscarPorOrganizacion($contexto->organizacionId ?? 1, 10, 0);
+    $usuarios = $repo->buscarPorOrganizacion($contexto->organizacionId, 10, 0);
 
     return json_encode([
         'exito'   => true,
