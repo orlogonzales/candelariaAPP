@@ -30,14 +30,26 @@ CREATE TABLE `organizaciones` (
     `codigo` VARCHAR(50) NOT NULL COMMENT 'Identificador único amigable del tenant',
     `nombre_comercial` VARCHAR(150) NOT NULL COMMENT 'Nombre comercial (ej. O.G. Estudio Creativo)',
     `razon_social` VARCHAR(200) DEFAULT NULL,
+    `tipo_documento_id` TINYINT UNSIGNED DEFAULT 2,
     `numero_documento` VARCHAR(30) DEFAULT NULL COMMENT 'RUC u otro identificador fiscal',
+    `direccion` VARCHAR(255) DEFAULT NULL,
+    `codigo_pais` CHAR(2) NOT NULL DEFAULT 'PE' COMMENT 'Código ISO 3166-1 alpha-2',
+    `departamento` VARCHAR(100) DEFAULT NULL,
+    `provincia` VARCHAR(100) DEFAULT NULL,
+    `distrito` VARCHAR(100) DEFAULT NULL,
     `correo_contacto` VARCHAR(150) DEFAULT NULL,
+    `sitio_web` VARCHAR(200) DEFAULT NULL,
     `telefono_contacto` VARCHAR(50) DEFAULT NULL,
+    `telefono_whatsapp` VARCHAR(30) DEFAULT NULL,
+    `contacto_nombre` VARCHAR(150) DEFAULT NULL,
+    `contacto_cargo` VARCHAR(100) DEFAULT NULL,
     `logo_url` VARCHAR(255) DEFAULT NULL,
+    `isotipo_url` VARCHAR(255) DEFAULT NULL,
     `marca_configuracion_json` JSON DEFAULT NULL COMMENT 'Colores, logos, membretes y personalización de marca',
     `estado` ENUM('ACTIVO', 'INACTIVO', 'SUSPENDIDO') NOT NULL DEFAULT 'ACTIVO',
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`tipo_documento_id`) REFERENCES `tipos_documento` (`id`) ON DELETE RESTRICT,
     UNIQUE KEY `uk_organizaciones_codigo` (`codigo`),
     KEY `idx_organizaciones_estado` (`estado`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tenants u organizaciones suscriptoras';
@@ -337,5 +349,37 @@ CREATE TABLE `auditoria_operaciones` (
         (`actor_tipo` = 'SISTEMA' AND `usuario_id` IS NULL AND `actor_sistema_id` IS NOT NULL)
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pista de auditoría inmutable de operaciones sensibles con validación estructural de actor';
+
+-- ------------------------------------------------------------------------------
+-- 12. PARÁMETROS TIPADOS Y GOBERNADOS (ÁMBITOS PLATAFORMA Y ORGANIZACIÓN)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `parametros_configuracion`;
+CREATE TABLE `parametros_configuracion` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED DEFAULT NULL COMMENT 'NULL para ámbito PLATAFORMA; id del tenant para ámbito ORGANIZACION',
+    `ambito` ENUM('PLATAFORMA', 'ORGANIZACION') NOT NULL DEFAULT 'PLATAFORMA',
+    `codigo` VARCHAR(80) NOT NULL COMMENT 'Identificador único y canónico del parámetro (ej. plataforma.monto_minimo_pago_pe)',
+    `tipo_dato` ENUM('STRING', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME') NOT NULL DEFAULT 'STRING',
+    `valor` TEXT DEFAULT NULL COMMENT 'Valor almacenado como cadena tipada, validado y casteado por backend',
+    `valor_defecto` TEXT DEFAULT NULL COMMENT 'Valor por defecto de contingencia',
+    `etiqueta` VARCHAR(150) NOT NULL COMMENT 'Nombre legible del parámetro',
+    `descripcion` VARCHAR(255) DEFAULT NULL COMMENT 'Propósito y documentación del parámetro',
+    `reglas_validacion_json` JSON DEFAULT NULL COMMENT 'Reglas de validación: min, max, regex, opciones',
+    `es_sistema` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 si es parámetro estructural inmutable en definición',
+    `es_publico` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 si puede ser expuesto de forma segura sin autenticación',
+    `es_editable` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '0 si solo puede modificarse por consola o migración',
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE CASCADE,
+    UNIQUE KEY `uk_param_org_codigo` (`organizacion_id`, `codigo`),
+    KEY `idx_param_ambito` (`ambito`),
+    KEY `idx_param_codigo` (`codigo`),
+    CONSTRAINT `chk_param_ambito_org` CHECK (
+        (`ambito` = 'PLATAFORMA' AND `organizacion_id` IS NULL)
+        OR
+        (`ambito` = 'ORGANIZACION' AND `organizacion_id` IS NOT NULL)
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Parámetros gobernados y tipados de configuración por ámbito (Plataforma y Organización)';
 
 SET FOREIGN_KEY_CHECKS = 1;
