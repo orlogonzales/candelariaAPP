@@ -14,9 +14,11 @@ $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
-$orgOperativa = $repoOrgBarra->buscarPorId($contextoBarra->organizacionId ?? 10000);
+$orgOperativa = ($contextoBarra !== null && $contextoBarra->organizacionId !== null && $contextoBarra->organizacionId > 0)
+    ? $repoOrgBarra->buscarPorId($contextoBarra->organizacionId)
+    : null;
 $isotipoOrg = $orgOperativa?->isotipoUrl ? url_subida($orgOperativa->isotipoUrl) : null;
-$nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'O.G. Estudio Creativo';
+$nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
 ?>
     <!-- Navegación y Barras Laterales (Alina + CandelariaAPP) -->
     <nav class="app-navbar">

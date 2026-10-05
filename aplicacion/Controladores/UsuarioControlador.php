@@ -6,6 +6,7 @@ namespace Aplicacion\Controladores;
 
 use Aplicacion\Entidades\Persona;
 use Aplicacion\Entidades\Usuario;
+use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
 use Aplicacion\Repositorios\AuditoriaRepositorio;
 use Aplicacion\Repositorios\PersonaRepositorio;
 use Aplicacion\Repositorios\RolRepositorio;
@@ -60,15 +61,19 @@ class UsuarioControlador
      */
     public function listar(): string
     {
-        $contexto = $this->verificarSesionYPermiso('usuarios.ver');
-        $orgId = $contexto->organizacionId ?? 1;
+        try {
+            $contexto = $this->verificarSesionYPermiso('usuarios.ver');
+            $orgId = $this->resolverOrganizacionId($contexto);
 
-        $usuarios = $this->usuarioRepo->obtenerTodosConDetalles($orgId);
+            $usuarios = $this->usuarioRepo->obtenerTodosConDetalles($orgId);
 
-        return $this->responderJson(true, 200, 'Padrón de usuarios obtenido exitosamente.', [
-            'total'    => count($usuarios),
-            'usuarios' => $usuarios,
-        ]);
+            return $this->responderJson(true, 200, 'Padrón de usuarios obtenido exitosamente.', [
+                'total'    => count($usuarios),
+                'usuarios' => $usuarios,
+            ]);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderJson(false, $e->obtenerCodigoHttp(), $e->getMessage());
+        }
     }
 
     /**
@@ -103,15 +108,19 @@ class UsuarioControlador
      */
     public function personasDisponibles(): string
     {
-        $contexto = $this->verificarSesionYPermiso('usuarios.crear');
-        $orgId = $contexto->organizacionId ?? 1;
+        try {
+            $contexto = $this->verificarSesionYPermiso('usuarios.crear');
+            $orgId = $this->resolverOrganizacionId($contexto);
 
-        $personas = $this->personaRepo->buscarDisponiblesSinUsuario($orgId);
+            $personas = $this->personaRepo->buscarDisponiblesSinUsuario($orgId);
 
-        return $this->responderJson(true, 200, 'Personas disponibles obtenidas.', [
-            'total'    => count($personas),
-            'personas' => $personas,
-        ]);
+            return $this->responderJson(true, 200, 'Personas disponibles obtenidas.', [
+                'total'    => count($personas),
+                'personas' => $personas,
+            ]);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderJson(false, $e->obtenerCodigoHttp(), $e->getMessage());
+        }
     }
 
     /**
@@ -136,18 +145,23 @@ class UsuarioControlador
      */
     public function roles(): string
     {
-        $contexto = $this->verificarSesionYPermiso('usuarios.roles');
-        $operadorId = $contexto->usuarioId ?? 0;
-        $roles = $this->authzMiddleware->obtenerRolesAsignables($operadorId, $contexto->organizacionId);
+        try {
+            $contexto = $this->verificarSesionYPermiso('usuarios.roles');
+            $operadorId = $contexto->usuarioId ?? 0;
+            $orgId = $this->resolverOrganizacionId($contexto);
+            $roles = $this->authzMiddleware->obtenerRolesAsignables($operadorId, $orgId);
 
-        return $this->responderJson(true, 200, 'Catálogo de roles obtenido.', [
-            'roles' => array_map(fn($r) => [
-                'id'          => $r->id,
-                'codigo'      => $r->codigo,
-                'nombre'      => $r->nombre,
-                'descripcion' => $r->descripcion,
-            ], $roles),
-        ]);
+            return $this->responderJson(true, 200, 'Catálogo de roles obtenido.', [
+                'roles' => array_map(fn($r) => [
+                    'id'          => $r->id,
+                    'codigo'      => $r->codigo,
+                    'nombre'      => $r->nombre,
+                    'descripcion' => $r->descripcion,
+                ], $roles),
+            ]);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderJson(false, $e->obtenerCodigoHttp(), $e->getMessage());
+        }
     }
 
     /**
@@ -156,11 +170,15 @@ class UsuarioControlador
      */
     public function crear(): string
     {
-        $contexto = $this->verificarSesionYPermiso('usuarios.crear');
-        $this->verificarCsrf($contexto);
+        try {
+            $contexto = $this->verificarSesionYPermiso('usuarios.crear');
+            $this->verificarCsrf($contexto);
+            $orgId = $this->resolverOrganizacionId($contexto);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderJson(false, $e->obtenerCodigoHttp(), $e->getMessage());
+        }
 
         $datos = $this->obtenerCuerpo();
-        $orgId = $contexto->organizacionId ?? 1;
 
         // 1. Validar campos requeridos de usuario
         $nombreUsuario = normalizar_minusculas(trim((string) ($datos['nombre_usuario'] ?? '')));
@@ -354,6 +372,11 @@ class UsuarioControlador
                 'id'             => $usuarioId,
                 'nombre_usuario' => $nombreUsuario,
             ]);
+        } catch (AccesoDenegadoExcepcion $e) {
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            return $this->responderJson(false, $e->obtenerCodigoHttp(), $e->getMessage());
         } catch (\Throwable $e) {
             if ($transaccionPropia && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -613,6 +636,22 @@ class UsuarioControlador
         }
 
         return $usuario;
+    }
+
+    /**
+     * Resuelve el identificador de la organización asociada al contexto de operación activo.
+     * Gobernanza: Fail-closed estricto. Cero fallback silencioso a IDs mágicos.
+     */
+    private function resolverOrganizacionId(ContextoOperacion $contexto): int
+    {
+        if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+            if (!headers_sent()) {
+                http_response_code(403);
+            }
+            throw new AccesoDenegadoExcepcion('Contexto organizacional ausente o inválido para la sesión activa.', null, 403);
+        }
+
+        return $contexto->organizacionId;
     }
 
     /**

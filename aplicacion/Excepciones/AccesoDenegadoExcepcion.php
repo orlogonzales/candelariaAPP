@@ -18,4 +18,9 @@ class AccesoDenegadoExcepcion extends RuntimeException
     ) {
         parent::__construct($mensaje, $codigoHttp);
     }
+
+    public function obtenerCodigoHttp(): int
+    {
+        return $this->codigoHttp;
+    }
 }

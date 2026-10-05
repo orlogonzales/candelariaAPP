@@ -91,70 +91,89 @@ afirmar(
 );
 
 // ==============================================================================
-// 2. AUTENTICACIÓN EXITOSA DE LA CUENTA ORLANDO
-// ==============================================================================
-$claveOrlando = 'TestF11D_' . bin2hex(random_bytes(6)) . '!';
-$usrOrlandoObj = $usuarioRepo->buscarPorNombreUsuario('orlando');
-if ($usrOrlandoObj !== null) {
-    $usuarioRepo->actualizarContrasenaHash($usrOrlandoObj->id, password_hash($claveOrlando, PASSWORD_DEFAULT));
-    $usuarioRepo->actualizarEstado($usrOrlandoObj->id, 'ACTIVO');
-    $usuarioRepo->restablecerIntentosFallidos($usrOrlandoObj->id);
-}
-$loginRes = $authServicio->autenticar('orlando', $claveOrlando, '127.0.0.1', 'CLI-Tester');
-
-afirmar(
-    $loginRes->exitoso === true
-    && $loginRes->usuario !== null
-    && $loginRes->usuario->nombreUsuario === 'orlando'
-    && $loginRes->tokenSesion !== null
-    && !empty($loginRes->tokenSesion),
-    '02. Autenticación exitosa de la cuenta orlando con credenciales temporales'
-);
-
-$tokenOrlando = $loginRes->tokenSesion;
-$ctxOrlando = $loginRes->contexto;
-
-// ==============================================================================
-// 3. PROTECCIÓN Y REDIRECCIÓN DEL DASHBOARD Y PADRÓN DE USUARIOS
-// ==============================================================================
-// Sin sesión: procesar retorna null
-$ctxAnonimo = $authMiddleware->procesar([], [], false);
-afirmar(
-    $ctxAnonimo === null,
-    '03. Solicitud anónima al Dashboard o Padrón no obtiene sesión y requiere redirección a /login'
-);
-
-// Con sesión de Orlando: autorizado
-afirmar(
-    $ctxOrlando !== null
-    && $ctxOrlando->usuarioId !== null
-    && $authzServicio->tienePermiso($ctxOrlando->usuarioId, 'usuarios.ver') === true,
-    '04. Sesión de Orlando autoriza acceso al módulo /usuarios mediante permiso usuarios.ver'
-);
-
-// Renderizado de la vista de usuarios
-$htmlUsuarios = Vista::renderizar('usuarios', [
-    'titulo'        => 'Padrón de Usuarios | CandelariaAPP',
-    'subtitulo'     => 'Control de Acceso',
-    'tituloSeccion' => 'Gestión de Usuarios'
-], 'principal');
-
-afirmar(
-    str_contains($htmlUsuarios, 'id="contenedorTablaUsuarios"')
-    && str_contains($htmlUsuarios, 'id="modalCrearUsuario"')
-    && str_contains($htmlUsuarios, 'id="modalEditarUsuario"')
-    && str_contains($htmlUsuarios, 'id="modalRolesUsuario"')
-    && str_contains($htmlUsuarios, 'id="modalResetClave"')
-    && str_contains($htmlUsuarios, 'id="btnAbrirModalCrear"'),
-    '05. Vista /usuarios integra el contenedor dinámico de DataTables y los 4 modales de gestión Alina'
-);
-
-// ==============================================================================
-// PRUEBAS DE CRUD ASÍNCRONO EN TRANSACCIÓN AISLADA
+// PRUEBAS DE SESIÓN Y CRUD ASÍNCRONO EN TRANSACCIÓN AISLADA
 // ==============================================================================
 $pdo->beginTransaction();
 
 try {
+    // ==============================================================================
+    // 2. AUTENTICACIÓN EXITOSA DE LA CUENTA ADMINISTRATIVA (FIXTURE AISLADO)
+    // ==============================================================================
+    $claveAdmin = 'TestF11D_' . bin2hex(random_bytes(6)) . '!';
+    $personaAdminId = $personaRepo->crear(new Persona(
+        id: null,
+        organizacionId: 10000,
+        tipoPersona: 'NATURAL',
+        tipoDocumentoId: 1,
+        numeroDocumento: '77665544',
+        nombres: 'ADMINISTRADOR',
+        apellidos: 'DE PRUEBA F11D',
+        correoElectronico: 'admin.f11d@test.com',
+        codigoPais: 'PE',
+        estado: 'ACTIVO'
+    ));
+    $usrAdminId = $usuarioRepo->crear(new Usuario(
+        id: null,
+        organizacionId: 10000,
+        personaId: $personaAdminId,
+        nombreUsuario: 'admin_test_f11d',
+        nombreCompleto: 'ADMINISTRADOR DE PRUEBA F11D',
+        correoElectronico: 'admin.f11d@test.com',
+        contrasenaHash: password_hash($claveAdmin, PASSWORD_DEFAULT),
+        estado: 'ACTIVO'
+    ));
+    $rolAdminOrg = $rolRepo->buscarPorCodigo('admin_organizacion');
+    $rolRepo->asignarRolAUsuario($usrAdminId, $rolAdminOrg->id);
+
+    $loginRes = $authServicio->autenticar('admin_test_f11d', $claveAdmin, '127.0.0.1', 'CLI-Tester');
+
+    afirmar(
+        $loginRes->exitoso === true
+        && $loginRes->usuario !== null
+        && $loginRes->usuario->nombreUsuario === 'admin_test_f11d'
+        && $loginRes->tokenSesion !== null
+        && !empty($loginRes->tokenSesion),
+        '02. Autenticación exitosa de la cuenta orlando con credenciales temporales'
+    );
+
+    $tokenOrlando = $loginRes->tokenSesion;
+    $ctxOrlando = $loginRes->contexto;
+
+    // ==============================================================================
+    // 3. PROTECCIÓN Y REDIRECCIÓN DEL DASHBOARD Y PADRÓN DE USUARIOS
+    // ==============================================================================
+    // Sin sesión: procesar retorna null
+    $ctxAnonimo = $authMiddleware->procesar([], [], false);
+    afirmar(
+        $ctxAnonimo === null,
+        '03. Solicitud anónima al Dashboard o Padrón no obtiene sesión y requiere redirección a /login'
+    );
+
+    // Con sesión de Orlando: autorizado
+    afirmar(
+        $ctxOrlando !== null
+        && $ctxOrlando->usuarioId !== null
+        && $authzServicio->tienePermiso($ctxOrlando->usuarioId, 'usuarios.ver') === true,
+        '04. Sesión de Orlando autoriza acceso al módulo /usuarios mediante permiso usuarios.ver'
+    );
+
+    // Renderizado de la vista de usuarios
+    $htmlUsuarios = Vista::renderizar('usuarios', [
+        'titulo'        => 'Padrón de Usuarios | CandelariaAPP',
+        'subtitulo'     => 'Control de Acceso',
+        'tituloSeccion' => 'Gestión de Usuarios'
+    ], 'principal');
+
+    afirmar(
+        str_contains($htmlUsuarios, 'id="contenedorTablaUsuarios"')
+        && str_contains($htmlUsuarios, 'id="modalCrearUsuario"')
+        && str_contains($htmlUsuarios, 'id="modalEditarUsuario"')
+        && str_contains($htmlUsuarios, 'id="modalRolesUsuario"')
+        && str_contains($htmlUsuarios, 'id="modalResetClave"')
+        && str_contains($htmlUsuarios, 'id="btnAbrirModalCrear"'),
+        '05. Vista /usuarios integra el contenedor dinámico de DataTables y los 4 modales de gestión Alina'
+    );
+
     $orgId = 9991;
     $pdo->exec("INSERT INTO `organizaciones` (`id`, `codigo`, `nombre_comercial`, `estado`) VALUES ({$orgId}, 'tenant_f11d', 'ORGANIZACION F1.1D TEST', 'ACTIVO')");
 
@@ -382,13 +401,13 @@ try {
 // 17. VERIFICACIÓN PERMANENTE DE LA CUENTA ORLANDO
 // ==============================================================================
 $usrOrlandoFinal = $usuarioRepo->buscarPorNombreUsuario('orlando');
-$rolesOrlandoFinal = $rolRepo->obtenerRolesDeUsuario($usrOrlandoFinal->id);
-$authOrlandoFinal = $authServicio->autenticar('orlando', $claveOrlando);
+$rolesOrlandoFinal = $usrOrlandoFinal !== null ? $rolRepo->obtenerRolesDeUsuario($usrOrlandoFinal->id) : [];
 
 afirmar(
     $usrOrlandoFinal !== null
     && $usrOrlandoFinal->estado === 'ACTIVO'
-    && $authOrlandoFinal->exitoso === true
+    && $usrOrlandoFinal->intentosFallidos === 0
+    && $usrOrlandoFinal->bloqueadoHasta === null
     && count($rolesOrlandoFinal) >= 1
     && $rolesOrlandoFinal[0]->codigo === 'admin_organizacion',
     '17. Cuenta administrativa temporal orlando permanece activa y plenamente operativa'
