@@ -64,7 +64,6 @@ class OportunidadServicio
         ?int $usuarioAsignadoId = null,
         ?int $origenComercialId = null,
         ?float $valorEstimado = null,
-        ?string $moneda = null,
         ?string $proximoSeguimientoEn = null,
         ?string $notas = null,
         ?ContextoOperacion $contexto = null
@@ -107,10 +106,15 @@ class OportunidadServicio
             }
         }
 
-        // 5. Resolver snapshot de moneda institucional
-        $monedaResuelta = $moneda !== null ? strtoupper(trim($moneda)) : null;
-        if ($monedaResuelta === null || $monedaResuelta === '') {
-            $monedaResuelta = (string) $this->configServicio->obtenerPlataforma('plataforma.moneda_principal', 'PEN');
+        // 5. Resolver snapshot de moneda soberana institucional (sin fallback silencioso ni override de usuario)
+        $monedaConfigurada = $this->configServicio->obtenerPlataforma('plataforma.moneda_principal');
+        if ($monedaConfigurada === null || !is_string($monedaConfigurada) || trim($monedaConfigurada) === '') {
+            throw new InvalidArgumentException("Configuración soberana requerida: El parámetro de plataforma 'plataforma.moneda_principal' no está configurado o se encuentra inactivo.");
+        }
+
+        $monedaResuelta = strtoupper(trim($monedaConfigurada));
+        if (strlen($monedaResuelta) !== 3) {
+            throw new InvalidArgumentException("La moneda institucional '{$monedaResuelta}' configurada no cumple con el estándar ISO 4217 de 3 caracteres.");
         }
 
         $transaccionIniciada = false;

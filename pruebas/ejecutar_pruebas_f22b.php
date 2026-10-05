@@ -299,12 +299,26 @@ try {
 
     // 2.1 Semillas verificadas en Org 10000
     $origenesOrg1 = $origenRepo->listarPorOrganizacion(10000, soloActivos: true);
-    afirmar(count($origenesOrg1) >= 8, "2.1: Tenant 10000 posee al menos las 8 semillas de orígenes comerciales");
+    $codigosOrg1 = array_map(fn($o) => $o->codigo, $origenesOrg1);
+    $codigosAutorizados = [
+        'WEB_ORGANICA',
+        'REDES_SOCIALES',
+        'CAMPANA_PUBLICITARIA',
+        'REFERIDO',
+        'FERIA_EVENTO',
+        'PROSPECCION_DIRECTA',
+        'CONVENIO_INSTITUCIONAL',
+        'OTRO'
+    ];
+    $diffCodigos = array_diff($codigosAutorizados, $codigosOrg1);
+    afirmar(empty($diffCodigos) && count($origenesOrg1) === 8, "2.1: Tenant 10000 contiene exactamente las 8 semillas autorizadas del catálogo oficial");
+    afirmar(!in_array('WHATSAPP_DIRECTO', $codigosOrg1, true), "2.2: Confirmado: 'WHATSAPP_DIRECTO' NO existe como semilla inicial en el catálogo");
+    afirmar(!in_array('OTRO_CANAL', $codigosOrg1, true), "2.3: Confirmado: 'OTRO_CANAL' NO existe como semilla inicial en el catálogo");
 
     $origenWeb = $origenRepo->buscarPorCodigo(10000, 'WEB_ORGANICA');
-    afirmar($origenWeb !== null && $origenWeb->activo, "2.2: Origen 'WEB_ORGANICA' existe y está activo");
+    afirmar($origenWeb !== null && $origenWeb->activo, "2.4: Origen 'WEB_ORGANICA' existe y está activo");
 
-    // 2.3 Crear origen personalizado
+    // 2.5 Crear origen personalizado
     $nuevoOrigen = $origenServicio->crear(
         organizacionId: 10000,
         codigo: 'TIKTOK_ADS',
@@ -313,9 +327,9 @@ try {
         orden: 10,
         contexto: $ctxOrg1
     );
-    afirmar($nuevoOrigen->id > 0 && $nuevoOrigen->codigo === 'TIKTOK_ADS', "2.3: Creación de nuevo origen comercial personalizado por organización");
+    afirmar($nuevoOrigen->id > 0 && $nuevoOrigen->codigo === 'TIKTOK_ADS', "2.5: Creación de nuevo origen comercial personalizado por organización");
 
-    // 2.4 Código duplicado en misma organización rechazado
+    // 2.6 Código duplicado en misma organización rechazado
     $errorDuplicado = false;
     try {
         $origenServicio->crear(
@@ -327,22 +341,22 @@ try {
     } catch (InvalidArgumentException) {
         $errorDuplicado = true;
     }
-    afirmar($errorDuplicado, "2.4: Código de origen duplicado en el mismo tenant es rechazado (uk_origenes_comerciales_org_codigo)");
+    afirmar($errorDuplicado, "2.6: Código de origen duplicado en el mismo tenant es rechazado (uk_origenes_comerciales_org_codigo)");
 
-    // 2.5 Mismo código en organización diferente es permitido
+    // 2.7 Mismo código en organización diferente es permitido
     $origenOrg2 = $origenServicio->crear(
         organizacionId: 20000,
         codigo: 'TIKTOK_ADS',
         nombre: 'TikTok Ads Org 2',
         contexto: $ctxOrg2
     );
-    afirmar($origenOrg2->id > 0 && $origenOrg2->organizacionId === 20000, "2.5: Mismo código de origen comercial en tenant diferente es permitido (aislamiento multi-tenant)");
+    afirmar($origenOrg2->id > 0 && $origenOrg2->organizacionId === 20000, "2.7: Mismo código de origen comercial en tenant diferente es permitido (aislamiento multi-tenant)");
 
-    // 2.6 Desactivar origen comercial
+    // 2.8 Desactivar origen comercial
     $desactivadoOk = $origenServicio->desactivar(10000, $nuevoOrigen->id, $ctxOrg1);
-    afirmar($desactivadoOk, "2.6: Desactivación exitosa de origen comercial");
+    afirmar($desactivadoOk, "2.8: Desactivación exitosa de origen comercial");
     $origenVerif = $origenRepo->buscarPorId($nuevoOrigen->id);
-    afirmar(!$origenVerif->activo, "2.7: Origen comercial persiste con activo = 0 (prohibición de borrado físico)");
+    afirmar(!$origenVerif->activo, "2.9: Origen comercial persiste con activo = 0 (prohibición de borrado físico)");
 
     // ==============================================================================
     // BLOQUE 3: CREACIÓN DE OPORTUNIDADES, RESPONSABLE Y ANTI-IDOR
@@ -358,7 +372,6 @@ try {
         usuarioAsignadoId: null,
         origenComercialId: null,
         valorEstimado: null,
-        moneda: null, // Debe resolver snapshot institucional PEN
         contexto: $ctxOrg1
     );
     afirmar($op1->id > 0, "3.1: Creación exitosa de oportunidad con responsable NULL (cola general)");
@@ -497,33 +510,112 @@ try {
     }
     afirmar($errorValorNegativo, "4.1: Valor estimado negativo es rechazado por invariante de entidad");
 
-    // 4.2 Moneda personalizada válida ISO 4217 (ej. USD)
-    $opUsd = $oportunidadServicio->crear(
+    // 4.2 Oportunidad adopta soberanamente la divisa institucional 'PEN' sin override de usuario
+    $opPipeline = $oportunidadServicio->crear(
         organizacionId: 10000,
         edicionId: 91001,
         clienteId: 71001,
-        titulo: 'Paquete Turistas Extranjeros USD',
+        titulo: 'Paquete Turistas Candelaria Pipeline',
         valorEstimado: 2500.00,
-        moneda: 'USD',
         contexto: $ctxOrg1
     );
-    afirmar($opUsd->moneda === 'USD', "4.2: Snapshot de divisa personalizada ISO 4217 ('USD') registrado exitosamente");
+    afirmar($opPipeline->moneda === 'PEN', "4.2: Oportunidad adopta soberanamente la divisa institucional 'PEN' sin override del usuario");
 
-    // 4.3 Moneda inválida rechazada
-    $errorMonedaInvalida = false;
+    // 4.3 Ausencia de configuración institucional de moneda provoca rechazo controlado (fail-closed)
+    $stmtDesactivarMoneda = $pdo->prepare("UPDATE `parametros_configuracion` SET `estado` = 'INACTIVO' WHERE `codigo` = 'plataforma.moneda_principal' AND `organizacion_id` IS NULL");
+    $stmtDesactivarMoneda->execute();
+    $configServicioSinMoneda = new ConfiguracionServicio(pdo: $pdo);
+    $opServicioSinMoneda = new OportunidadServicio(
+        oportunidadRepo: $oportunidadRepo,
+        historialRepo: $historialRepo,
+        clienteRepo: $clienteRepo,
+        edicionRepo: $edicionRepo,
+        origenRepo: $origenRepo,
+        usuarioRepo: $usuarioRepo,
+        authzServicio: $authzServicio,
+        auditoriaRepo: $auditoriaRepo,
+        configServicio: $configServicioSinMoneda,
+        pdo: $pdo
+    );
+
+    $errorSinMoneda = false;
     try {
-        $oportunidadServicio->crear(
+        $opServicioSinMoneda->crear(
             organizacionId: 10000,
             edicionId: 91001,
             clienteId: 71001,
-            titulo: 'Intento Moneda Inválida',
-            moneda: 'SOLES',
+            titulo: 'Intento sin moneda institucional',
+            contexto: $ctxOrg1
+        );
+    } catch (InvalidArgumentException) {
+        $errorSinMoneda = true;
+    }
+    afirmar($errorSinMoneda, "4.3: Ausencia de divisa institucional configurada provoca rechazo controlado (fail-closed)");
+
+    // 4.4 Moneda institucional no conforme con ISO 4217 provoca rechazo controlado
+    $stmtMonedaInvalida = $pdo->prepare("UPDATE `parametros_configuracion` SET `estado` = 'ACTIVO', `valor` = 'SOLES_INVALIDO' WHERE `codigo` = 'plataforma.moneda_principal' AND `organizacion_id` IS NULL");
+    $stmtMonedaInvalida->execute();
+    $configServicioMonedaInvalida = new ConfiguracionServicio(pdo: $pdo);
+    $opServicioMonedaInvalida = new OportunidadServicio(
+        oportunidadRepo: $oportunidadRepo,
+        historialRepo: $historialRepo,
+        clienteRepo: $clienteRepo,
+        edicionRepo: $edicionRepo,
+        origenRepo: $origenRepo,
+        usuarioRepo: $usuarioRepo,
+        authzServicio: $authzServicio,
+        auditoriaRepo: $auditoriaRepo,
+        configServicio: $configServicioMonedaInvalida,
+        pdo: $pdo
+    );
+
+    $errorMonedaInvalida = false;
+    try {
+        $opServicioMonedaInvalida->crear(
+            organizacionId: 10000,
+            edicionId: 91001,
+            clienteId: 71001,
+            titulo: 'Intento moneda inválida',
             contexto: $ctxOrg1
         );
     } catch (InvalidArgumentException) {
         $errorMonedaInvalida = true;
     }
-    afirmar($errorMonedaInvalida, "4.3: Código de moneda no ISO 4217 (longitud distinta a 3 letras) es rechazado");
+    afirmar($errorMonedaInvalida, "4.4: Divisa institucional no conforme con ISO 4217 (3 letras) es rechazada con fallo controlado");
+
+    // 4.5 Snapshot histórico inmutable: Modificación futura de divisa institucional no muta oportunidades existentes
+    $stmtMonedaUsd = $pdo->prepare("UPDATE `parametros_configuracion` SET `estado` = 'ACTIVO', `valor` = 'USD' WHERE `codigo` = 'plataforma.moneda_principal' AND `organizacion_id` IS NULL");
+    $stmtMonedaUsd->execute();
+    $configServicioUsd = new ConfiguracionServicio(pdo: $pdo);
+    $opServicioUsd = new OportunidadServicio(
+        oportunidadRepo: $oportunidadRepo,
+        historialRepo: $historialRepo,
+        clienteRepo: $clienteRepo,
+        edicionRepo: $edicionRepo,
+        origenRepo: $origenRepo,
+        usuarioRepo: $usuarioRepo,
+        authzServicio: $authzServicio,
+        auditoriaRepo: $auditoriaRepo,
+        configServicio: $configServicioUsd,
+        pdo: $pdo
+    );
+
+    $opNuevaUsd = $opServicioUsd->crear(
+        organizacionId: 10000,
+        edicionId: 91001,
+        clienteId: 71001,
+        titulo: 'Oportunidad creada bajo nueva divisa USD',
+        contexto: $ctxOrg1
+    );
+    afirmar($opNuevaUsd->moneda === 'USD', "4.5: Nueva oportunidad adopta la nueva divisa institucional 'USD'");
+
+    // Verificar que la oportunidad original $opPipeline y $op1 conservan 'PEN' intacto
+    $opPreviaReconsultada = $oportunidadRepo->buscarPorId($opPipeline->id);
+    afirmar($opPreviaReconsultada->moneda === 'PEN', "4.6: Snapshot histórico inmutable: Modificación de configuración no altera la divisa de oportunidades previas");
+
+    // Restaurar parámetro plataforma.moneda_principal a 'PEN'
+    $stmtRestaurarMoneda = $pdo->prepare("UPDATE `parametros_configuracion` SET `estado` = 'ACTIVO', `valor` = 'PEN' WHERE `codigo` = 'plataforma.moneda_principal' AND `organizacion_id` IS NULL");
+    $stmtRestaurarMoneda->execute();
 
     // ==============================================================================
     // BLOQUE 5: MÁQUINA DE ESTADOS Y PIPELINE DE OPORTUNIDADES
@@ -540,10 +632,10 @@ try {
     );
     afirmar($opAvanzada1->etapa === EtapaOportunidad::CONTACTADA, "5.1: Transición legal hacia adelante: NUEVA -> CONTACTADA");
 
-    // 5.2 Salto flexible hacia adelante: NUEVA -> COTIZACION (en opUsd)
+    // 5.2 Salto flexible hacia adelante: NUEVA -> COTIZACION (en opPipeline)
     $opSaltada = $oportunidadServicio->cambiarEtapa(
         organizacionId: 10000,
-        oportunidadId: $opUsd->id,
+        oportunidadId: $opPipeline->id,
         nuevaEtapaStr: 'COTIZACION',
         motivoCambio: 'Cliente solicitó cotización directa inmediata',
         contexto: $ctxOrg1
@@ -553,7 +645,7 @@ try {
     // 5.3 Salto: COTIZACION -> NEGOCIACION
     $opNegociacion = $oportunidadServicio->cambiarEtapa(
         organizacionId: 10000,
-        oportunidadId: $opUsd->id,
+        oportunidadId: $opPipeline->id,
         nuevaEtapaStr: 'NEGOCIACION',
         motivoCambio: 'Ajustando descuentos grupales',
         contexto: $ctxOrg1
@@ -563,7 +655,7 @@ try {
     // 5.4 Cierre Exitoso: NEGOCIACION -> GANADA (terminal ordinaria)
     $opGanada = $oportunidadServicio->cambiarEtapa(
         organizacionId: 10000,
-        oportunidadId: $opUsd->id,
+        oportunidadId: $opPipeline->id,
         nuevaEtapaStr: 'GANADA',
         motivoCambio: 'Propuesta aceptada formalmente',
         contexto: $ctxOrg1
@@ -575,7 +667,7 @@ try {
     try {
         $oportunidadServicio->cambiarEtapa(
             organizacionId: 10000,
-            oportunidadId: $opUsd->id,
+            oportunidadId: $opPipeline->id,
             nuevaEtapaStr: 'COTIZACION',
             contexto: $ctxOrg1
         );
@@ -812,10 +904,10 @@ try {
     echo "\n--- BLOQUE 8: HISTORIAL DE ETAPAS APPEND-ONLY Y PISTA DE AUDITORÍA ---\n";
 
     // 8.1 Historial de etapas cronológico
-    $historialOpUsd = $historialRepo->listarPorOportunidad(10000, $opUsd->id);
-    afirmar(count($historialOpUsd) === 4, "8.1: Historial append-only registró exactamente las 4 transiciones (NUEVA -> COTIZACION -> NEGOCIACION -> GANADA)");
-    afirmar($historialOpUsd[0]->etapaNueva === 'NUEVA', "8.2: Primer registro histórico es la apertura en NUEVA");
-    afirmar($historialOpUsd[3]->etapaNueva === 'GANADA', "8.3: Último registro histórico es el cierre en GANADA");
+    $historialOpPipeline = $historialRepo->listarPorOportunidad(10000, $opPipeline->id);
+    afirmar(count($historialOpPipeline) === 4, "8.1: Historial append-only registró exactamente las 4 transiciones (NUEVA -> COTIZACION -> NEGOCIACION -> GANADA)");
+    afirmar($historialOpPipeline[0]->etapaNueva === 'NUEVA', "8.2: Primer registro histórico es la apertura en NUEVA");
+    afirmar($historialOpPipeline[3]->etapaNueva === 'GANADA', "8.3: Último registro histórico es el cierre en GANADA");
 
     // 8.2 Auditoría técnica transversal en auditoria_operaciones
     $stmtAud = $pdo->prepare("SELECT accion, entidad_tipo, modulo FROM auditoria_operaciones WHERE organizacion_id = 10000 ORDER BY id DESC LIMIT 50");
