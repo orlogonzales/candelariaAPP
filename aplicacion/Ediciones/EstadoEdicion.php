@@ -42,20 +42,24 @@ enum EstadoEdicion: string
      * Flujo normal de avance secuencial:
      * PREOPERACION -> OPERACION -> POSTPRODUCCION_ENTREGA -> CERRADA
      *
-     * Retroceso operativo (controlado por rol administrativo con motivo):
+     * Retroceso operativo extraordinario (requiere motivo formal y permiso ediciones.cambiar_estado):
      * OPERACION -> PREOPERACION
      * POSTPRODUCCION_ENTREGA -> OPERACION
      *
-     * Reapertura excepcional:
-     * CERRADA -> POSTPRODUCCION_ENTREGA
+     * Estado CERRADA:
+     * Terminal estricto e inmutable. CERO transiciones permitidas (no admite reapertura en F2.1A).
      */
     public function puedeTransicionarA(
         self $destino,
-        bool $permitirRetroceso = false,
-        bool $permitirReapertura = false
+        bool $permitirRetroceso = false
     ): bool {
         // No se permite transición al mismo estado
         if ($this === $destino) {
+            return false;
+        }
+
+        // El estado CERRADA es terminal estricto e inmutable: ninguna salida permitida
+        if ($this === self::CERRADA) {
             return false;
         }
 
@@ -73,20 +77,11 @@ enum EstadoEdicion: string
 
         // 2. Retroceso controlado entre fases operativas
         if ($permitirRetroceso) {
-            $retrocesoValido = match ($this) {
+            return match ($this) {
                 self::OPERACION              => $destino === self::PREOPERACION,
                 self::POSTPRODUCCION_ENTREGA => $destino === self::OPERACION,
                 default                      => false,
             };
-
-            if ($retrocesoValido) {
-                return true;
-            }
-        }
-
-        // 3. Reapertura excepcional de una edición CERRADA
-        if ($permitirReapertura && $this === self::CERRADA && $destino === self::POSTPRODUCCION_ENTREGA) {
-            return true;
         }
 
         return false;

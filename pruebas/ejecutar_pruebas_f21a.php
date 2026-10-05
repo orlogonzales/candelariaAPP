@@ -148,11 +148,64 @@ try {
     $usrOperId = $usuarioRepo->crear($usrOper);
     $rolRepo->asignarRolAUsuario($usrOperId, $rolOper->id);
 
+    // 5. Usuario efímero con solo permiso ediciones.seleccionar_actual (y ver)
+    $perSoloActual = new Persona(
+        id: null, organizacionId: 10000, tipoPersona: 'NATURAL', tipoDocumentoId: 1,
+        numeroDocumento: '74440024', nombres: 'Solo', apellidos: 'Actual',
+        correoElectronico: 'solo_actual_f21a@test.com', estado: 'ACTIVO'
+    );
+    $perSoloActualId = $personaRepo->crear($perSoloActual);
+    $usrSoloActual = new Usuario(
+        id: null, organizacionId: 10000, personaId: $perSoloActualId,
+        nombreUsuario: 'usr_solo_actual_f21a', nombreCompleto: 'Usuario Solo Actual',
+        correoElectronico: 'solo_actual_f21a@test.com', contrasenaHash: password_hash('Pass123!', PASSWORD_DEFAULT),
+        esSuperadminPlataforma: false, estado: 'ACTIVO'
+    );
+    $usrSoloActualId = $usuarioRepo->crear($usrSoloActual);
+
+    $stmtRolAct = $pdo->prepare("INSERT INTO `roles` (`organizacion_id`, `codigo`, `nombre`, `descripcion`) VALUES (10000, 'rol_solo_actual_f21a', 'Rol Solo Actual', 'Prueba F21A')");
+    $stmtRolAct->execute();
+    $rolSoloActualId = (int) $pdo->lastInsertId();
+
+    $permisoVer = $permisoRepo->buscarPorCodigo('ediciones.ver');
+    $permisoActual = $permisoRepo->buscarPorCodigo('ediciones.seleccionar_actual');
+    $permisoEstado = $permisoRepo->buscarPorCodigo('ediciones.cambiar_estado');
+
+    $stmtAsignar = $pdo->prepare("INSERT INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES (?, ?)");
+    $stmtAsignar->execute([$rolSoloActualId, $permisoVer->id]);
+    $stmtAsignar->execute([$rolSoloActualId, $permisoActual->id]);
+    $rolRepo->asignarRolAUsuario($usrSoloActualId, $rolSoloActualId);
+
+    // 6. Usuario efímero con solo permiso ediciones.cambiar_estado (y ver)
+    $perSoloEstado = new Persona(
+        id: null, organizacionId: 10000, tipoPersona: 'NATURAL', tipoDocumentoId: 1,
+        numeroDocumento: '75550025', nombres: 'Solo', apellidos: 'Estado',
+        correoElectronico: 'solo_estado_f21a@test.com', estado: 'ACTIVO'
+    );
+    $perSoloEstadoId = $personaRepo->crear($perSoloEstado);
+    $usrSoloEstado = new Usuario(
+        id: null, organizacionId: 10000, personaId: $perSoloEstadoId,
+        nombreUsuario: 'usr_solo_estado_f21a', nombreCompleto: 'Usuario Solo Estado',
+        correoElectronico: 'solo_estado_f21a@test.com', contrasenaHash: password_hash('Pass123!', PASSWORD_DEFAULT),
+        esSuperadminPlataforma: false, estado: 'ACTIVO'
+    );
+    $usrSoloEstadoId = $usuarioRepo->crear($usrSoloEstado);
+
+    $stmtRolEst = $pdo->prepare("INSERT INTO `roles` (`organizacion_id`, `codigo`, `nombre`, `descripcion`) VALUES (10000, 'rol_solo_estado_f21a', 'Rol Solo Estado', 'Prueba F21A')");
+    $stmtRolEst->execute();
+    $rolSoloEstadoId = (int) $pdo->lastInsertId();
+
+    $stmtAsignar->execute([$rolSoloEstadoId, $permisoVer->id]);
+    $stmtAsignar->execute([$rolSoloEstadoId, $permisoEstado->id]);
+    $rolRepo->asignarRolAUsuario($usrSoloEstadoId, $rolSoloEstadoId);
+
     // Contextos de operación
-    $ctxSuper  = ContextoOperacion::paraHumano($usrSuperId, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
-    $ctxAdmin1 = ContextoOperacion::paraHumano($usrAdmin1Id, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
-    $ctxAdmin2 = ContextoOperacion::paraHumano($usrAdmin2Id, 1, 'WEB', '127.0.0.1', 'CLI-Tester', $org2Id);
-    $ctxOper   = ContextoOperacion::paraHumano($usrOperId, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
+    $ctxSuper      = ContextoOperacion::paraHumano($usrSuperId, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
+    $ctxAdmin1     = ContextoOperacion::paraHumano($usrAdmin1Id, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
+    $ctxAdmin2     = ContextoOperacion::paraHumano($usrAdmin2Id, 1, 'WEB', '127.0.0.1', 'CLI-Tester', $org2Id);
+    $ctxOper       = ContextoOperacion::paraHumano($usrOperId, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
+    $ctxSoloActual = ContextoOperacion::paraHumano($usrSoloActualId, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
+    $ctxSoloEstado = ContextoOperacion::paraHumano($usrSoloEstadoId, 1, 'WEB', '127.0.0.1', 'CLI-Tester', 10000);
 
     // ==============================================================================
     // 01. CREACIÓN VÁLIDA CON NORMALIZACIÓN Y SLUG
@@ -401,7 +454,33 @@ try {
     afirmar($rechazaRetrocesoSinMotivo === true, '17. Máquina de Estados: Rechazo de retroceso si no se provee motivo justificativo');
 
     // ==============================================================================
-    // 18. EDICIÓN CERRADA RECHAZA MODIFICACIONES ORDINARIAS
+    // 18. RETROCESO CONTROLADO (POSTPRODUCCION_ENTREGA -> OPERACION) CON MOTIVO
+    // ==============================================================================
+    // Avanzar edicion2028 a POSTPRODUCCION_ENTREGA
+    $edicion2028EnPost = $edicionServicio->cambiarEstado($edicion2028->id, 10000, 'POSTPRODUCCION_ENTREGA', $ctxAdmin1);
+
+    // Intento de retroceso a OPERACION sin motivo debe ser rechazado
+    $rechazaRetrocesoPostSinMotivo = false;
+    try {
+        $edicionServicio->cambiarEstado($edicion2028->id, 10000, 'OPERACION', $ctxAdmin1, motivo: '   ');
+    } catch (\InvalidArgumentException $e) {
+        $rechazaRetrocesoPostSinMotivo = str_contains($e->getMessage(), 'requiere obligatoriamente registrar un motivo');
+    }
+
+    // Retroceso formal a OPERACION con motivo justificado
+    $edicion2028PostAOp = $edicionServicio->cambiarEstado(
+        $edicion2028->id, 10000, 'OPERACION', $ctxAdmin1, motivo: 'Revisión técnica de fotos y comparsas'
+    );
+
+    afirmar(
+        $rechazaRetrocesoPostSinMotivo === true
+        && $edicion2028EnPost->estado === EstadoEdicion::POSTPRODUCCION_ENTREGA
+        && $edicion2028PostAOp->estado === EstadoEdicion::OPERACION,
+        '18. Máquina de Estados: Retroceso controlado (POSTPRODUCCION_ENTREGA -> OPERACION) con motivo formal y rechazo sin motivo'
+    );
+
+    // ==============================================================================
+    // 19. EDICIÓN CERRADA RECHAZA MODIFICACIONES ORDINARIAS
     // ==============================================================================
     $rechazaEdicionCerrada = false;
     try {
@@ -412,35 +491,125 @@ try {
         $rechazaEdicionCerrada = str_contains($e->getMessage(), 'se encuentra en estado CERRADA');
     }
 
-    afirmar($rechazaEdicionCerrada === true, '18. Invariante de Cierre: Edición CERRADA bloquea modificaciones operativas ordinarias');
+    afirmar($rechazaEdicionCerrada === true, '19. Invariante de Cierre: Edición CERRADA bloquea modificaciones operativas ordinarias');
 
     // ==============================================================================
-    // 19. REAPERTURA EXCEPCIONAL CON AUDITORÍA REFORZADA
+    // 20. TERMINAL ESTRICTO: EDICIÓN CERRADA PROHÍBE CATEGÓRICAMENTE CAMBIOS DE ESTADO
     // ==============================================================================
-    $edicion2027Reabierta = $edicionServicio->cambiarEstado(
-        $edicion2027->id, 10000, 'POSTPRODUCCION_ENTREGA', $ctxAdmin1, motivo: 'Reapertura para entrega de remanente fotográfico'
-    );
+    $bloqueoCerradaPost = false;
+    $bloqueoCerradaOper = false;
+    $bloqueoCerradaPre  = false;
+
+    // 1. Intento hacia POSTPRODUCCION_ENTREGA
+    try {
+        $edicionServicio->cambiarEstado(
+            $edicion2027->id, 10000, 'POSTPRODUCCION_ENTREGA', $ctxAdmin1, motivo: 'Intento extraordinario de reapertura'
+        );
+    } catch (\InvalidArgumentException $e) {
+        $bloqueoCerradaPost = str_contains($e->getMessage(), 'históricamente congelada');
+    }
+
+    // 2. Intento hacia OPERACION
+    try {
+        $edicionServicio->cambiarEstado(
+            $edicion2027->id, 10000, 'OPERACION', $ctxAdmin1, motivo: 'Intento de reapertura operativa'
+        );
+    } catch (\InvalidArgumentException $e) {
+        $bloqueoCerradaOper = str_contains($e->getMessage(), 'históricamente congelada');
+    }
+
+    // 3. Intento hacia PREOPERACION
+    try {
+        $edicionServicio->cambiarEstado(
+            $edicion2027->id, 10000, 'PREOPERACION', $ctxAdmin1, motivo: 'Intento de reapertura inicial'
+        );
+    } catch (\InvalidArgumentException $e) {
+        $bloqueoCerradaPre = str_contains($e->getMessage(), 'históricamente congelada');
+    }
 
     afirmar(
-        $edicion2027Reabierta->estado === EstadoEdicion::POSTPRODUCCION_ENTREGA,
-        '19. Máquina de Estados: Reapertura excepcional de edición CERRADA hacia POSTPRODUCCION_ENTREGA'
+        $bloqueoCerradaPost === true && $bloqueoCerradaOper === true && $bloqueoCerradaPre === true,
+        '20. Terminal Estricto: Edición CERRADA congelada prohíbe categóricamente toda transición o reapertura'
     );
 
     // ==============================================================================
-    // 20. EDICIÓN ACTUAL: EXCLUSIVIDAD TRANSACCIONAL DENTRO DEL TENANT
+    // 21. EDICIÓN ACTUAL: EXCLUSIVIDAD TRANSACCIONAL DENTRO DEL TENANT Y LOCK
     // ==============================================================================
-    // Inicialmente edicion2027 era actual. Ahora marcamos edicion2028 como actual.
+    // edicion2027 nació como actual. Ahora marcamos edicion2028 como actual.
     $edicion2028Actual = $edicionServicio->establecerActual($edicion2028->id, 10000, $ctxAdmin1);
     $edicion2027NoActual = $edicionServicio->obtener($edicion2027->id, 10000, $ctxAdmin1);
 
     afirmar(
         $edicion2028Actual->esActual === true
         && $edicion2027NoActual->esActual === false,
-        '20. Edición Actual: Exclusividad transaccional garantizada (solo una edición actual por tenant)'
+        '21. Edición Actual: Exclusividad transaccional garantizada (solo una edición actual por tenant) con lock pesimista'
     );
 
     // ==============================================================================
-    // 21. ANTI-IDOR: OPERADOR DE ORG 10000 NO PUEDE ACCEDER A EDICIONES DE ORG 2
+    // 22. EDICIÓN ACTUAL: INDEPENDENCIA SEMÁNTICA RESPECTO AL ESTADO OPERATIVO
+    // ==============================================================================
+    // Retrocedemos edicion2028 a PREOPERACION para demostrar que una edición en preparación
+    // puede ser legítimamente la edición activa de trabajo por defecto de la organización.
+    $edicion2028Pre = $edicionServicio->cambiarEstado(
+        $edicion2028->id, 10000, 'PREOPERACION', $ctxAdmin1, motivo: 'Planificación anual anticipada'
+    );
+    $edicionActualTenant = $edicionServicio->obtenerActual(10000, $ctxAdmin1);
+
+    afirmar(
+        $edicionActualTenant !== null
+        && $edicionActualTenant->id === $edicion2028->id
+        && $edicionActualTenant->estado === EstadoEdicion::PREOPERACION
+        && $edicionActualTenant->esActual === true
+        && $edicion2027Cerrada->estado === EstadoEdicion::CERRADA
+        && $edicion2027NoActual->esActual === false,
+        '22. Semántica de Negocio: es_actual es independiente del estado operativo (PREOPERACION puede ser actual, CERRADA inactiva)'
+    );
+
+    // ==============================================================================
+    // 23. DESACOPLAMIENTO RBAC: ediciones.seleccionar_actual vs ediciones.cambiar_estado
+    // ==============================================================================
+    // 1. Usuario con solo ediciones.seleccionar_actual: puede seleccionar actual, pero no puede cambiar estado
+    $seleccionaExitoso = false;
+    $cambioEstadoDenegado = false;
+    try {
+        $edicionServicio->establecerActual($edicion2028->id, 10000, $ctxSoloActual);
+        $seleccionaExitoso = true;
+    } catch (\Throwable) {
+        $seleccionaExitoso = false;
+    }
+
+    try {
+        $edicionServicio->cambiarEstado($edicion2028->id, 10000, 'OPERACION', $ctxSoloActual);
+    } catch (AccesoDenegadoExcepcion $e) {
+        $cambioEstadoDenegado = str_contains($e->getMessage(), 'ediciones.cambiar_estado');
+    }
+
+    // 2. Usuario con solo ediciones.cambiar_estado: puede cambiar estado, pero no puede seleccionar actual
+    $cambioEstadoExitoso = false;
+    $seleccionaDenegado = false;
+    try {
+        $edicionServicio->cambiarEstado($edicion2028->id, 10000, 'OPERACION', $ctxSoloEstado);
+        $cambioEstadoExitoso = true;
+    } catch (\Throwable) {
+        $cambioEstadoExitoso = false;
+    }
+
+    try {
+        $edicionServicio->establecerActual($edicion2028->id, 10000, $ctxSoloEstado);
+    } catch (AccesoDenegadoExcepcion $e) {
+        $seleccionaDenegado = str_contains($e->getMessage(), 'ediciones.seleccionar_actual');
+    }
+
+    afirmar(
+        $seleccionaExitoso === true
+        && $cambioEstadoDenegado === true
+        && $cambioEstadoExitoso === true
+        && $seleccionaDenegado === true,
+        '23. Desacoplamiento RBAC: ediciones.seleccionar_actual y ediciones.cambiar_estado son permisos independientes'
+    );
+
+    // ==============================================================================
+    // 24. ANTI-IDOR: OPERADOR DE ORG 10000 NO PUEDE ACCEDER A EDICIONES DE ORG 2
     // ==============================================================================
     $bloqueoIdor = false;
     try {
@@ -455,11 +624,11 @@ try {
 
     afirmar(
         $bloqueoIdor === true && $consultaIdorNull === null,
-        '21. Aislamiento Anti-IDOR: Operador no puede consultar ni mutar ediciones pertenecientes a otra organización'
+        '24. Aislamiento Anti-IDOR: Operador no puede consultar ni mutar ediciones pertenecientes a otra organización'
     );
 
     // ==============================================================================
-    // 22. CONCURRENCIA OPTIMISTA: DETECCIÓN DE CONFLICTO POR ACTUALIZADO_EN
+    // 25. CONCURRENCIA OPTIMISTA: DETECCIÓN DE CONFLICTO POR ACTUALIZADO_EN
     // ==============================================================================
     $detectaConflicto = false;
     try {
@@ -473,10 +642,10 @@ try {
         $detectaConflicto = true;
     }
 
-    afirmar($detectaConflicto === true, '22. Concurrencia Optimista: ConflictoConcurrenciaExcepcion ante versión desfasada');
+    afirmar($detectaConflicto === true, '25. Concurrencia Optimista: ConflictoConcurrenciaExcepcion ante versión desfasada');
 
     // ==============================================================================
-    // 23. POLÍTICA DE ELIMINACIÓN: CERO MÉTODOS DE DELETE FÍSICO EN REPOSITORIO
+    // 26. POLÍTICA DE ELIMINACIÓN: CERO MÉTODOS DE DELETE FÍSICO EN REPOSITORIO
     // ==============================================================================
     $refRepo = new ReflectionClass(EdicionRepositorio::class);
     $metodosRepo = array_map(fn($m) => strtolower($m->getName()), $refRepo->getMethods());
@@ -489,10 +658,10 @@ try {
         }
     }
 
-    afirmar($tieneDelete === false, '23. Conservación Histórica: EdicionRepositorio prohíbe eliminación física por diseño');
+    afirmar($tieneDelete === false, '26. Conservación Histórica: EdicionRepositorio prohíbe eliminación física por diseño');
 
     // ==============================================================================
-    // 24. PISTA DE AUDITORÍA INMUTABLE REGISTRA MUTACIONES Y TRANSICIONES
+    // 27. PISTA DE AUDITORÍA INMUTABLE REGISTRA MUTACIONES Y TRANSICIONES
     // ==============================================================================
     $stmtAudit = $pdo->prepare("SELECT COUNT(*) FROM `auditoria_operaciones` WHERE `modulo` = 'ediciones' AND `entidad_tipo` = 'EDICION'");
     $stmtAudit->execute();
@@ -500,11 +669,11 @@ try {
 
     afirmar(
         $totalAuditEdiciones >= 5,
-        '24. Auditoría Inmutable: Eventos de creación, actualización, transición y selección actual registrados'
+        '27. Auditoría Inmutable: Eventos de creación, actualización, avance, retroceso y selección actual registrados'
     );
 
     // ==============================================================================
-    // 25. CONTROL DE ACCESO RBAC: OPERADOR SIN PERMISO ES BLOQUEADO
+    // 28. CONTROL DE ACCESO RBAC: OPERADOR SIN PERMISO ES BLOQUEADO
     // ==============================================================================
     $bloqueoRbacCrear = false;
     try {
@@ -516,7 +685,7 @@ try {
         $bloqueoRbacCrear = str_contains($e->getMessage(), 'ediciones.crear');
     }
 
-    afirmar($bloqueoRbacCrear === true, '25. RBAC: Operador de producción sin permiso ediciones.crear es denegado');
+    afirmar($bloqueoRbacCrear === true, '28. RBAC: Operador de producción sin permiso ediciones.crear es denegado');
 
 } finally {
     // ==============================================================================
@@ -526,7 +695,7 @@ try {
 }
 
 // ==============================================================================
-// 26. CERTIFICACIÓN POST-ROLLBACK: CUENTA ORLANDO 100% INALTERADA
+// 29. CERTIFICACIÓN POST-ROLLBACK: CUENTA ORLANDO 100% INALTERADA
 // ==============================================================================
 $stmtOrlandoPost = $pdo->prepare("SELECT id, contrasena_hash, estado, intentos_fallidos, bloqueado_hasta, organizacion_id FROM usuarios WHERE nombre_usuario = 'orlando'");
 $stmtOrlandoPost->execute();
@@ -541,7 +710,7 @@ afirmar(
     && (int) ($orlandoPost['intentos_fallidos'] ?? -1) === 0
     && $orlandoPost['bloqueado_hasta'] === null
     && (int) ($orlandoPost['organizacion_id'] ?? 0) === 10000,
-    '26. Preservación Post-Rollback: Cuenta orlando (ID 24) 100% inalterada con huella criptográfica idéntica'
+    '29. Preservación Post-Rollback: Cuenta orlando (ID 24) 100% inalterada con huella criptográfica idéntica'
 );
 
 echo "\n==============================================================================\n";

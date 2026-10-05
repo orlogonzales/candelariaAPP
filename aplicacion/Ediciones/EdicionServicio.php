@@ -237,6 +237,13 @@ class EdicionServicio
             throw new AccesoDenegadoExcepcion('La edición solicitada no existe o no pertenece a la organización.');
         }
 
+        // Una edición CERRADA es terminal estricta y queda históricamente congelada
+        if ($edicion->estado === EstadoEdicion::CERRADA) {
+            throw new InvalidArgumentException(
+                "La edición '{$edicion->nombre}' se encuentra en estado CERRADA y está históricamente congelada. No admite cambios de estado."
+            );
+        }
+
         $nuevoEstado = EstadoEdicion::intentarDesde($nuevoEstadoValor);
         if ($nuevoEstado === null) {
             throw new InvalidArgumentException("El estado '{$nuevoEstadoValor}' no es un estado válido del ciclo de vida.");
@@ -246,29 +253,19 @@ class EdicionServicio
             throw new InvalidArgumentException("La edición ya se encuentra en el estado '{$nuevoEstado->value}'.");
         }
 
-        // Evaluar si es retroceso operativo
+        // Evaluar si es retroceso operativo extraordinario
         $esRetroceso = match (true) {
             $edicion->estado === EstadoEdicion::OPERACION && $nuevoEstado === EstadoEdicion::PREOPERACION => true,
             $edicion->estado === EstadoEdicion::POSTPRODUCCION_ENTREGA && $nuevoEstado === EstadoEdicion::OPERACION => true,
             default => false,
         };
 
-        if ($esRetroceso) {
-            if (empty(trim((string) $motivo))) {
-                throw new InvalidArgumentException('El retroceso de estado operativo requiere obligatoriamente registrar un motivo formal.');
-            }
-        }
-
-        // Evaluar si es reapertura de edición CERRADA
-        $esReapertura = ($edicion->estado === EstadoEdicion::CERRADA && $nuevoEstado === EstadoEdicion::POSTPRODUCCION_ENTREGA);
-        if ($esReapertura) {
-            if (empty(trim((string) $motivo))) {
-                throw new InvalidArgumentException('La reapertura de una edición CERRADA requiere obligatoriamente una justificación técnica o de auditoría.');
-            }
+        if ($esRetroceso && empty(trim((string) $motivo))) {
+            throw new InvalidArgumentException('El retroceso de estado operativo requiere obligatoriamente registrar un motivo formal.');
         }
 
         // Validar transición en la máquina de estados del Enum
-        if (!$edicion->estado->puedeTransicionarA($nuevoEstado, $esRetroceso, $esReapertura)) {
+        if (!$edicion->estado->puedeTransicionarA($nuevoEstado, $esRetroceso)) {
             throw new InvalidArgumentException(
                 "Transición no permitida: no es posible pasar de '{$edicion->estado->value}' a '{$nuevoEstado->value}'."
             );
@@ -300,9 +297,7 @@ class EdicionServicio
         try {
             $this->edicionRepo->actualizar($edicionActualizada, $actualizadoEnEsperado);
 
-            $accionAuditoria = $esReapertura
-                ? 'REABRIR_EDICION'
-                : ($esRetroceso ? 'RETROCEDER_ESTADO_EDICION' : 'AVANZAR_ESTADO_EDICION');
+            $accionAuditoria = $esRetroceso ? 'RETROCEDER_ESTADO_EDICION' : 'AVANZAR_ESTADO_EDICION';
 
             $this->auditoriaRepo->registrar(
                 contexto: $contexto,

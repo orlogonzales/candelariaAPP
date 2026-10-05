@@ -185,6 +185,10 @@ class EdicionRepositorio
         }
 
         try {
+            // 0. Bloqueo pesimista sobre la organización para serializar concurrencia estricta por tenant
+            $stmtLock = $this->pdo->prepare("SELECT `id` FROM `organizaciones` WHERE `id` = :org_id FOR UPDATE");
+            $stmtLock->execute([':org_id' => $organizacionId]);
+
             // 1. Desmarcar todas las ediciones del tenant
             $stmtReset = $this->pdo->prepare("UPDATE `ediciones_candelaria` SET `es_actual` = 0 WHERE `organizacion_id` = :org_id");
             $stmtReset->execute([':org_id' => $organizacionId]);

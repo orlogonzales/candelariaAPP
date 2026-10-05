@@ -6,10 +6,10 @@
 
 ## 1. RESUMEN EJECUTIVO
 
-- **Microlote:** `F2.1A` — Modelo de Dominio Edición Candelaria y Ciclo de Vida.
+- **Microlote:** `F2.1A` — Modelo de Dominio Edición Candelaria y Ciclo de Vida (Alineación y Cierre Oficial).
 - **Baseline de Entrada Oficial:** `b2dfa3286f7309c75692a5e4f017bc21897084e1` (Fase 1.2 Gate Aprobado con 219/219 PASS).
 - **Estado de Cierre:** **PASS FORMAL TÉCNICO, DE SEGURIDAD Y ARQUITECTÓNICO (100% PRUEBAS EXITOSAS)**.
-- **Regresión Acumulada Total:** **245 / 245 PRUEBAS PASS (0 FALLOS)**.
+- **Regresión Acumulada Total:** **248 / 248 PRUEBAS PASS (0 FALLOS)**.
   - `F1.1A` (Identidad, Actores, Canales, Auditoría): **15/15 PASS**
   - `F1.1B` (Seguridad, Sesiones, CSRF, Bloqueo): **26/26 PASS**
   - `F1.1C` (RBAC, Catálogo Permisos, Autorización Backend): **11/11 PASS**
@@ -20,7 +20,7 @@
   - `F1.2C` (Configuración General, Parámetros Operativos, Soberanía, Concurrencia 409): **26/26 PASS**
   - `F1.2D` (Integración, Catálogos, Tenant Fail-Closed, Aislamiento y Preservación): **20/20 PASS**
   - `F1.2E` (Hardening Final, Concurrencia Org, Paridad DB limpia): **26/26 PASS**
-  - `F2.1A` (Modelo de Dominio Edición Candelaria, Ciclo de Vida, Máquina de Estados, RBAC y Auditoría): **26/26 PASS**
+  - `F2.1A` (Modelo de Dominio Edición Candelaria, Ciclo de Vida Aprobado, Terminal Estricto, Lock Pesimista, RBAC Desacoplado y Auditoría): **29/29 PASS**
 - **Preservación Inviolable de la Cuenta `orlando` (ID 24):**
   - Huella Digital SHA-256 Pre-Regresión: `80e6af84e02e89e3`
   - Huella Digital SHA-256 Post-Regresión: `80e6af84e02e89e3` (**100% IDÉNTICA**)
@@ -35,17 +35,15 @@
 
 ## 2. AUDITORÍA PREVIA Y CLASIFICACIÓN DE COMPONENTES
 
-Antes de la implementación se realizó el inventario exhaustivo del repositorio y esquema base:
-
 | COMPONENTE | CLASIFICACIÓN | ESTADO PREVIO | IMPACTO / ACCIÓN APLICADA |
 | :--- | :--- | :--- | :--- |
 | `ediciones_candelaria` (Tabla) | **EXISTE (Refactorizado)** | Diseñada preliminarmente en Fase 0 con 0 registros (`ano`, `fase_actual` con ENUM incompleto, sin `codigo`). | Migración incremental `004`: Normalizada con columnas `anio`, `codigo` slug, `estado` VARCHAR(30) con CHECK constraint, índices de unicidad e integridad temporal. |
 | Módulo 3 (`ediciones`) | **EXISTE (Reutilizado)** | Registrado en catálogo oficial `modulos` desde la Fase 0. | Permisos RBAC vinculados a `modulo_id = 3`. |
 | Permisos de Edición | **NUEVO** | 0 permisos existentes para ediciones. | Creados 5 permisos atómicos: `ediciones.ver`, `ediciones.crear`, `ediciones.editar`, `ediciones.cambiar_estado`, `ediciones.seleccionar_actual`. |
 | Entidad `Edicion` | **NUEVO** | Inexistente en backend. | Creada entidad inmutable en `Aplicacion\Entidades\Edicion` con validación estricta de invariantes y normalización. |
-| Enum `EstadoEdicion` | **NUEVO** | Inexistente en backend. | Creado enum tipado en `Aplicacion\Ediciones\EstadoEdicion` con etiquetas formales en español y máquina de estados. |
-| Repositorio `EdicionRepositorio` | **NUEVO** | Inexistente en backend. | Creado repositorio en `Aplicacion\Repositorios\EdicionRepositorio` con concurrencia optimista y prohibición estricta de eliminación física. |
-| Servicio `EdicionServicio` | **NUEVO** | Inexistente en backend. | Creado servicio de dominio en `Aplicacion\Ediciones\EdicionServicio` gobernando autorizaciones RBAC, Anti-IDOR, transiciones y auditoría. |
+| Enum `EstadoEdicion` | **NUEVO** | Inexistente en backend. | Creado enum tipado en `Aplicacion\Ediciones\EstadoEdicion` con etiquetas formales en español y máquina de estados estricta. |
+| Repositorio `EdicionRepositorio` | **NUEVO** | Inexistente en backend. | Creado repositorio en `Aplicacion\Repositorios\EdicionRepositorio` con serialización pesimista (`FOR UPDATE`), concurrencia optimista y prohibición estricta de eliminación física. |
+| Servicio `EdicionServicio` | **NUEVO** | Inexistente en backend. | Creado servicio de dominio en `Aplicacion\Ediciones\EdicionServicio` gobernando autorizaciones RBAC desacopladas, Anti-IDOR, congelamiento terminal de `CERRADA` y auditoría. |
 
 ---
 
@@ -90,13 +88,13 @@ CREATE TABLE `ediciones_candelaria` (
 
 ---
 
-## 4. CICLO DE VIDA Y MÁQUINA DE ESTADOS
+## 4. CICLO DE VIDA OFICIAL Y MÁQUINA DE ESTADOS APROBADA
 
-### 4.1. Fases Oficiales
+### 4.1. Fases Operativas
 
 ```text
 PREOPERACION ────────► OPERACION ────────► POSTPRODUCCION_ENTREGA ────────► CERRADA
- (Preoperación)        (Operación)          (Postproducción / Entrega)      (Cerrada)
+ (Preoperación)        (Operación)          (Postproducción / Entrega)      (Cerrada - Congelada)
 ```
 
 | ESTADO | ETIQUETA HUMANA | NATURALEZA | DESCRIPCIÓN |
@@ -104,29 +102,57 @@ PREOPERACION ────────► OPERACION ────────► P
 | `PREOPERACION` | PREOPERACIÓN | Inicial | Fase de planificación, configuración de hitos, paquetes, cotizaciones tempranas y logística previa. |
 | `OPERACION` | OPERACIÓN | Activa | Desarrollo en vivo de los días centrales de la Festividad (concursos, pasacalles, coberturas de campo y rodaje). |
 | `POSTPRODUCCION_ENTREGA` | POSTPRODUCCIÓN / ENTREGA | Posterior | Selección, edición de material audiovisual, catalogación, generación de galerías y entrega a clientes. |
-| `CERRADA` | CERRADA | Terminal | Ejercicio operativo, documental y financiero concluido. Se bloquea la modificación de datos operativos. |
+| `CERRADA` | CERRADA | Terminal Estricto | Ejercicio operativo, documental y comercial concluido. Históricamente congelada: CERO transiciones permitidas. |
 
-### 4.2. Reglas de Transición y Gobernanza
+### 4.2. Reglas de Transición y Gobernanza de Estados
 
-1. **Avance Secuencial:** El flujo estándar avanza estrictamente de izquierda a derecha. Se prohíben saltos ilegales (ej. `PREOPERACION` &rarr; `CERRADA`).
-2. **Retroceso Operativo Controlado:** Se admite retroceder entre fases no terminales (`OPERACION` &rarr; `PREOPERACION` o `POSTPRODUCCION_ENTREGA` &rarr; `OPERACION`) **exclusivamente por operadores con rol `admin_organizacion` o superadministradores, exigiendo un motivo explicativo obligatorio** registrado en auditoría.
-3. **Invariante de Edición CERRADA:** Una edición en estado `CERRADA` bloquea cualquier mutación ordinaria a sus nombres o fechas.
-4. **Reapertura Excepcional:** Solo se permite reabrir una edición `CERRADA` hacia `POSTPRODUCCION_ENTREGA` mediante método explícito y justificación documentada en auditoría (`REABRIR_EDICION`).
+1. **Avance Secuencial Estricto:**
+   - `PREOPERACION` &rarr; `OPERACION`
+   - `OPERACION` &rarr; `POSTPRODUCCION_ENTREGA`
+   - `POSTPRODUCCION_ENTREGA` &rarr; `CERRADA`
+   - Se prohíben saltos ilegales (ej. `PREOPERACION` &rarr; `CERRADA` o `PREOPERACION` &rarr; `POSTPRODUCCION_ENTREGA`).
+2. **Retrocesos Operativos Extraordinarios:**
+   - Admitidos únicamente entre fases operativas activas:
+     - `OPERACION` &rarr; `PREOPERACION`
+     - `POSTPRODUCCION_ENTREGA` &rarr; `OPERACION`
+   - **Exigen obligatoriamente:** motivo formal no vacío, permiso RBAC `ediciones.cambiar_estado` y registro inmutable en `auditoria_operaciones` bajo la acción `RETROCEDER_ESTADO_EDICION`.
+3. **Estado `CERRADA` Congelado (Terminal Estricto):**
+   - Una vez que la edición alcanza el estado `CERRADA`, queda **históricamente congelada**.
+   - **CERO transiciones de salida permitidas:** Se eliminó cualquier mecanismo de reapertura (`CERRADA` &rarr; `POSTPRODUCCION_ENTREGA`, `OPERACION` o `PREOPERACION` son categóricamente RECHAZADOS con `InvalidArgumentException`).
+   - Se bloquea además cualquier mutación ordinaria a nombres, fechas o configuración en `EdicionServicio::actualizar()`.
 
 ---
 
-## 5. EDICIÓN ACTUAL / ACTIVA EN CONTEXTO
+## 5. EDICIÓN ACTUAL / ACTIVA: SEMÁNTICA Y EXCLUSIVIDAD TRANSACCIONAL
 
-- **Persistencia en Base de Datos:** Campo `es_actual TINYINT(1)`.
-- **Exclusividad Transaccional:** El método `establecerComoActual($id, $organizacionId)` ejecuta una transacción atómica que pone en `0` todas las ediciones del tenant y en `1` la edición designada.
-- **Preparación para Selección de Sesión (F2.1B):** La edición con `es_actual = 1` representa la edición predeterminada de la empresa. En F2.1B se incorporará el selector interactivo en frontend que permitirá al operador fijar su contexto de trabajo en sesión sin mutar la edición predeterminada corporativa.
+1. **Semántica de Negocio Aprobada:**
+   - `es_actual` designa la **edición de trabajo predeterminada para la organización**, no su fase operativa.
+   - Es completamente independiente del ciclo de vida: una edición en `PREOPERACION` puede tener `es_actual = 1` (ej. la organización preparando Candelaria 2027 durante meses previos).
+   - De igual manera, una edición en `POSTPRODUCCION_ENTREGA` o `CERRADA` puede tener `es_actual = 0`.
+2. **Exclusividad Concurrente con Bloqueo Pesimista (Lock de Fila):**
+   - En `EdicionRepositorio::establecerComoActual($id, $organizacionId)` se implementó un bloqueo pesimista `SELECT id FROM organizaciones WHERE id = :org_id FOR UPDATE` dentro de la transacción.
+   - Esto serializa de forma estricta las peticiones concurrentes a nivel de tenant antes de ejecutar `UPDATE es_actual = 0` y `UPDATE es_actual = 1`, erradicando cualquier condición de carrera.
+3. **Desacoplamiento RBAC:**
+   - La selección de la edición actual exige exclusivamente el permiso `ediciones.seleccionar_actual`.
+   - No requiere ni confiere el permiso `ediciones.cambiar_estado`. Ambos permisos operan de manera 100% aislada.
 
 ---
 
-## 6. CONFIGURACIÓN Y PARÁMETROS DE EDICIÓN
+## 6. AUDITORÍA TÉCNICA DE `configuracion_json`
 
-- **Decisión Arquitectónica:** Se implementó la columna `configuracion_json` dentro de `ediciones_candelaria`, gobernada por el `EdicionServicio`.
-- **Justificación:** Mantiene los parámetros propios de la festividad (fechas de hitos, cupos, condiciones de cobertura) estrechamente vinculados a la edición, sin perturbar el modelo soberano de `parametros_configuracion` establecido en F1.2.
+Conforme al mandato del Gate Funcional, se realizó una auditoría exhaustiva de la columna `configuracion_json`:
+
+1. **Propósito Inicial en el Diseño:** Concebida originalmente en la migración `004` como un campo abierto para albergar hitos específicos, cupos por danza o parámetros operativos locales de una edición.
+2. **Estructura y Tipado:** Columna MySQL de tipo `JSON DEFAULT NULL`. En la entidad PHP `Edicion` se mapea simplemente como `?array $configuracion = null`.
+3. **Validación y Schema:** **Ausencia total de esquema o contrato.** No existe JSON Schema, ni validación de campos requeridos, tipos o rangos en PHP ni en BD. Acepta cualquier arreglo asociativo serializado mediante `json_encode`.
+4. **Lectores (Readers) en el Código Base:** CERO lectores funcionales. Ningún controlador, servicio ni vista consulta atributos dentro de `$edicion->configuracion`.
+5. **Escritores (Writers) en el Código Base:** Únicamente `EdicionRepositorio::crear` y `EdicionRepositorio::actualizar` cuando se les pasa la clave `'configuracion'`.
+6. **Datos Existentes en Base de Datos:** **0 filas en la tabla `ediciones_candelaria`** (la tabla se encuentra completamente vacía). Cero datos persistidos.
+7. **Riesgo Identificado:** Se comporta como una bolsa libre desregulada (arbitrary key-value store), lo que contradice el principio de gobernanza, tipado y soberanía aplicado a `parametros_configuracion` en la Fase 1.2.
+8. **Recomendación Formal para el Usuario:**
+   - **OPCIÓN A (Recomendada):** Eliminar la columna `configuracion_json` en la migración de F2.1B y mantener la entidad limpia hasta que los módulos de Danzas/Comparsas o Logística definan sus requerimientos funcionales concretos con columnas relacionales fuertemente tipadas.
+   - **OPCIÓN B:** Si se conservara, definir un Value Object tipado (`EdicionConfiguracion`) con esquema formal, validación cerrada e inmutabilidad, prohibiendo la inyección de claves arbitrarias.
+   - *Nota de Cumplimiento:* **NO se ha modificado la estructura física en BD**, permaneciendo a la espera de la decisión del usuario.
 
 ---
 
@@ -153,13 +179,13 @@ PREOPERACION ────────► OPERACION ────────► P
 ## 8. CONCURRENCIA OPTIMISTA Y CONSERVACIÓN HISTÓRICA
 
 1. **Concurrencia Optimista (HTTP 409):** `EdicionRepositorio::actualizar()` compara la marca temporal `actualizado_en` existente en la base de datos contra el valor esperado recibido desde la petición. Si detecta desfase, lanza `ConflictoConcurrenciaExcepcion`.
-2. **Prohibición de Eliminación Física (Append-Only):** `EdicionRepositorio` no expone ningún método `delete()`, `destroy()` o `truncate()`. Las ediciones son activos históricos permanentes del negocio; para cesar operaciones se utiliza el estado `CERRADA`.
+2. **Prohibición de Eliminación Física (Append-Only):** `EdicionRepositorio` no expone ningún método `delete()`, `destroy()` o `truncate()`. Las ediciones son activos históricos permanentes del negocio; para cesar operaciones se utiliza el estado terminal `CERRADA`.
 
 ---
 
-## 9. SUITE DE PRUEBAS DE DOMINIO F2.1A
+## 9. SUITE DE PRUEBAS DE DOMINIO F2.1A (29/29 PASS)
 
-Se desarrolló la suite automatizada [`pruebas/ejecutar_pruebas_f21a.php`](file:///d:/laragon/www/app.candelaria/pruebas/ejecutar_pruebas_f21a.php) con 26 pruebas atómicas:
+Se actualizó la suite automatizada [`pruebas/ejecutar_pruebas_f21a.php`](file:///d:/laragon/www/app.candelaria/pruebas/ejecutar_pruebas_f21a.php) con 29 pruebas atómicas:
 
 ```text
 ==============================================================================
@@ -184,18 +210,21 @@ ENTIDAD, PERSISTENCIA, CICLO DE VIDA, RBAC, ANTI-IDOR, CONCURRENCIA Y AUDITORÍA
  [PASS] 15. Máquina de Estados: Rechazo de saltos de fase ilegales (PREOPERACION -> CERRADA)
  [PASS] 16. Máquina de Estados: Retroceso controlado entre fases operativas con motivo formal
  [PASS] 17. Máquina de Estados: Rechazo de retroceso si no se provee motivo justificativo
- [PASS] 18. Invariante de Cierre: Edición CERRADA bloquea modificaciones operativas ordinarias
- [PASS] 19. Máquina de Estados: Reapertura excepcional de edición CERRADA hacia POSTPRODUCCION_ENTREGA
- [PASS] 20. Edición Actual: Exclusividad transaccional garantizada (solo una edición actual por tenant)
- [PASS] 21. Aislamiento Anti-IDOR: Operador no puede consultar ni mutar ediciones pertenecientes a otra organización
- [PASS] 22. Concurrencia Optimista: ConflictoConcurrenciaExcepcion ante versión desfasada
- [PASS] 23. Conservación Histórica: EdicionRepositorio prohíbe eliminación física por diseño
- [PASS] 24. Auditoría Inmutable: Eventos de creación, actualización, transición y selección actual registrados
- [PASS] 25. RBAC: Operador de producción sin permiso ediciones.crear es denegado
- [PASS] 26. Preservación Post-Rollback: Cuenta orlando (ID 24) 100% inalterada con huella criptográfica idéntica
+ [PASS] 18. Máquina de Estados: Retroceso controlado (POSTPRODUCCION_ENTREGA -> OPERACION) con motivo formal y rechazo sin motivo
+ [PASS] 19. Invariante de Cierre: Edición CERRADA bloquea modificaciones operativas ordinarias
+ [PASS] 20. Terminal Estricto: Edición CERRADA congelada prohíbe categóricamente toda transición o reapertura
+ [PASS] 21. Edición Actual: Exclusividad transaccional garantizada (solo una edición actual por tenant) con lock pesimista
+ [PASS] 22. Semántica de Negocio: es_actual es independiente del estado operativo (PREOPERACION puede ser actual, CERRADA inactiva)
+ [PASS] 23. Desacoplamiento RBAC: ediciones.seleccionar_actual y ediciones.cambiar_estado son permisos independientes
+ [PASS] 24. Aislamiento Anti-IDOR: Operador no puede consultar ni mutar ediciones pertenecientes a otra organización
+ [PASS] 25. Concurrencia Optimista: ConflictoConcurrenciaExcepcion ante versión desfasada
+ [PASS] 26. Conservación Histórica: EdicionRepositorio prohíbe eliminación física por diseño
+ [PASS] 27. Auditoría Inmutable: Eventos de creación, actualización, avance, retroceso y selección actual registrados
+ [PASS] 28. RBAC: Operador de producción sin permiso ediciones.crear es denegado
+ [PASS] 29. Preservación Post-Rollback: Cuenta orlando (ID 24) 100% inalterada con huella criptográfica idéntica
 
 ==============================================================================
-RESULTADO FINAL F2.1A: 26 PRUEBAS EXITOSAS / 0 FALLOS
+RESULTADO FINAL F2.1A: 29 PRUEBAS EXITOSAS / 0 FALLOS
 ==============================================================================
 ```
 
@@ -215,5 +244,5 @@ RESULTADO FINAL F2.1A: 26 PRUEBAS EXITOSAS / 0 FALLOS
 | | `F1.2C` — Configuración General y Parámetros | 26 / 26 | **PASS** | Parámetros dinámicos, Concurrencia 409 |
 | | `F1.2D` — Integración y Catálogos Transversales | 20 / 20 | **PASS** | Fail-Closed, Preservación de Orlando |
 | | `F1.2E` — Hardening Final y Gate Fase 1.2 | 26 / 26 | **PASS** | Gate F1.2 certificado, Paridad DB limpia |
-| **Fase 2.1** | `F2.1A` — Dominio Edición y Ciclo de Vida | 26 / 26 | **PASS** | Entidad Edición, Máquina de Estados, RBAC |
-| **TOTAL** | **REGRESIÓN TOTAL CONSOLIDADA** | **245 / 245** | **PASS** | **100% OPERATIVO, ESTABLE Y AUDITADO** |
+| **Fase 2.1** | `F2.1A` — Dominio Edición y Ciclo de Vida | 29 / 29 | **PASS** | Entidad Edición, Máquina de Estados, RBAC, Terminal CERRADA, Lock Pesimista |
+| **TOTAL** | **REGRESIÓN TOTAL CONSOLIDADA** | **248 / 248** | **PASS** | **100% OPERATIVO, ESTABLE Y AUDITADO** |
