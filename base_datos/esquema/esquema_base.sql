@@ -227,22 +227,27 @@ DROP TABLE IF EXISTS `ediciones_candelaria`;
 CREATE TABLE `ediciones_candelaria` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `organizacion_id` INT UNSIGNED NOT NULL,
-    `ano` SMALLINT UNSIGNED NOT NULL COMMENT 'Año de la edición (ej. 2027, 2028)',
-    `nombre` VARCHAR(120) NOT NULL COMMENT 'ej. CANDELARIA 2027',
-    `lema` VARCHAR(255) DEFAULT NULL,
+    `codigo` VARCHAR(60) NOT NULL COMMENT 'Slug canónico único por tenant (ej. candelaria-2027)',
+    `nombre` VARCHAR(120) NOT NULL COMMENT 'Nombre formal normalizado en MAYÚSCULAS',
+    `anio` SMALLINT UNSIGNED NOT NULL COMMENT 'Año calendario de la edición (ej. 2027)',
+    `estado` VARCHAR(30) NOT NULL DEFAULT 'PREOPERACION' COMMENT 'Ciclo de vida gobernado',
     `fecha_inicio` DATE NOT NULL,
     `fecha_fin` DATE NOT NULL,
-    `fase_actual` ENUM('PREOPERACION', 'OPERACION', 'POSTPRODUCCION', 'CERRADA') NOT NULL DEFAULT 'PREOPERACION',
-    `es_activa` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 para la edición en curso',
-    `flyer_oficial_url` VARCHAR(255) DEFAULT NULL,
-    `configuracion_json` JSON DEFAULT NULL,
+    `descripcion` VARCHAR(255) DEFAULT NULL COMMENT 'Lema o descripción general de la edición',
+    `es_actual` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 si es la edición operativa activa por defecto del tenant',
+    `flyer_oficial_url` VARCHAR(255) DEFAULT NULL COMMENT 'Ruta relativa de imagen publicitaria oficial',
+    `configuracion_json` JSON DEFAULT NULL COMMENT 'Parámetros e hitos específicos de la edición',
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE CASCADE,
-    UNIQUE KEY `uk_ediciones_org_ano` (`organizacion_id`, `ano`),
-    KEY `idx_ediciones_fase` (`fase_actual`),
-    KEY `idx_ediciones_activa` (`es_activa`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Ediciones anuales de la Festividad de la Candelaria';
+    UNIQUE KEY `uk_ediciones_org_anio` (`organizacion_id`, `anio`),
+    UNIQUE KEY `uk_ediciones_org_codigo` (`organizacion_id`, `codigo`),
+    KEY `idx_ediciones_estado` (`estado`),
+    KEY `idx_ediciones_actual` (`es_actual`),
+    CONSTRAINT `chk_ediciones_fechas` CHECK (`fecha_inicio` <= `fecha_fin`),
+    CONSTRAINT `chk_ediciones_anio` CHECK (`anio` >= 2000 AND `anio` <= 2100),
+    CONSTRAINT `chk_ediciones_estado` CHECK (`estado` IN ('PREOPERACION', 'OPERACION', 'POSTPRODUCCION_ENTREGA', 'CERRADA'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Ediciones anuales de la Festividad de la Virgen de la Candelaria';
 
 -- ------------------------------------------------------------------------------
 -- 8. MENÚ DINÁMICO
