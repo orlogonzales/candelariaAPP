@@ -202,3 +202,8 @@ Enrutador::get('/catalogo/ofertas', [\Aplicacion\Controladores\CatalogoControlad
 // GESTIÓN DE COTIZACIONES COMERCIALES (FASE 2.4C)
 // ==============================================================================
 Enrutador::get('/cotizaciones', [\Aplicacion\Controladores\CotizacionControlador::class, 'index']);
+
+// ==============================================================================
+// GESTIÓN DE VENTAS COMERCIALES (FASE 2.5C)
+// ==============================================================================
+Enrutador::get('/ventas', [\Aplicacion\Controladores\VentaControlador::class, 'index']);

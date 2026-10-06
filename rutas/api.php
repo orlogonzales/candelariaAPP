@@ -320,3 +320,13 @@ Enrutador::post('/api/v1/cotizaciones/{id}/anular', [\Aplicacion\Controladores\C
 Enrutador::get('/api/v1/cotizaciones/aux/clientes', [\Aplicacion\Controladores\CotizacionControlador::class, 'auxClientes']);
 Enrutador::get('/api/v1/cotizaciones/aux/oportunidades', [\Aplicacion\Controladores\CotizacionControlador::class, 'auxOportunidades']);
 Enrutador::get('/api/v1/cotizaciones/aux/ofertas', [\Aplicacion\Controladores\CotizacionControlador::class, 'auxOfertas']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: VENTAS (FASE 2.5C)
+// ==============================================================================
+Enrutador::get('/api/v1/ventas', [\Aplicacion\Controladores\VentaControlador::class, 'listar']);
+Enrutador::get('/api/v1/ventas/aux/cotizaciones-aceptadas', [\Aplicacion\Controladores\VentaControlador::class, 'auxCotizacionesAceptadas']);
+Enrutador::get('/api/v1/ventas/{id}', [\Aplicacion\Controladores\VentaControlador::class, 'detalle']);
+Enrutador::post('/api/v1/ventas/desde-cotizacion', [\Aplicacion\Controladores\VentaControlador::class, 'crearDesdeCotizacion']);
+Enrutador::post('/api/v1/ventas/{id}/cancelar', [\Aplicacion\Controladores\VentaControlador::class, 'cancelar']);
+Enrutador::post('/api/v1/ventas/{id}/anular', [\Aplicacion\Controladores\VentaControlador::class, 'anular']);

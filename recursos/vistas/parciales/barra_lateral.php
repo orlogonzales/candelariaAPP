@@ -9,6 +9,7 @@ $puedeVerCrm = false;
 $puedeAdministrarOrigenes = false;
 $puedeVerCatalogo = false;
 $puedeVerCotizaciones = false;
+$puedeVerVentas = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
@@ -21,10 +22,11 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeAdministrarOrigenes = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'crm.origenes.administrar');
     $puedeVerCatalogo = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'catalogo.ver');
     $puedeVerCotizaciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'cotizaciones.ver');
+    $puedeVerVentas = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'ventas.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
-$esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes', 'cotizaciones'], true);
+$esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes', 'cotizaciones', 'ventas'], true);
 $esCatalogo = in_array($seccionActual, ['catalogo_items', 'catalogo_paquetes', 'catalogo_ofertas'], true);
 $esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo;
 
@@ -200,6 +202,20 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                                 <li>
                                     <a href="<?= url_base('cotizaciones') ?>" class="<?= $seccionActual === 'cotizaciones' ? 'active' : '' ?>">
                                         <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Cotizaciones
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerVentas): ?>
+                        <li>
+                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subVentas">
+                                <i class="fa-solid fa-cash-register me-2 text-secondary"></i> Ventas Comerciales
+                            </a>
+                            <ul class="collapse show" id="subVentas">
+                                <li>
+                                    <a href="<?= url_base('ventas') ?>" class="<?= $seccionActual === 'ventas' ? 'active' : '' ?>">
+                                        <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Registro de Ventas
                                     </a>
                                 </li>
                             </ul>
