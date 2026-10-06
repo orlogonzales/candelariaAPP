@@ -198,3 +198,7 @@ Enrutador::get('/catalogo/items', [\Aplicacion\Controladores\CatalogoControlador
 Enrutador::get('/catalogo/paquetes', [\Aplicacion\Controladores\CatalogoControlador::class, 'vistaPaquetes']);
 Enrutador::get('/catalogo/ofertas', [\Aplicacion\Controladores\CatalogoControlador::class, 'vistaOfertas']);
 
+// ==============================================================================
+// GESTIÓN DE COTIZACIONES COMERCIALES (FASE 2.4C)
+// ==============================================================================
+Enrutador::get('/cotizaciones', [\Aplicacion\Controladores\CotizacionControlador::class, 'index']);

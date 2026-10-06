@@ -298,3 +298,25 @@ Enrutador::put('/api/v1/catalogo/tarifas/paquetes/{id}', [\Aplicacion\Controlado
 // Historial de Tarifas (Append-Only)
 Enrutador::get('/api/v1/catalogo/tarifas/items/{id}/historial', [\Aplicacion\Controladores\CatalogoControlador::class, 'historialTarifaItem']);
 Enrutador::get('/api/v1/catalogo/tarifas/paquetes/{id}/historial', [\Aplicacion\Controladores\CatalogoControlador::class, 'historialTarifaPaquete']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: COTIZACIONES (FASE 2.4C)
+// ==============================================================================
+Enrutador::get('/api/v1/cotizaciones', [\Aplicacion\Controladores\CotizacionControlador::class, 'listar']);
+Enrutador::get('/api/v1/cotizaciones/{id}', [\Aplicacion\Controladores\CotizacionControlador::class, 'detalle']);
+Enrutador::post('/api/v1/cotizaciones', [\Aplicacion\Controladores\CotizacionControlador::class, 'crearBorrador']);
+Enrutador::put('/api/v1/cotizaciones/{id}', [\Aplicacion\Controladores\CotizacionControlador::class, 'actualizarBorrador']);
+Enrutador::post('/api/v1/cotizaciones/{id}/lineas', [\Aplicacion\Controladores\CotizacionControlador::class, 'agregarLinea']);
+Enrutador::patch('/api/v1/cotizaciones/{id}/lineas/{lineaId}/descuento', [\Aplicacion\Controladores\CotizacionControlador::class, 'aplicarDescuentoLinea']);
+Enrutador::delete('/api/v1/cotizaciones/{id}/lineas/{lineaId}', [\Aplicacion\Controladores\CotizacionControlador::class, 'eliminarLinea']);
+Enrutador::post('/api/v1/cotizaciones/{id}/descuento-global', [\Aplicacion\Controladores\CotizacionControlador::class, 'aplicarDescuentoGlobal']);
+Enrutador::post('/api/v1/cotizaciones/{id}/emitir', [\Aplicacion\Controladores\CotizacionControlador::class, 'emitir']);
+Enrutador::post('/api/v1/cotizaciones/{id}/revision', [\Aplicacion\Controladores\CotizacionControlador::class, 'crearRevision']);
+Enrutador::post('/api/v1/cotizaciones/{id}/aceptar', [\Aplicacion\Controladores\CotizacionControlador::class, 'aceptar']);
+Enrutador::post('/api/v1/cotizaciones/{id}/rechazar', [\Aplicacion\Controladores\CotizacionControlador::class, 'rechazar']);
+Enrutador::post('/api/v1/cotizaciones/{id}/anular', [\Aplicacion\Controladores\CotizacionControlador::class, 'anular']);
+
+// Lookups Auxiliares para Select2 y Catálogo en Cotizaciones
+Enrutador::get('/api/v1/cotizaciones/aux/clientes', [\Aplicacion\Controladores\CotizacionControlador::class, 'auxClientes']);
+Enrutador::get('/api/v1/cotizaciones/aux/oportunidades', [\Aplicacion\Controladores\CotizacionControlador::class, 'auxOportunidades']);
+Enrutador::get('/api/v1/cotizaciones/aux/ofertas', [\Aplicacion\Controladores\CotizacionControlador::class, 'auxOfertas']);

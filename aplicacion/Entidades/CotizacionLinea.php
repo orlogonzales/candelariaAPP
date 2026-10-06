@@ -133,4 +133,9 @@ class CotizacionLinea
             'componentes' => array_map(fn($c) => $c instanceof CotizacionLineaComponente ? $c->toArray() : $c, $this->componentes),
         ];
     }
+
+    public function aArreglo(): array
+    {
+        return $this->toArray();
+    }
 }

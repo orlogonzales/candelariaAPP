@@ -59,4 +59,9 @@ class CotizacionLineaComponente
             'creado_en' => $this->creadoEn,
         ];
     }
+
+    public function aArreglo(): array
+    {
+        return $this->toArray();
+    }
 }

@@ -205,4 +205,9 @@ class Cotizacion
             'lineas' => array_map(fn($l) => $l instanceof CotizacionLinea ? $l->toArray() : $l, $this->lineas),
         ];
     }
+
+    public function aArreglo(): array
+    {
+        return $this->toArray();
+    }
 }
