@@ -35,20 +35,24 @@ class TarifaPaqueteEdicionRepositorio
     }
 
     /**
-     * Actualiza el precio con verificación estricta de concurrencia optimista.
-     * Incrementa la versión si coincide; retorna false si hubo conflicto concurrente.
+     * Actualiza el precio con verificación estricta de concurrencia optimista y soberanía tenant.
+     * Incrementa la versión atómicamente si coincide; retorna false si la versión o tenant difieren.
      */
-    public function actualizarPrecio(int $id, float $nuevoPrecio, int $versionActual): bool
+    public function actualizarPrecio(int $id, int $organizacionId, float $nuevoPrecio, int $versionActual): bool
     {
         $stmt = $this->pdo->prepare("
-            UPDATE `tarifas_paquetes_edicion`
-            SET `precio` = :precio,
-                `version_bloqueo` = `version_bloqueo` + 1
-            WHERE `id` = :id AND `version_bloqueo` = :version_actual
+            UPDATE `tarifas_paquetes_edicion` t
+            INNER JOIN `ofertas_paquetes_edicion` o ON o.`id` = t.`oferta_paquete_id`
+            SET t.`precio` = :precio,
+                t.`version_bloqueo` = t.`version_bloqueo` + 1
+            WHERE t.`id` = :id
+              AND o.`organizacion_id` = :organizacion_id
+              AND t.`version_bloqueo` = :version_actual
         ");
 
         $stmt->execute([
             'id' => $id,
+            'organizacion_id' => $organizacionId,
             'precio' => $nuevoPrecio,
             'version_actual' => $versionActual,
         ]);

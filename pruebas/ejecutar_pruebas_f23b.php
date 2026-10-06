@@ -113,12 +113,16 @@ foreach ($tablasEsperadas as $t) {
     afirmar(in_array($t, $tablasBd, true), "1.1: Tabla obligatoria '{$t}' existe en la base de datos");
 }
 
-// 1.2 Registro de migración 000009
-$stmtMig = $pdo->prepare("SELECT COUNT(*) FROM `migraciones_control` WHERE `migracion` = '2026_10_05_000009_crear_catalogo_comercial_paquetes_tarifas.sql'");
-$stmtMig->execute();
-afirmar((int) $stmtMig->fetchColumn() === 1, "1.2: Migración 000009 registrada en 'migraciones_control'");
+// 1.2 Registro de migraciones oficiales del módulo
+$stmtMig9 = $pdo->prepare("SELECT COUNT(*) FROM `migraciones_control` WHERE `migracion` = '2026_10_05_000009_crear_catalogo_comercial_paquetes_tarifas.sql'");
+$stmtMig9->execute();
+afirmar((int) $stmtMig9->fetchColumn() === 1, "1.2: Migración 000009 registrada en 'migraciones_control'");
 
-// 1.3 Permisos RBAC módulo 4
+$stmtMig10 = $pdo->prepare("SELECT COUNT(*) FROM `migraciones_control` WHERE `migracion` = '2026_10_05_000010_agregar_permiso_catalogo_tarifas_ver_historial.sql'");
+$stmtMig10->execute();
+afirmar((int) $stmtMig10->fetchColumn() === 1, "1.3: Migración incremental 000010 registrada en 'migraciones_control'");
+
+// 1.4 Permisos RBAC módulo 4 (7 permisos soberanos)
 $stmtPerms = $pdo->query("SELECT `codigo` FROM `permisos` WHERE `modulo_id` = 4 ORDER BY `id` ASC");
 $permsBd = $stmtPerms->fetchAll(PDO::FETCH_COLUMN);
 $permsEsperados = [
@@ -128,9 +132,10 @@ $permsEsperados = [
     'catalogo.paquetes.gestionar',
     'catalogo.ofertas.gestionar',
     'catalogo.tarifas.gestionar',
+    'catalogo.tarifas.ver_historial',
 ];
 $diffPerms = array_diff($permsEsperados, $permsBd);
-afirmar(empty($diffPerms) && count($permsBd) === 6, "1.3: Los 6 permisos RBAC de 'catalogo.*' están formalmente registrados");
+afirmar(empty($diffPerms) && count($permsBd) === 7, "1.4: Los 7 permisos RBAC soberanos de 'catalogo.*' están formalmente registrados");
 
 // 1.4 Test de instalación limpia de esquema_base.sql y paridad total de tablas
 $dbTemp = 'candelaria_temp_cat_' . substr(bin2hex(random_bytes(4)), 0, 8);
@@ -770,6 +775,124 @@ try {
         $rbacTarifaRechazado = true;
     }
     afirmar($rbacTarifaRechazado, "8.5: RBAC rechaza modificación de tarifa a usuario sin 'catalogo.tarifas.gestionar'");
+
+    // 8.6 Lectura permitida con 'catalogo.ver' (Operador consulta sin permisos de gestión)
+    $catConsultada = $catalogoServicio->obtenerCategoria($tenantA, (int) $catA1->id, $ctxOperadorTenantA);
+    $itemsConsultados = $catalogoServicio->listarItems($tenantA, null, null, null, $ctxOperadorTenantA);
+    $paqConsultado = $catalogoServicio->obtenerPaquete($tenantA, (int) $paqueteA->id, $ctxOperadorTenantA);
+    $ofertaItemConsultada = $catalogoServicio->obtenerOfertaItem($tenantA, (int) $ofertaItem1->id, $ctxOperadorTenantA);
+    $tarifaVigenteConsultada = $catalogoServicio->obtenerTarifaVigenteItem($tenantA, (int) $ofertaItem1->id, $ctxOperadorTenantA);
+
+    afirmar(
+        $catConsultada !== null && count($itemsConsultados) >= 2 && $paqConsultado !== null &&
+        $ofertaItemConsultada !== null && $tarifaVigenteConsultada !== null,
+        "8.6: Lectura permitida y exitosa para usuario con 'catalogo.ver'"
+    );
+
+    // 8.7 Lectura NO requiere permisos de gestión (Operador no tiene permisos 'catalogo.*.gestionar' y aun así lee)
+    afirmar(
+        !$authzServicio->tienePermiso(61099, 'catalogo.categorias.gestionar') &&
+        !$authzServicio->tienePermiso(61099, 'catalogo.items.gestionar') &&
+        !$authzServicio->tienePermiso(61099, 'catalogo.tarifas.gestionar') &&
+        $catConsultada !== null,
+        "8.7: Lectura de catálogo no requiere permisos de gestión (separación VER != GESTIONAR)"
+    );
+
+    // 8.8 Usuario sin 'catalogo.ver' es rechazado en todas las operaciones de lectura
+    $pdo->exec("INSERT INTO `personas` (`id`, `organizacion_id`, `tipo_persona`, `nombres`, `apellidos`, `telefono_whatsapp`, `codigo_pais`, `estado`) VALUES (81098, 10000, 'NATURAL', 'SIN', 'PERMISOS', '+51951999666', 'PE', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuarios` (`id`, `organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `telefono_whatsapp`, `contrasena_hash`, `estado`) VALUES (61098, 10000, 81098, 'sin.permisos', 'USUARIO SIN PERMISOS', 'sinperm@test.com', '+51951111333', '\$2y\$10\$abcdefghijklmnopqrstuu', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+
+    $ctxSinPermisos = new ContextoOperacion(
+        actorTipo: 'HUMANO',
+        usuarioId: 61098,
+        actorSistemaId: null,
+        actorSistemaCodigo: null,
+        canalId: 1,
+        canalCodigo: 'APP',
+        correlacionId: 'test-corr-cat-003',
+        origenIp: '127.0.0.1',
+        agenteUsuario: 'PHPUnit/TestRunner',
+        organizacionId: $tenantA
+    );
+
+    $lecturaSinPermisoRechazada = false;
+    try {
+        $catalogoServicio->obtenerCategoria($tenantA, (int) $catA1->id, $ctxSinPermisos);
+    } catch (AccesoDenegadoExcepcion $e) {
+        $lecturaSinPermisoRechazada = true;
+    }
+    afirmar($lecturaSinPermisoRechazada, "8.8: Lectura de catálogo sin permiso 'catalogo.ver' es rechazada estrictamente");
+
+    // 8.9 Operador con 'catalogo.ver' NO puede ver historial de tarifas (requiere 'catalogo.tarifas.ver_historial')
+    $verHistorialSinPermisoRechazado = false;
+    try {
+        $catalogoServicio->listarHistorialTarifasItem($tenantA, (int) $tarifaItem1->id, $ctxOperadorTenantA);
+    } catch (AccesoDenegadoExcepcion $e) {
+        $verHistorialSinPermisoRechazado = true;
+    }
+    afirmar($verHistorialSinPermisoRechazado, "8.9: Consulta de historial sin 'catalogo.tarifas.ver_historial' es rechazada (Operador con solo 'catalogo.ver')");
+
+    // 8.10 Consulta de historial permitida para usuario con 'catalogo.tarifas.ver_historial' (Admin)
+    $historialConsultado = $catalogoServicio->listarHistorialTarifasItem($tenantA, (int) $tarifaItem1->id, $ctxAdminTenantA);
+    afirmar(count($historialConsultado) === 1, "8.10: Consulta de historial permitida exitosamente para usuario con 'catalogo.tarifas.ver_historial'");
+
+    // 8.11 'catalogo.tarifas.ver_historial' NO permite cambiar tarifa (solo lectura de historial)
+    $pdo->exec("INSERT INTO `personas` (`id`, `organizacion_id`, `tipo_persona`, `nombres`, `apellidos`, `telefono_whatsapp`, `codigo_pais`, `estado`) VALUES (81097, 10000, 'NATURAL', 'SOLO', 'HISTORIAL', '+51951999555', 'PE', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuarios` (`id`, `organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `telefono_whatsapp`, `contrasena_hash`, `estado`) VALUES (61097, 10000, 81097, 'solo.historial', 'AUDITOR HISTORIAL', 'auditor@test.com', '+51951111444', '\$2y\$10\$abcdefghijklmnopqrstuu', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+
+    $pdo->exec("INSERT INTO `roles` (`id`, `codigo`, `nombre`, `descripcion`) VALUES (999, 'auditor_tarifas', 'Auditor de Tarifas', 'Solo ver historial') ON DUPLICATE KEY UPDATE `nombre` = 'Auditor de Tarifas'");
+    $pdo->exec("INSERT INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES (999, 40) ON DUPLICATE KEY UPDATE `permiso_id` = 40");
+    $pdo->exec("INSERT INTO `usuario_roles` (`usuario_id`, `rol_id`) VALUES (61097, 999) ON DUPLICATE KEY UPDATE `rol_id` = 999");
+
+    $ctxSoloHistorial = new ContextoOperacion(
+        actorTipo: 'HUMANO',
+        usuarioId: 61097,
+        actorSistemaId: null,
+        actorSistemaCodigo: null,
+        canalId: 1,
+        canalCodigo: 'APP',
+        correlacionId: 'test-corr-cat-004',
+        origenIp: '127.0.0.1',
+        agenteUsuario: 'PHPUnit/TestRunner',
+        organizacionId: $tenantA
+    );
+
+    $cambiarTarifaConSoloHistorialRechazado = false;
+    try {
+        $catalogoServicio->actualizarTarifaItem($tenantA, (int) $tarifaItem1->id, 200.0, 2, 'Intento mutar con solo ver_historial', $ctxSoloHistorial);
+    } catch (AccesoDenegadoExcepcion $e) {
+        $cambiarTarifaConSoloHistorialRechazado = true;
+    }
+    afirmar($cambiarTarifaConSoloHistorialRechazado, "8.11: Permiso 'catalogo.tarifas.ver_historial' NO permite cambiar tarifa (exclusivo para lectura)");
+
+    // 8.12 Rol con 'catalogo.tarifas.gestionar' no accede a historial si no se le concede 'catalogo.tarifas.ver_historial'
+    $pdo->exec("INSERT INTO `personas` (`id`, `organizacion_id`, `tipo_persona`, `nombres`, `apellidos`, `telefono_whatsapp`, `codigo_pais`, `estado`) VALUES (81096, 10000, 'NATURAL', 'GESTOR', 'TARIFA', '+51951999444', 'PE', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuarios` (`id`, `organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `telefono_whatsapp`, `contrasena_hash`, `estado`) VALUES (61096, 10000, 81096, 'gestor.tarifa', 'GESTOR TARIFA', 'gestortarifa@test.com', '+51951111555', '\$2y\$10\$abcdefghijklmnopqrstuu', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+
+    $pdo->exec("INSERT INTO `roles` (`id`, `codigo`, `nombre`, `descripcion`) VALUES (998, 'gestor_tarifas_sin_historial', 'Gestor Sin Historial', 'Solo gestionar tarifas') ON DUPLICATE KEY UPDATE `nombre` = 'Gestor Sin Historial'");
+    $pdo->exec("INSERT INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES (998, 39) ON DUPLICATE KEY UPDATE `permiso_id` = 39");
+    $pdo->exec("INSERT INTO `usuario_roles` (`usuario_id`, `rol_id`) VALUES (61096, 998) ON DUPLICATE KEY UPDATE `rol_id` = 998");
+
+    $ctxSoloGestionar = new ContextoOperacion(
+        actorTipo: 'HUMANO',
+        usuarioId: 61096,
+        actorSistemaId: null,
+        actorSistemaCodigo: null,
+        canalId: 1,
+        canalCodigo: 'APP',
+        correlacionId: 'test-corr-cat-005',
+        origenIp: '127.0.0.1',
+        agenteUsuario: 'PHPUnit/TestRunner',
+        organizacionId: $tenantA
+    );
+
+    $verHistorialConSoloGestionarRechazado = false;
+    try {
+        $catalogoServicio->listarHistorialTarifasItem($tenantA, (int) $tarifaItem1->id, $ctxSoloGestionar);
+    } catch (AccesoDenegadoExcepcion $e) {
+        $verHistorialConSoloGestionarRechazado = true;
+    }
+    afirmar($verHistorialConSoloGestionarRechazado, "8.12: Permiso 'catalogo.tarifas.gestionar' no implica acceso al historial (independencia RBAC)");
 
     // ==============================================================================
     // BLOQUE 9: INTEGRIDAD REFERENCIAL, AUDITORÍA Y NO BORRADO FÍSICO

@@ -802,7 +802,7 @@ class CatalogoServicio
         }
 
         try {
-            $actualizado = $this->tarifaItemRepo->actualizarPrecio($tarifaId, $nuevoPrecio, $versionEsperada);
+            $actualizado = $this->tarifaItemRepo->actualizarPrecio($tarifaId, $organizacionId, $nuevoPrecio, $versionEsperada);
             if (!$actualizado) {
                 throw new ConflictoConcurrenciaExcepcion(
                     "Conflicto de concurrencia: la versión esperada ({$versionEsperada}) ya no coincide en la base de datos."
@@ -940,7 +940,7 @@ class CatalogoServicio
         }
 
         try {
-            $actualizado = $this->tarifaPaqueteRepo->actualizarPrecio($tarifaId, $nuevoPrecio, $versionEsperada);
+            $actualizado = $this->tarifaPaqueteRepo->actualizarPrecio($tarifaId, $organizacionId, $nuevoPrecio, $versionEsperada);
             if (!$actualizado) {
                 throw new ConflictoConcurrenciaExcepcion(
                     "Conflicto de concurrencia: la versión esperada ({$versionEsperada}) ya no coincide en la base de datos."
@@ -987,6 +987,194 @@ class CatalogoServicio
         }
 
         return $this->tarifaPaqueteRepo->buscarPorId($tarifaId);
+    }
+
+    // =========================================================================
+    // 7. OPERACIONES DE CONSULTA Y LECTURA SOBERANA
+    // =========================================================================
+
+    public function obtenerCategoria(int $organizacionId, int $categoriaId, ContextoOperacion $contexto): ?CategoriaItem
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->categoriaRepo->buscarPorId($categoriaId, $organizacionId);
+    }
+
+    /**
+     * @return CategoriaItem[]
+     */
+    public function listarCategorias(int $organizacionId, ?EstadoCatalogo $estado, ContextoOperacion $contexto): array
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->categoriaRepo->listar($organizacionId, $estado);
+    }
+
+    public function obtenerItem(int $organizacionId, int $itemId, ContextoOperacion $contexto): ?ItemComercial
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->itemRepo->buscarPorId($itemId, $organizacionId);
+    }
+
+    /**
+     * @return ItemComercial[]
+     */
+    public function listarItems(
+        int $organizacionId,
+        ?int $categoriaId,
+        ?TipoItemComercial $tipo,
+        ?EstadoCatalogo $estado,
+        ContextoOperacion $contexto
+    ): array {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->itemRepo->listar($organizacionId, $categoriaId, $tipo, $estado);
+    }
+
+    public function obtenerPaquete(int $organizacionId, int $paqueteId, ContextoOperacion $contexto): ?Paquete
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->paqueteRepo->buscarPorId($paqueteId, $organizacionId);
+    }
+
+    /**
+     * @return Paquete[]
+     */
+    public function listarPaquetes(int $organizacionId, ?EstadoCatalogo $estado, ContextoOperacion $contexto): array
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->paqueteRepo->listar($organizacionId, $estado);
+    }
+
+    public function obtenerOfertaItem(int $organizacionId, int $ofertaId, ContextoOperacion $contexto): ?OfertaItemEdicion
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->ofertaItemRepo->buscarPorId($ofertaId, $organizacionId);
+    }
+
+    /**
+     * @return OfertaItemEdicion[]
+     */
+    public function listarOfertasItemsPorEdicion(
+        int $organizacionId,
+        int $edicionId,
+        ?EstadoCatalogo $estado,
+        ContextoOperacion $contexto
+    ): array {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+        $this->validarEdicionTenant($edicionId, $organizacionId);
+
+        return $this->ofertaItemRepo->listarPorEdicion($organizacionId, $edicionId, $estado);
+    }
+
+    public function obtenerOfertaPaquete(int $organizacionId, int $ofertaId, ContextoOperacion $contexto): ?OfertaPaqueteEdicion
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        return $this->ofertaPaqueteRepo->buscarPorId($ofertaId, $organizacionId);
+    }
+
+    /**
+     * @return OfertaPaqueteEdicion[]
+     */
+    public function listarOfertasPaquetesPorEdicion(
+        int $organizacionId,
+        int $edicionId,
+        ?EstadoCatalogo $estado,
+        ContextoOperacion $contexto
+    ): array {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+        $this->validarEdicionTenant($edicionId, $organizacionId);
+
+        return $this->ofertaPaqueteRepo->listarPorEdicion($organizacionId, $edicionId, $estado);
+    }
+
+    public function obtenerTarifaVigenteItem(int $organizacionId, int $ofertaItemId, ContextoOperacion $contexto): ?TarifaItemEdicion
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        $oferta = $this->ofertaItemRepo->buscarPorId($ofertaItemId, $organizacionId);
+        if ($oferta === null) {
+            return null;
+        }
+
+        return $this->tarifaItemRepo->buscarPorOfertaId($ofertaItemId);
+    }
+
+    public function obtenerTarifaVigentePaquete(int $organizacionId, int $ofertaPaqueteId, ContextoOperacion $contexto): ?TarifaPaqueteEdicion
+    {
+        $this->validarPermiso('catalogo.ver', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        $oferta = $this->ofertaPaqueteRepo->buscarPorId($ofertaPaqueteId, $organizacionId);
+        if ($oferta === null) {
+            return null;
+        }
+
+        return $this->tarifaPaqueteRepo->buscarPorOfertaId($ofertaPaqueteId);
+    }
+
+    /**
+     * Consulta el historial append-only de tarifas de ítem.
+     * Requiere exclusivamente el permiso granular 'catalogo.tarifas.ver_historial'.
+     *
+     * @return HistorialTarifaItem[]
+     */
+    public function listarHistorialTarifasItem(int $organizacionId, int $tarifaItemId, ContextoOperacion $contexto): array
+    {
+        $this->validarPermiso('catalogo.tarifas.ver_historial', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        $tarifa = $this->tarifaItemRepo->buscarPorId($tarifaItemId);
+        if ($tarifa === null) {
+            return [];
+        }
+
+        $oferta = $this->ofertaItemRepo->buscarPorId($tarifa->ofertaItemId, $organizacionId);
+        if ($oferta === null) {
+            throw new AccesoDenegadoExcepcion("La tarifa solicitada no pertenece a la organización solicitante.");
+        }
+
+        return $this->historialRepo->listarPorTarifaItem($tarifaItemId);
+    }
+
+    /**
+     * Consulta el historial append-only de tarifas de paquete.
+     * Requiere exclusivamente el permiso granular 'catalogo.tarifas.ver_historial'.
+     *
+     * @return HistorialTarifaPaquete[]
+     */
+    public function listarHistorialTarifasPaquete(int $organizacionId, int $tarifaPaqueteId, ContextoOperacion $contexto): array
+    {
+        $this->validarPermiso('catalogo.tarifas.ver_historial', $contexto);
+        $this->validarTenantContexto($organizacionId, $contexto);
+
+        $tarifa = $this->tarifaPaqueteRepo->buscarPorId($tarifaPaqueteId);
+        if ($tarifa === null) {
+            return [];
+        }
+
+        $oferta = $this->ofertaPaqueteRepo->buscarPorId($tarifa->ofertaPaqueteId, $organizacionId);
+        if ($oferta === null) {
+            throw new AccesoDenegadoExcepcion("La tarifa solicitada no pertenece a la organización solicitante.");
+        }
+
+        return $this->historialRepo->listarPorTarifaPaquete($tarifaPaqueteId);
     }
 
     // =========================================================================
