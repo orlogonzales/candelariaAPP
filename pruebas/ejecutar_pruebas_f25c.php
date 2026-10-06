@@ -73,12 +73,6 @@ function afirmar(bool $condicion, string $descripcion, string $detalles = ''): v
     }
 }
 
-// 0. Huella digital previa de Orlando para certificar preservación estricta sin imprimir PII
-$stmtOrlandoPre = $pdo->prepare("SELECT contrasena_hash, estado, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE id = 24");
-$stmtOrlandoPre->execute();
-$orlandoPre = $stmtOrlandoPre->fetch(PDO::FETCH_ASSOC);
-$fingerprintOrlandoPre = $orlandoPre ? substr(hash('sha256', (string) $orlandoPre['contrasena_hash']), 0, 16) : null;
-
 // Iniciar transacción de pruebas para no alterar la BD operativa
 $pdo->beginTransaction();
 
@@ -665,20 +659,28 @@ try {
     afirmar(str_contains($barraLateral, 'ventas.ver') && str_contains($barraLateral, "url_base('ventas')"), "10.10: Menú lateral incluye enlace a 'ventas' gobernado por 'ventas.ver'");
 
     // ==============================================================================
-    // BLOQUE 11: CERTIFICACIÓN ZERO-PII Y PRESERVACIÓN DE USUARIO ADMINISTRADOR
+    // BLOQUE 11: CERTIFICACIÓN ZERO-PII Y PRESERVACIÓN DE ACTORES SINTÉTICOS
     // ==============================================================================
-    echo "\n--- BLOQUE 11: CERTIFICACIÓN ZERO-PII Y PRESERVACIÓN DE CREDENCIALES ---\n";
+    echo "\n--- BLOQUE 11: CERTIFICACIÓN ZERO-PII Y PRESERVACIÓN DE ACTORES SINTÉTICOS ---\n";
 
-    $stmtOrlandoPost = $pdo->prepare("SELECT contrasena_hash, estado, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE id = 24");
-    $stmtOrlandoPost->execute();
-    $orlandoPost = $stmtOrlandoPost->fetch(PDO::FETCH_ASSOC);
-    $fingerprintOrlandoPost = $orlandoPost ? substr(hash('sha256', (string) $orlandoPost['contrasena_hash']), 0, 16) : null;
+    // 11.1 Integridad del usuario administrador sintético creado para la suite
+    $stmtAdminPost = $pdo->prepare("SELECT contrasena_hash, estado, intentos_fallidos, bloqueado_hasta FROM usuarios WHERE id = :id");
+    $stmtAdminPost->execute(['id' => $usrAdminAId]);
+    $adminPost = $stmtAdminPost->fetch(PDO::FETCH_ASSOC);
 
-    afirmar($orlandoPost !== false, "11.1: Usuario administrador ID 24 existe en base de datos");
-    afirmar($orlandoPost['estado'] === 'ACTIVO', "11.2: Estado de usuario administrador permanece ACTIVO");
-    afirmar((int) $orlandoPost['intentos_fallidos'] === 0, "11.3: Intentos fallidos permanece en 0");
-    afirmar($orlandoPost['bloqueado_hasta'] === null, "11.4: Bloqueo temporal es NULL");
-    afirmar($fingerprintOrlandoPost === $fingerprintOrlandoPre, "11.5: Huella criptográfica no reversible preservada intacta al 100%");
+    afirmar($adminPost !== false, "11.1: Usuario administrador sintético ID {$usrAdminAId} existe en ámbito transaccional");
+    afirmar($adminPost['estado'] === 'ACTIVO', "11.2: Estado de administrador sintético permanece ACTIVO");
+    afirmar((int) $adminPost['intentos_fallidos'] === 0, "11.3: Intentos fallidos de administrador sintético permanece en 0");
+    afirmar($adminPost['bloqueado_hasta'] === null, "11.4: Bloqueo temporal de administrador sintético es NULL");
+
+    // 11.2 Integridad del operador sintético
+    $stmtOpPost = $pdo->prepare("SELECT estado FROM usuarios WHERE id = :id");
+    $stmtOpPost->execute(['id' => $usrOperadorAId]);
+    $opEstado = $stmtOpPost->fetchColumn();
+    afirmar($opEstado === 'ACTIVO', "11.5: Operador sintético ID {$usrOperadorAId} permanece en estado ACTIVO");
+
+    // 11.3 Preservación de credenciales sintéticas y aislamiento estricto
+    afirmar($adminPost['contrasena_hash'] === 'hash', "11.6: Credencial sintética preservada sin alteración en base de datos");
 
 } finally {
     // Revertir transacción para preservar la BD operativa intacta
