@@ -4,6 +4,8 @@ $puedeVerOrg = false;
 $puedeVerUsuarios = false;
 $puedeVerConfigGeneral = false;
 $puedeVerEdiciones = false;
+$puedeVerClientes = false;
+$puedeVerCrm = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
@@ -11,9 +13,13 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerConfigGeneral = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'configuracion_organizacion.ver')
         || $authzBarra->tienePermiso($contextoBarra->usuarioId, 'configuracion_plataforma.ver');
     $puedeVerEdiciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'ediciones.ver');
+    $puedeVerClientes = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'clientes.ver');
+    $puedeVerCrm = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'crm.oportunidades.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
+$esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes'], true);
+$esPrincipal = !$esConfig && !$esClientesCrm;
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
 $orgOperativa = ($contextoBarra !== null && $contextoBarra->organizacionId !== null && $contextoBarra->organizacionId > 0)
@@ -38,13 +44,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
 
             <ul class="navbar-menu-list" role="tablist">
                 <li class="nav-item">
-                    <a href="#" class="nav-link <?= !$esConfig ? 'active' : '' ?>" data-target="menuPrincipal" title="PANEL PRINCIPAL" aria-label="Panel Principal" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <a href="#" class="nav-link <?= $esPrincipal ? 'active' : '' ?>" data-target="menuPrincipal" title="PANEL PRINCIPAL" aria-label="Panel Principal" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
                     </a>
                 </li>
 
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="menuClientes" title="CLIENTES Y CRM" aria-label="Clientes y CRM" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <a href="#" class="nav-link <?= $esClientesCrm ? 'active' : '' ?>" data-target="menuClientes" title="CLIENTES Y CRM" aria-label="Clientes y CRM" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-users" aria-hidden="true"></i>
                     </a>
                 </li>
@@ -112,15 +118,15 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
             <div class="nav-wrapper app-scroll app-simple-bar">
                 <div class="main-side-menu">
                     <!-- Menú: Principal -->
-                    <ul class="main-menu" id="menuPrincipal">
+                    <ul class="main-menu" id="menuPrincipal" style="<?= $esPrincipal ? '' : 'display: none;' ?>">
                         <li class="no-sub">
-                            <a href="<?= url_base() ?>" class="active">
+                            <a href="<?= url_base() ?>" class="<?= $seccionActual === 'dashboard' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-gauge-high me-2 text-secondary"></i> Dashboard
                                 <span class="badge bg-gradient-danger badge-dashboard badge-notification ms-2">V1</span>
                             </a>
                         </li>
                         <li class="no-sub">
-                            <a href="<?= url_base('usuarios') ?>" id="navPrincipalUsuarios">
+                            <a href="<?= url_base('usuarios') ?>" id="navPrincipalUsuarios" class="<?= $seccionActual === 'usuarios' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-users-gear me-2 text-secondary"></i> Padrón de Usuarios
                             </a>
                         </li>
@@ -134,25 +140,40 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                     </ul>
 
                     <!-- Menú: Clientes y CRM -->
-                    <ul class="main-menu" id="menuClientes" style="display: none;">
+                    <ul class="main-menu" id="menuClientes" style="<?= $esClientesCrm ? '' : 'display: none;' ?>">
+                        <?php if ($puedeVerCrm): ?>
                         <li>
                             <a aria-expanded="true" data-bs-toggle="collapse" href="#subCrm">
-                                <i class="fa-solid fa-user-plus me-2 text-secondary"></i> Pre-Candelaria / CRM
+                                <i class="fa-solid fa-bullseye me-2 text-secondary"></i> CRM Comercial
                             </a>
                             <ul class="collapse show" id="subCrm">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Prospectos</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Cotizaciones</a></li>
+                                <li>
+                                    <a href="<?= url_base('crm/oportunidades') ?>" class="<?= $seccionActual === 'crm_oportunidades' ? 'active' : '' ?>">
+                                        <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Oportunidades y Pipeline
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="<?= url_base('crm/origenes') ?>" class="<?= $seccionActual === 'crm_origenes' ? 'active' : '' ?>">
+                                        <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Orígenes Comerciales
+                                    </a>
+                                </li>
                             </ul>
                         </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerClientes): ?>
                         <li>
-                            <a aria-expanded="false" data-bs-toggle="collapse" href="#subClientes">
-                                <i class="fa-solid fa-users me-2 text-secondary"></i> Clientes
+                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subClientes">
+                                <i class="fa-solid fa-address-book me-2 text-secondary"></i> Cartera Comercial
                             </a>
-                            <ul class="collapse" id="subClientes">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Padrón Oficial</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Conjuntos / Bloques</a></li>
+                            <ul class="collapse show" id="subClientes">
+                                <li>
+                                    <a href="<?= url_base('clientes') ?>" class="<?= $seccionActual === 'clientes' ? 'active' : '' ?>">
+                                        <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Padrón de Clientes
+                                    </a>
+                                </li>
                             </ul>
                         </li>
+                        <?php endif; ?>
                     </ul>
 
                     <!-- Menú: Operaciones -->

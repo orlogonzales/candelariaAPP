@@ -277,4 +277,126 @@ class ClienteRepositorio
 
         return (int) $stmt->fetchColumn();
     }
+
+    /**
+     * Retorna clientes enriquecidos con datos de persona, documento y actividad para DataTables.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarConDetalles(
+        int $organizacionId,
+        ?string $estado = null,
+        ?string $busqueda = null,
+        int $limite = 50,
+        int $offset = 0
+    ): array {
+        $sql = "SELECT 
+                    c.id AS cliente_id,
+                    c.organizacion_id,
+                    c.persona_id,
+                    c.estado_comercial,
+                    c.consentimiento_operativo,
+                    c.consentimiento_operativo_en,
+                    c.consentimiento_promocional,
+                    c.consentimiento_promocional_en,
+                    c.notas_comerciales,
+                    c.creado_en AS cliente_creado_en,
+                    c.actualizado_en AS cliente_actualizado_en,
+                    p.tipo_persona,
+                    p.nombres,
+                    p.apellidos,
+                    p.razon_social,
+                    p.nombre_comercial,
+                    p.correo_electronico,
+                    p.telefono_whatsapp,
+                    p.codigo_pais,
+                    p.numero_documento,
+                    td.codigo AS tipo_documento_codigo,
+                    td.nombre AS tipo_documento_nombre,
+                    (
+                        SELECT MAX(i.creado_en) 
+                        FROM `crm_interacciones` i 
+                        WHERE i.cliente_id = c.id
+                    ) AS ultima_interaccion_en,
+                    (
+                        SELECT COUNT(*)
+                        FROM `crm_oportunidades` op
+                        WHERE op.cliente_id = c.id
+                    ) AS total_oportunidades
+                FROM `clientes` c
+                INNER JOIN `personas` p ON p.id = c.persona_id
+                LEFT JOIN `tipos_documento` td ON td.id = p.tipo_documento_id
+                WHERE c.organizacion_id = :organizacion_id";
+
+        $params = [':organizacion_id' => $organizacionId];
+
+        if ($estado !== null && $estado !== '' && $estado !== 'TODOS') {
+            $sql .= " AND c.estado_comercial = :estado";
+            $params[':estado'] = strtoupper(trim($estado));
+        }
+
+        if ($busqueda !== null && trim($busqueda) !== '') {
+            $sql .= " AND (
+                p.nombres LIKE :busq 
+                OR p.apellidos LIKE :busq 
+                OR p.razon_social LIKE :busq 
+                OR p.nombre_comercial LIKE :busq 
+                OR p.numero_documento LIKE :busq 
+                OR p.telefono_whatsapp LIKE :busq
+                OR p.correo_electronico LIKE :busq
+            )";
+            $params[':busq'] = '%' . trim($busqueda) . '%';
+        }
+
+        $sql .= " ORDER BY c.id DESC LIMIT :limite OFFSET :offset";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Cuenta total de clientes con filtros aplicados para DataTables.
+     */
+    public function contarConDetalles(
+        int $organizacionId,
+        ?string $estado = null,
+        ?string $busqueda = null
+    ): int {
+        $sql = "SELECT COUNT(*)
+                FROM `clientes` c
+                INNER JOIN `personas` p ON p.id = c.persona_id
+                WHERE c.organizacion_id = :organizacion_id";
+
+        $params = [':organizacion_id' => $organizacionId];
+
+        if ($estado !== null && $estado !== '' && $estado !== 'TODOS') {
+            $sql .= " AND c.estado_comercial = :estado";
+            $params[':estado'] = strtoupper(trim($estado));
+        }
+
+        if ($busqueda !== null && trim($busqueda) !== '') {
+            $sql .= " AND (
+                p.nombres LIKE :busq 
+                OR p.apellidos LIKE :busq 
+                OR p.razon_social LIKE :busq 
+                OR p.nombre_comercial LIKE :busq 
+                OR p.numero_documento LIKE :busq 
+                OR p.telefono_whatsapp LIKE :busq
+                OR p.correo_electronico LIKE :busq
+            )";
+            $params[':busq'] = '%' . trim($busqueda) . '%';
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
+    }
 }

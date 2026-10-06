@@ -278,4 +278,53 @@ class PersonaRepositorio
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
+
+    /**
+     * Búsqueda flexible de personas por término (nombres, apellidos, documento, whatsapp)
+     * retornando también si ya cuentan con perfil de cliente vinculado en la organización.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function buscarPorTermino(int $organizacionId, string $termino, int $limite = 20): array
+    {
+        $sql = "SELECT p.*, 
+                       td.codigo AS tipo_documento_codigo,
+                       td.nombre AS tipo_documento_nombre,
+                       c.id AS cliente_id,
+                       c.estado_comercial AS cliente_estado_comercial
+                FROM `personas` p
+                LEFT JOIN `tipos_documento` td ON td.id = p.tipo_documento_id
+                LEFT JOIN `clientes` c ON c.persona_id = p.id AND c.organizacion_id = p.organizacion_id
+                WHERE p.organizacion_id = :organizacion_id
+                  AND p.estado = 'ACTIVO'
+                  AND (
+                      CONCAT_WS(' ', p.nombres, p.apellidos, p.razon_social, p.nombre_comercial, p.numero_documento, p.telefono_whatsapp, p.correo_electronico) LIKE :busq
+                  )
+                ORDER BY p.apellidos ASC, p.nombres ASC, p.razon_social ASC
+                LIMIT :limite";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':organizacion_id', $organizacionId, PDO::PARAM_INT);
+        $stmt->bindValue(':busq', '%' . trim($termino) . '%', PDO::PARAM_STR);
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return array_map(function (array $f) {
+            $persona = Persona::desdeArreglo($f);
+            return [
+                'id'                        => $persona->id,
+                'tipo_persona'              => $persona->tipoPersona,
+                'nombre_completo'           => $persona->obtenerNombreCompleto(),
+                'tipo_documento_id'         => $persona->tipoDocumentoId,
+                'tipo_documento_codigo'     => $f['tipo_documento_codigo'] ?? null,
+                'tipo_documento_nombre'     => $f['tipo_documento_nombre'] ?? null,
+                'numero_documento'          => $persona->numeroDocumento,
+                'correo_electronico'        => $persona->correoElectronico,
+                'telefono_whatsapp'         => $persona->telefonoWhatsapp,
+                'cliente_id'                => $f['cliente_id'] !== null ? (int) $f['cliente_id'] : null,
+                'cliente_estado_comercial'  => $f['cliente_estado_comercial'] ?? null,
+                'ya_es_cliente'             => $f['cliente_id'] !== null,
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
 }

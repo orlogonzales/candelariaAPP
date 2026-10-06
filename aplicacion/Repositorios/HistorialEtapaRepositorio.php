@@ -70,4 +70,32 @@ class HistorialEtapaRepositorio
 
         return $resultados;
     }
+
+    /**
+     * Retorna historial de etapas con datos de usuario y actor de sistema para timeline.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarConDetalles(int $organizacionId, int $oportunidadId): array
+    {
+        $sql = "SELECT 
+                    h.*,
+                    u.nombre_completo AS usuario_nombre,
+                    u.nombre_usuario AS usuario_login,
+                    s.codigo AS actor_sistema_codigo,
+                    s.nombre AS actor_sistema_nombre
+                FROM `crm_oportunidad_historial_etapas` h
+                LEFT JOIN `usuarios` u ON u.id = h.usuario_id
+                LEFT JOIN `actores_sistema` s ON s.id = h.actor_sistema_id
+                WHERE h.organizacion_id = :organizacion_id AND h.oportunidad_id = :oportunidad_id
+                ORDER BY h.id ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':organizacion_id' => $organizacionId,
+            ':oportunidad_id'  => $oportunidadId,
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

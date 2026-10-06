@@ -214,3 +214,42 @@ Enrutador::put('/api/v1/ediciones/{id}', [\Aplicacion\Controladores\EdicionContr
 Enrutador::post('/api/v1/ediciones/{id}/estado', [\Aplicacion\Controladores\EdicionControlador::class, 'cambiarEstado']);
 Enrutador::post('/api/v1/ediciones/{id}/seleccionar-actual', [\Aplicacion\Controladores\EdicionControlador::class, 'seleccionarActual']);
 Enrutador::get('/api/v1/contexto/edicion', [\Aplicacion\Controladores\EdicionControlador::class, 'contextoActual']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: CLIENTES Y PERSONAS (FASE 2.2C)
+// ==============================================================================
+Enrutador::get('/api/v1/clientes', [\Aplicacion\Controladores\ClienteControlador::class, 'listar']);
+Enrutador::get('/api/v1/personas/buscar', [\Aplicacion\Controladores\ClienteControlador::class, 'buscarPersonas']);
+Enrutador::get('/api/v1/clientes/{id}', [\Aplicacion\Controladores\ClienteControlador::class, 'detalle']);
+Enrutador::post('/api/v1/clientes', [\Aplicacion\Controladores\ClienteControlador::class, 'crear']);
+Enrutador::patch('/api/v1/clientes/{id}/estado', [\Aplicacion\Controladores\ClienteControlador::class, 'cambiarEstado']);
+Enrutador::post('/api/v1/clientes/{id}/consentimientos', [\Aplicacion\Controladores\ClienteControlador::class, 'actualizarConsentimientos']);
+Enrutador::delete('/api/v1/clientes/{id}', [\Aplicacion\Controladores\ClienteControlador::class, 'eliminar']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: OPORTUNIDADES (FASE 2.2C)
+// ==============================================================================
+Enrutador::get('/api/v1/crm/oportunidades', [\Aplicacion\Controladores\OportunidadControlador::class, 'listar']);
+Enrutador::get('/api/v1/crm/oportunidades/{id}', [\Aplicacion\Controladores\OportunidadControlador::class, 'detalle']);
+Enrutador::post('/api/v1/crm/oportunidades', [\Aplicacion\Controladores\OportunidadControlador::class, 'crear']);
+Enrutador::put('/api/v1/crm/oportunidades/{id}', [\Aplicacion\Controladores\OportunidadControlador::class, 'actualizar']);
+Enrutador::post('/api/v1/crm/oportunidades/{id}/etapa', [\Aplicacion\Controladores\OportunidadControlador::class, 'cambiarEtapa']);
+Enrutador::post('/api/v1/crm/oportunidades/{id}/asignar', [\Aplicacion\Controladores\OportunidadControlador::class, 'asignar']);
+Enrutador::delete('/api/v1/crm/oportunidades/{id}', [\Aplicacion\Controladores\OportunidadControlador::class, 'eliminar']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: INTERACCIONES Y TIMELINE (FASE 2.2C)
+// ==============================================================================
+Enrutador::get('/api/v1/crm/interacciones', [\Aplicacion\Controladores\InteraccionControlador::class, 'listar']);
+Enrutador::post('/api/v1/crm/interacciones', [\Aplicacion\Controladores\InteraccionControlador::class, 'crear']);
+Enrutador::get('/api/v1/crm/clientes/{id}/timeline', [\Aplicacion\Controladores\InteraccionControlador::class, 'timeline']);
+Enrutador::delete('/api/v1/crm/interacciones/{id}', [\Aplicacion\Controladores\InteraccionControlador::class, 'eliminar']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: ORÍGENES COMERCIALES (FASE 2.2C)
+// ==============================================================================
+Enrutador::get('/api/v1/crm/origenes', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'listar']);
+Enrutador::post('/api/v1/crm/origenes', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'crear']);
+Enrutador::put('/api/v1/crm/origenes/{id}', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'actualizar']);
+Enrutador::patch('/api/v1/crm/origenes/{id}/estado', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'cambiarEstado']);
+Enrutador::delete('/api/v1/crm/origenes/{id}', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'eliminar']);

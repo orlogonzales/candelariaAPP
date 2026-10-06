@@ -78,6 +78,31 @@ class Persona
         return $this->nombreComercial ? "{$this->razonSocial} ({$this->nombreComercial})" : (string) $this->razonSocial;
     }
 
+    public function aArreglo(): array
+    {
+        return [
+            'id'                 => $this->id,
+            'organizacion_id'    => $this->organizacionId,
+            'tipo_persona'       => $this->tipoPersona,
+            'nombre_completo'    => $this->obtenerNombreCompleto(),
+            'tipo_documento_id'  => $this->tipoDocumentoId,
+            'numero_documento'   => $this->numeroDocumento,
+            'nombres'            => $this->nombres,
+            'apellidos'          => $this->apellidos,
+            'razon_social'       => $this->razonSocial,
+            'nombre_comercial'   => $this->nombreComercial,
+            'correo_electronico' => $this->correoElectronico,
+            'telefono_movil'     => $this->telefonoMovil,
+            'telefono_whatsapp'  => $this->telefonoWhatsapp,
+            'direccion'          => $this->direccion,
+            'ciudad'             => $this->ciudad,
+            'codigo_pais'        => $this->codigoPais,
+            'estado'             => $this->estado,
+            'creado_en'          => $this->creadoEn,
+            'actualizado_en'     => $this->actualizadoEn,
+        ];
+    }
+
     public static function desdeArreglo(array $datos): self
     {
         $tipoDocId = isset($datos['tipo_documento_id']) && $datos['tipo_documento_id'] !== '' && $datos['tipo_documento_id'] !== null

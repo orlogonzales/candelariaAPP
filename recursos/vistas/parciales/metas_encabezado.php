@@ -34,6 +34,9 @@
     <!-- Flatpickr CSS (Alina Vendor) -->
     <link rel="stylesheet" href="<?= url_activo('alina/vendor/flatpickr/flatpickr.min.css') ?>">
 
+    <!-- Select2 CSS (Alina Vendor) -->
+    <link rel="stylesheet" href="<?= url_activo('alina/vendor/select/select2.min.css') ?>">
+
     <!-- Capa Derivada CandelariaAPP (Sobrescritura tipográfica, tooltips y personalización) -->
     <link rel="stylesheet" href="<?= url_base('publico/css/candelaria.css') ?>">
 

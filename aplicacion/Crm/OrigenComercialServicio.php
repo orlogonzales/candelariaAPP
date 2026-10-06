@@ -102,6 +102,78 @@ class OrigenComercialServicio
         return $ok;
     }
 
+    public function activar(int $organizacionId, int $origenId, ?ContextoOperacion $contexto = null): bool
+    {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('crm.oportunidades.editar', $contexto);
+
+        $origen = $this->origenRepo->buscarPorId($origenId);
+        if ($origen === null || $origen->organizacionId !== $organizacionId) {
+            throw new AccesoDenegadoExcepcion("El origen comercial no existe o pertenece a otra organización.");
+        }
+
+        $datosPrevios = $origen->aArreglo();
+        $ok = $this->origenRepo->activar($origenId, $organizacionId);
+        $actualizado = $this->origenRepo->buscarPorId($origenId);
+
+        $this->auditoriaRepo->registrar(
+            contexto: $contexto,
+            modulo: 'crm_prospectos',
+            accion: 'ACTIVAR_ORIGEN_COMERCIAL',
+            entidadTipo: 'OrigenComercial',
+            entidadId: (string) $origenId,
+            datosPrevios: $datosPrevios,
+            datosNuevos: $actualizado->aArreglo()
+        );
+
+        return $ok;
+    }
+
+    public function actualizar(
+        int $organizacionId,
+        int $origenId,
+        string $nombre,
+        ?string $descripcion = null,
+        int $orden = 0,
+        ?ContextoOperacion $contexto = null
+    ): OrigenComercial {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('crm.oportunidades.editar', $contexto);
+
+        $origen = $this->origenRepo->buscarPorId($origenId);
+        if ($origen === null || $origen->organizacionId !== $organizacionId) {
+            throw new AccesoDenegadoExcepcion("El origen comercial no existe o pertenece a otra organización.");
+        }
+
+        $datosPrevios = $origen->aArreglo();
+        $origenModificado = new OrigenComercial(
+            id: $origenId,
+            organizacionId: $organizacionId,
+            codigo: $origen->codigo, // Código inmutable para proteger semántica histórica
+            nombre: trim($nombre),
+            descripcion: $descripcion !== null ? trim($descripcion) : null,
+            activo: $origen->activo,
+            orden: $orden
+        );
+
+        $this->origenRepo->actualizar($origenModificado);
+        $actualizado = $this->origenRepo->buscarPorId($origenId);
+
+        $this->auditoriaRepo->registrar(
+            contexto: $contexto,
+            modulo: 'crm_prospectos',
+            accion: 'ACTUALIZAR_ORIGEN_COMERCIAL',
+            entidadTipo: 'OrigenComercial',
+            entidadId: (string) $origenId,
+            datosPrevios: $datosPrevios,
+            datosNuevos: $actualizado->aArreglo()
+        );
+
+        return $actualizado;
+    }
+
     /**
      * @return OrigenComercial[]
      */

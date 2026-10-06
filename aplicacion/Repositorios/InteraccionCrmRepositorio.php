@@ -106,4 +106,53 @@ class InteraccionCrmRepositorio
 
         return $resultados;
     }
+
+    /**
+     * Retorna interacciones con joins a canales y usuarios para el timeline comercial.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarConDetalles(
+        int $organizacionId,
+        ?int $clienteId = null,
+        ?int $oportunidadId = null,
+        int $limite = 50
+    ): array {
+        $sql = "SELECT 
+                    i.*,
+                    c.codigo AS canal_codigo,
+                    c.nombre AS canal_nombre,
+                    u.nombre_completo AS usuario_nombre,
+                    u.nombre_usuario AS usuario_login,
+                    s.codigo AS actor_sistema_codigo,
+                    s.nombre AS actor_sistema_nombre
+                FROM `crm_interacciones` i
+                INNER JOIN `canales` c ON c.id = i.canal_id
+                LEFT JOIN `usuarios` u ON u.id = i.usuario_id
+                LEFT JOIN `actores_sistema` s ON s.id = i.actor_sistema_id
+                WHERE i.organizacion_id = :organizacion_id";
+
+        $params = [':organizacion_id' => $organizacionId];
+
+        if ($clienteId !== null && $clienteId > 0) {
+            $sql .= " AND i.cliente_id = :cliente_id";
+            $params[':cliente_id'] = $clienteId;
+        }
+
+        if ($oportunidadId !== null && $oportunidadId > 0) {
+            $sql .= " AND i.oportunidad_id = :oportunidad_id";
+            $params[':oportunidad_id'] = $oportunidadId;
+        }
+
+        $sql .= " ORDER BY i.id DESC LIMIT :limite";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

@@ -100,4 +100,51 @@ class OrigenComercialRepositorio
             ':organizacion_id' => $organizacionId,
         ]);
     }
+
+    public function activar(int $id, int $organizacionId): bool
+    {
+        $sql = "UPDATE `origenes_comerciales`
+                SET `activo` = 1
+                WHERE `id` = :id AND `organizacion_id` = :organizacion_id";
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            ':id'              => $id,
+            ':organizacion_id' => $organizacionId,
+        ]);
+    }
+
+    public function actualizar(OrigenComercial $origen): bool
+    {
+        $sql = "UPDATE `origenes_comerciales`
+                SET `nombre`      = :nombre,
+                    `descripcion` = :descripcion,
+                    `orden`       = :orden,
+                    `activo`      = :activo
+                WHERE `id` = :id AND `organizacion_id` = :organizacion_id";
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            ':id'              => $origen->id,
+            ':organizacion_id' => $origen->organizacionId,
+            ':nombre'          => trim($origen->nombre),
+            ':descripcion'     => $origen->descripcion !== null ? trim($origen->descripcion) : null,
+            ':orden'           => $origen->orden,
+            ':activo'          => $origen->activo ? 1 : 0,
+        ]);
+    }
+
+    public function tieneOportunidadesVinculadas(int $id, int $organizacionId): bool
+    {
+        $sql = "SELECT COUNT(*) FROM `crm_oportunidades`
+                WHERE `origen_comercial_id` = :id AND `organizacion_id` = :organizacion_id";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':id'              => $id,
+            ':organizacion_id' => $organizacionId,
+        ]);
+
+        return ((int) $stmt->fetchColumn()) > 0;
+    }
 }

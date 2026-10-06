@@ -182,3 +182,12 @@ Enrutador::get('/ediciones', function () {
         'scriptAdicional' => url_base('publico/js/ediciones.js')
     ], 'principal');
 });
+
+// ==============================================================================
+// GESTIÓN COMERCIAL Y CLIENTES (FASE 2.2C)
+// ==============================================================================
+Enrutador::get('/clientes', [\Aplicacion\Controladores\ClienteControlador::class, 'index']);
+Enrutador::get('/clientes/{id}', [\Aplicacion\Controladores\ClienteControlador::class, 'ficha']);
+Enrutador::get('/crm/oportunidades', [\Aplicacion\Controladores\OportunidadControlador::class, 'index']);
+Enrutador::get('/crm/origenes', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'index']);
+
