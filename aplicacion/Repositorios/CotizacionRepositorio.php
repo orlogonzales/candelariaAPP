@@ -333,6 +333,31 @@ class CotizacionRepositorio
         return $stmt->rowCount() > 0;
     }
 
+    public function actualizarLinea(CotizacionLinea $l): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `cotizacion_lineas`
+            SET `descuento_tipo` = :descuento_tipo,
+                `descuento_valor` = :descuento_valor,
+                `descuento_monto` = :descuento_monto,
+                `descuento_motivo` = :descuento_motivo,
+                `subtotal` = :subtotal,
+                `notas` = :notas
+            WHERE `id` = :id AND `cotizacion_id` = :cotizacion_id
+        ");
+
+        return $stmt->execute([
+            'id' => $l->id,
+            'cotizacion_id' => $l->cotizacionId,
+            'descuento_tipo' => $l->tipoLinea->value === 'ITEM' ? $l->descuentoTipo->value : $l->descuentoTipo->value,
+            'descuento_valor' => $l->descuentoValor,
+            'descuento_monto' => $l->descuentoMonto,
+            'descuento_motivo' => $l->descuentoMotivo,
+            'subtotal' => $l->subtotal,
+            'notas' => $l->notas,
+        ]);
+    }
+
     public function guardarComponente(CotizacionLineaComponente $comp): CotizacionLineaComponente
     {
         $stmt = $this->pdo->prepare("

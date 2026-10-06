@@ -180,6 +180,7 @@ class CotizacionServicio
         float $descuentoValor = 0.00,
         ?string $descuentoMotivo = null,
         ?string $notas = null,
+        ?int $ofertaItemId = null,
         ?ContextoOperacion $contexto = null
     ): Cotizacion {
         $contexto = $this->resolverContexto($contexto);
@@ -198,7 +199,21 @@ class CotizacionServicio
         }
 
         // 2. Validar que el ítem cuente con oferta activa en la edición de la cotización
-        $oferta = $this->ofertaItemRepo->buscarPorItemYEdicion($itemComercialId, $cotizacion->edicionId, $organizacionId);
+        if ($ofertaItemId !== null) {
+            $oferta = $this->ofertaItemRepo->buscarPorId($ofertaItemId, $organizacionId);
+            if ($oferta === null) {
+                throw new InvalidArgumentException("La oferta de ítem #{$ofertaItemId} no existe o no pertenece a su organización.");
+            }
+            if ((int) $oferta->edicionId !== (int) $cotizacion->edicionId) {
+                throw new InvalidArgumentException("La oferta de ítem #{$ofertaItemId} pertenece a otra edición comercial.");
+            }
+            if ((int) $oferta->itemComercialId !== $itemComercialId) {
+                throw new InvalidArgumentException("La oferta de ítem #{$ofertaItemId} no corresponde al ítem comercial solicitado #{$itemComercialId}.");
+            }
+        } else {
+            $oferta = $this->ofertaItemRepo->buscarPorItemYEdicion($itemComercialId, $cotizacion->edicionId, $organizacionId);
+        }
+
         if ($oferta === null || $oferta->estado->value !== 'ACTIVO') {
             throw new InvalidArgumentException("El ítem comercial '{$item->nombre}' no cuenta con una oferta activa en esta edición.");
         }
@@ -288,6 +303,7 @@ class CotizacionServicio
         float $descuentoValor = 0.00,
         ?string $descuentoMotivo = null,
         ?string $notas = null,
+        ?int $ofertaPaqueteId = null,
         ?ContextoOperacion $contexto = null
     ): Cotizacion {
         $contexto = $this->resolverContexto($contexto);
@@ -306,7 +322,21 @@ class CotizacionServicio
         }
 
         // 2. Validar que el paquete cuente con oferta activa en la edición de la cotización
-        $oferta = $this->ofertaPaqueteRepo->buscarPorPaqueteYEdicion($paqueteId, $cotizacion->edicionId, $organizacionId);
+        if ($ofertaPaqueteId !== null) {
+            $oferta = $this->ofertaPaqueteRepo->buscarPorId($ofertaPaqueteId, $organizacionId);
+            if ($oferta === null) {
+                throw new InvalidArgumentException("La oferta de paquete #{$ofertaPaqueteId} no existe o no pertenece a su organización.");
+            }
+            if ((int) $oferta->edicionId !== (int) $cotizacion->edicionId) {
+                throw new InvalidArgumentException("La oferta de paquete #{$ofertaPaqueteId} pertenece a otra edición comercial.");
+            }
+            if ((int) $oferta->paqueteId !== $paqueteId) {
+                throw new InvalidArgumentException("La oferta de paquete #{$ofertaPaqueteId} no corresponde al paquete comercial solicitado #{$paqueteId}.");
+            }
+        } else {
+            $oferta = $this->ofertaPaqueteRepo->buscarPorPaqueteYEdicion($paqueteId, $cotizacion->edicionId, $organizacionId);
+        }
+
         if ($oferta === null || $oferta->estado->value !== 'ACTIVO') {
             throw new InvalidArgumentException("El paquete comercial '{$paquete->nombre}' no cuenta con una oferta activa en esta edición.");
         }
@@ -576,6 +606,89 @@ class CotizacionServicio
         ]);
 
         return $this->cotizacionRepo->buscarPorId($cotizacionId, $organizacionId);
+    }
+
+    /**
+     * Aplica o actualiza un descuento sobre una línea específica de la cotización.
+     */
+    public function aplicarDescuentoLinea(
+        int $organizacionId,
+        int $cotizacionId,
+        int $lineaId,
+        TipoDescuentoCotizacion $tipo,
+        float $valor,
+        string $motivo,
+        ?ContextoOperacion $contexto = null
+    ): Cotizacion {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('cotizaciones.aplicar_descuento', $contexto);
+
+        $cotizacion = $this->obtenerYValidarBorrador($cotizacionId, $organizacionId);
+
+        $linea = $this->cotizacionRepo->buscarLineaPorId($lineaId);
+        if ($linea === null || $linea->cotizacionId !== $cotizacionId) {
+            throw new InvalidArgumentException("La línea #{$lineaId} no pertenece a la cotización #{$cotizacionId}.");
+        }
+
+        if ($tipo !== TipoDescuentoCotizacion::NINGUNO) {
+            if ($valor <= 0) {
+                throw new InvalidArgumentException("El valor del descuento debe ser mayor a cero.");
+            }
+            if (trim($motivo) === '') {
+                throw new InvalidArgumentException("Todo descuento de línea exige un motivo obligatorio justificado.");
+            }
+        } else {
+            $valor = 0.00;
+            $motivo = '';
+        }
+
+        $bruto = round($linea->cantidad * $linea->precioUnitario, 2);
+        $descuentoMonto = $this->calcularDescuento($bruto, $tipo, $valor);
+        if ($descuentoMonto > $bruto) {
+            throw new InvalidArgumentException("El descuento no puede exceder el importe bruto de la línea.");
+        }
+
+        $nuevoSubtotal = round($bruto - $descuentoMonto, 2);
+
+        $lineaActualizada = new CotizacionLinea(
+            id: $linea->id,
+            cotizacionId: $linea->cotizacionId,
+            tipoLinea: $linea->tipoLinea,
+            itemComercialId: $linea->itemComercialId,
+            paqueteId: $linea->paqueteId,
+            ofertaItemId: $linea->ofertaItemId,
+            ofertaPaqueteId: $linea->ofertaPaqueteId,
+            conceptoCodigo: $linea->conceptoCodigo,
+            conceptoNombre: $linea->conceptoNombre,
+            conceptoDescripcion: $linea->conceptoDescripcion,
+            unidadMedida: $linea->unidadMedida,
+            cantidad: $linea->cantidad,
+            precioUnitario: $linea->precioUnitario,
+            descuentoTipo: $tipo,
+            descuentoValor: $valor,
+            descuentoMonto: $descuentoMonto,
+            descuentoMotivo: $tipo !== TipoDescuentoCotizacion::NINGUNO ? trim($motivo) : null,
+            subtotal: $nuevoSubtotal,
+            moneda: $linea->moneda,
+            orden: $linea->orden,
+            notas: $linea->notas,
+            creadoEn: $linea->creadoEn,
+            componentes: $linea->componentes
+        );
+
+        $this->cotizacionRepo->actualizarLinea($lineaActualizada);
+        $actualizada = $this->recalcularTotales($cotizacionId, $organizacionId);
+
+        $this->registrarAuditoria($contexto, 'COTIZACION_DESCUENTO_LINEA_APLICADO', 'cotizaciones', $cotizacionId, [
+            'linea_id' => $lineaId,
+            'descuento_tipo' => $tipo->value,
+            'descuento_valor' => $valor,
+            'descuento_monto' => $descuentoMonto,
+            'motivo' => $motivo,
+        ]);
+
+        return $actualizada;
     }
 
     /**
@@ -1297,10 +1410,16 @@ class CotizacionServicio
 
     private function resolverMonedaInstitucional(): string
     {
-        $moneda = $this->configServicio->obtenerPlataforma('plataforma.moneda_principal');
+        try {
+            $moneda = $this->configServicio->obtenerPlataforma('plataforma.moneda_principal');
+        } catch (\Throwable $e) {
+            throw new RuntimeException("Configuración institucional de divisa 'plataforma.moneda_principal' no encontrada o inválida (FAIL CLOSED): " . $e->getMessage(), 0, $e);
+        }
+
         if (!is_string($moneda) || trim($moneda) === '' || strlen(trim($moneda)) !== 3) {
             throw new RuntimeException("Configuración institucional de divisa 'plataforma.moneda_principal' no encontrada o inválida (FAIL CLOSED).");
         }
+
         return strtoupper(trim($moneda));
     }
 

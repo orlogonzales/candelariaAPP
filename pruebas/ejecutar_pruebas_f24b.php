@@ -140,17 +140,21 @@ foreach ($tablasEsperadas as $t) {
 }
 afirmar(count($tablasBd) === 39, "1.2: El esquema actual contiene exactamente 39 tablas oficiales");
 
-// 1.3 Registro de migración 000011 en migraciones_control
+// 1.3 Registro de migraciones 000011 y 000012 en migraciones_control
 $stmtMig11 = $pdo->prepare("SELECT COUNT(*) FROM `migraciones_control` WHERE `migracion` = '2026_10_06_000011_crear_modulo_cotizaciones_dominio_y_rbac.sql'");
 $stmtMig11->execute();
-afirmar((int) $stmtMig11->fetchColumn() === 1, "1.3: Migración 000011 registrada en 'migraciones_control' (Lote 9)");
+afirmar((int) $stmtMig11->fetchColumn() === 1, "1.3a: Migración 000011 registrada en 'migraciones_control' (Lote 9)");
+
+$stmtMig12 = $pdo->prepare("SELECT COUNT(*) FROM `migraciones_control` WHERE `migracion` = '2026_10_06_000012_ajustar_contratos_soberanos_cotizaciones.sql'");
+$stmtMig12->execute();
+afirmar((int) $stmtMig12->fetchColumn() === 1, "1.3b: Migración 000012 registrada en 'migraciones_control' (Lote 10)");
 
 // 1.4 Módulo 20 registrado en 'modulos'
 $stmtMod20 = $pdo->prepare("SELECT COUNT(*) FROM `modulos` WHERE `id` = 20 AND `codigo` = 'cotizaciones'");
 $stmtMod20->execute();
 afirmar((int) $stmtMod20->fetchColumn() === 1, "1.4: Módulo 20 ('cotizaciones') registrado formalmente");
 
-// 1.5 Permisos RBAC de cotizaciones (9 permisos)
+// 1.5 Permisos RBAC de cotizaciones (exactamente 9 permisos soberanos)
 $stmtPerms = $pdo->query("SELECT `codigo` FROM `permisos` WHERE `modulo_id` = 20 ORDER BY `id` ASC");
 $permsBd = $stmtPerms->fetchAll(PDO::FETCH_COLUMN);
 $permsEsperados = [
@@ -166,6 +170,15 @@ $permsEsperados = [
 ];
 $diffPerms = array_diff($permsEsperados, $permsBd);
 afirmar(empty($diffPerms) && count($permsBd) === 9, "1.5: Los 9 permisos RBAC soberanos de 'cotizaciones.*' están formalmente registrados");
+afirmar(!in_array('cotizaciones.eliminar', $permsBd, true), "1.5b: RBAC Soberano: NO existe permiso 'cotizaciones.eliminar'");
+afirmar(in_array('cotizaciones.crear_revision', $permsBd, true), "1.5c: RBAC Soberano: Sí existe permiso 'cotizaciones.crear_revision'");
+afirmar(in_array('cotizaciones.aplicar_descuento', $permsBd, true), "1.5d: RBAC Soberano: Sí existe permiso 'cotizaciones.aplicar_descuento'");
+
+// 1.5e Exactamente 6 estados soberanos en el dominio
+afirmar(count(EstadoCotizacion::cases()) === 6, "1.5e: El enum EstadoCotizacion contiene exactamente 6 estados soberanos");
+afirmar(EstadoCotizacion::tryFrom('SUPERADA_POR_REVISION') === null, "1.5f: SUPERADA_POR_REVISION NO existe como estado en EstadoCotizacion");
+afirmar(MotivoAnulacionCotizacion::SUPERADA_POR_REVISION->value === 'SUPERADA_POR_REVISION', "1.5g: SUPERADA_POR_REVISION existe válidamente como motivo en MotivoAnulacionCotizacion");
+afirmar(MotivoRechazoCotizacion::tryFrom('SUPERADA_POR_REVISION') === null, "1.5h: SUPERADA_POR_REVISION no es motivo de rechazo (solo de anulación)");
 
 // 1.6 Asignación de roles RBAC
 $stmtR1 = $pdo->query("SELECT COUNT(*) FROM `rol_permisos` rp JOIN `permisos` p ON rp.`permiso_id` = p.`id` WHERE rp.`rol_id` = 1 AND p.`modulo_id` = 20");
@@ -313,6 +326,66 @@ try {
         organizacionId: $tenantA
     );
 
+    // Ofertas para pruebas de validación cruzada
+    $pdo->exec("INSERT INTO `items_comerciales` (`id`, `organizacion_id`, `categoria_id`, `codigo`, `nombre`, `tipo`, `unidad_medida`, `estado`) VALUES (22199, {$tenantB}, {$categoriaId}, 'ITEM_TB', 'Item Tenant B', 'PRODUCTO', 'UNIDAD', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado`='ACTIVO'");
+    $pdo->exec("INSERT INTO `ofertas_items_edicion` (`id`, `organizacion_id`, `edicion_id`, `item_comercial_id`, `estado`) VALUES (44199, {$tenantB}, {$edicionBId}, 22199, 'ACTIVO') ON DUPLICATE KEY UPDATE `estado`='ACTIVO'");
+    $ofertaItemTenantBId = 44199;
+
+    $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `nombre`, `anio`, `estado`, `fecha_inicio`, `fecha_fin`) VALUES (99881, {$tenantA}, 'ed-otra-2025', 'CANDELARIA 2025 OTRA', 2025, 'CERRADA', '2025-02-01', '2025-02-15') ON DUPLICATE KEY UPDATE `estado`='CERRADA'");
+    $pdo->exec("INSERT INTO `ofertas_items_edicion` (`id`, `organizacion_id`, `edicion_id`, `item_comercial_id`, `estado`) VALUES (44198, {$tenantA}, 99881, {$item1Id}, 'ACTIVO') ON DUPLICATE KEY UPDATE `estado`='ACTIVO'");
+    $ofertaItemOtraEdicionId = 44198;
+
+    $pdo->exec("INSERT INTO `ofertas_items_edicion` (`id`, `organizacion_id`, `edicion_id`, `item_comercial_id`, `estado`) VALUES (44197, {$tenantA}, {$edicionAId}, {$itemSinOfertaId}, 'INACTIVO') ON DUPLICATE KEY UPDATE `estado`='INACTIVO'");
+    $ofertaItemInactivaId = 44197;
+
+    $pdo->exec("INSERT INTO `paquetes` (`id`, `organizacion_id`, `codigo`, `nombre`, `estado`) VALUES (88199, {$tenantB}, 'PAQ_TB', 'Paquete Tenant B', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado`='ACTIVO'");
+    $pdo->exec("INSERT INTO `ofertas_paquetes_edicion` (`id`, `organizacion_id`, `edicion_id`, `paquete_id`, `estado`) VALUES (55299, {$tenantB}, {$edicionBId}, 88199, 'ACTIVO') ON DUPLICATE KEY UPDATE `estado`='ACTIVO'");
+    $ofertaPaqueteTenantBId = 55299;
+
+    $pdo->exec("INSERT INTO `paquetes` (`id`, `organizacion_id`, `codigo`, `nombre`, `estado`) VALUES (88198, {$tenantA}, 'PAQ_INACT', 'Paquete Inactivo', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado`='ACTIVO'");
+    $pdo->exec("INSERT INTO `ofertas_paquetes_edicion` (`id`, `organizacion_id`, `edicion_id`, `paquete_id`, `estado`) VALUES (55298, {$tenantA}, {$edicionAId}, 88198, 'INACTIVO') ON DUPLICATE KEY UPDATE `estado`='INACTIVO'");
+    $ofertaPaqueteInactivaId = 55298;
+
+    // Rol 81: Solo Editor (sin aplicar_descuento)
+    $pdo->exec("INSERT INTO `roles` (`id`, `codigo`, `nombre`, `descripcion`, `es_sistema`) VALUES (81, 'solo_editor', 'Solo Editor Cotizaciones', 'Edición sin descuentos', 0) ON DUPLICATE KEY UPDATE `nombre` = 'Solo Editor Cotizaciones'");
+    $pdo->exec("DELETE FROM `rol_permisos` WHERE `rol_id` = 81");
+    $pdo->exec("INSERT INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES (81, 41), (81, 43)"); // ver, editar
+    $pdo->exec("INSERT INTO `personas` (`id`, `organizacion_id`, `tipo_persona`, `nombres`, `apellidos`, `telefono_whatsapp`, `codigo_pais`, `estado`) VALUES (81091, 10000, 'NATURAL', 'EDITOR', 'PRUEBA', '+51951999771', 'PE', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuarios` (`id`, `organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `telefono_whatsapp`, `contrasena_hash`, `estado`) VALUES (61091, 10000, 81091, 'solo.editor', 'SOLO EDITOR', 'editor@test.com', '+51951111221', '\$2y\$10\$abcdefghijklmnopqrstuu', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuario_roles` (`usuario_id`, `rol_id`) VALUES (61091, 81) ON DUPLICATE KEY UPDATE `rol_id` = 81");
+    $ctxSoloEditor = new ContextoOperacion(
+        actorTipo: 'HUMANO',
+        usuarioId: 61091,
+        actorSistemaId: null,
+        actorSistemaCodigo: null,
+        canalId: 1,
+        canalCodigo: 'APP',
+        correlacionId: 'corr-test-cot-editor-01',
+        origenIp: '127.0.0.1',
+        agenteUsuario: 'PHPUnit/CotizacionesTest',
+        organizacionId: $tenantA
+    );
+
+    // Rol 82: Solo Descuento (sin editar)
+    $pdo->exec("INSERT INTO `roles` (`id`, `codigo`, `nombre`, `descripcion`, `es_sistema`) VALUES (82, 'solo_descuento', 'Solo Descuento Cotizaciones', 'Descuentos sin edición general', 0) ON DUPLICATE KEY UPDATE `nombre` = 'Solo Descuento Cotizaciones'");
+    $pdo->exec("DELETE FROM `rol_permisos` WHERE `rol_id` = 82");
+    $pdo->exec("INSERT INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES (82, 41), (82, 49)"); // ver, aplicar_descuento
+    $pdo->exec("INSERT INTO `personas` (`id`, `organizacion_id`, `tipo_persona`, `nombres`, `apellidos`, `telefono_whatsapp`, `codigo_pais`, `estado`) VALUES (81092, 10000, 'NATURAL', 'DESCUENTO', 'PRUEBA', '+51951999772', 'PE', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuarios` (`id`, `organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `telefono_whatsapp`, `contrasena_hash`, `estado`) VALUES (61092, 10000, 81092, 'solo.descuento', 'SOLO DESCUENTO', 'descuento@test.com', '+51951111222', '\$2y\$10\$abcdefghijklmnopqrstuu', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
+    $pdo->exec("INSERT INTO `usuario_roles` (`usuario_id`, `rol_id`) VALUES (61092, 82) ON DUPLICATE KEY UPDATE `rol_id` = 82");
+    $ctxSoloDescuento = new ContextoOperacion(
+        actorTipo: 'HUMANO',
+        usuarioId: 61092,
+        actorSistemaId: null,
+        actorSistemaCodigo: null,
+        canalId: 1,
+        canalCodigo: 'APP',
+        correlacionId: 'corr-test-cot-desc-01',
+        origenIp: '127.0.0.1',
+        agenteUsuario: 'PHPUnit/CotizacionesTest',
+        organizacionId: $tenantA
+    );
+
     // Contexto Tenant B (para pruebas Cross-Tenant)
     $ctxTenantB = new ContextoOperacion(
         actorTipo: 'HUMANO',
@@ -436,6 +509,94 @@ try {
     }
     afirmar($itemSinOfertaRechazado, "4.1: Rechazo estricto ante ítem sin oferta comercial activa en la edición");
 
+    // 4.1b Validación de oferta: rechazo si la oferta pertenece a otro tenant
+    $ofertaItemOtroTenantRechazada = false;
+    try {
+        $cotizacionServicio->agregarLineaItem(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            itemComercialId: $item1Id,
+            cantidad: 1.00,
+            ofertaItemId: $ofertaItemTenantBId,
+            contexto: $ctxAdminTenantA
+        );
+    } catch (InvalidArgumentException $e) {
+        $ofertaItemOtroTenantRechazada = true;
+    }
+    afirmar($ofertaItemOtroTenantRechazada, "4.1b: Procedencia: Rechazada oferta_item_id perteneciente a otra organización (cross-tenant)");
+
+    // 4.1c Validación de oferta: rechazo si la oferta pertenece a otra edición comercial
+    $ofertaItemOtraEdicionRechazada = false;
+    try {
+        $cotizacionServicio->agregarLineaItem(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            itemComercialId: $item1Id,
+            cantidad: 1.00,
+            ofertaItemId: $ofertaItemOtraEdicionId,
+            contexto: $ctxAdminTenantA
+        );
+    } catch (InvalidArgumentException $e) {
+        $ofertaItemOtraEdicionRechazada = true;
+    }
+    afirmar($ofertaItemOtraEdicionRechazada, "4.1c: Procedencia: Rechazada oferta_item_id perteneciente a otra edición comercial");
+
+    // 4.1d Validación de oferta: rechazo si la oferta no corresponde al ítem comercial solicitado
+    $ofertaItemMismatchedRechazada = false;
+    try {
+        $cotizacionServicio->agregarLineaItem(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            itemComercialId: $item1Id, // ítem 1
+            cantidad: 1.00,
+            ofertaItemId: $ofertaItem2Id, // oferta del ítem 2
+            contexto: $ctxAdminTenantA
+        );
+    } catch (InvalidArgumentException $e) {
+        $ofertaItemMismatchedRechazada = true;
+    }
+    afirmar($ofertaItemMismatchedRechazada, "4.1d: Procedencia: Rechazada oferta_item_id inconsistente con el maestro solicitado");
+
+    // 4.1e Validación de oferta: rechazo si la oferta se encuentra inactiva
+    $ofertaItemInactivaRechazada = false;
+    try {
+        $cotizacionServicio->agregarLineaItem(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            itemComercialId: $itemSinOfertaId,
+            cantidad: 1.00,
+            ofertaItemId: $ofertaItemInactivaId,
+            contexto: $ctxAdminTenantA
+        );
+    } catch (InvalidArgumentException $e) {
+        $ofertaItemInactivaRechazada = true;
+    }
+    afirmar($ofertaItemInactivaRechazada, "4.1e: Procedencia: Rechazada oferta_item_id inactiva");
+
+    // 4.1f Invariante de entidad CotizacionLinea: ofertaItemId obligatorio para ITEM
+    $entidadItemSinOferta = false;
+    try {
+        new \Aplicacion\Entidades\CotizacionLinea(
+            id: null,
+            cotizacionId: $borrador->id,
+            tipoLinea: TipoLineaCotizacion::ITEM,
+            itemComercialId: $item1Id,
+            paqueteId: null,
+            ofertaItemId: null, // Prohibido null para ITEM
+            ofertaPaqueteId: null,
+            conceptoCodigo: 'CODE',
+            conceptoNombre: 'NAME',
+            conceptoDescripcion: null,
+            unidadMedida: 'UND',
+            cantidad: 1.0,
+            precioUnitario: 100.0,
+            moneda: 'PEN'
+        );
+    } catch (InvalidArgumentException $e) {
+        $entidadItemSinOferta = true;
+    }
+    afirmar($entidadItemSinOferta, "4.1f: Invariante Entidad: CotizacionLinea de tipo ITEM exige obligatoriamente ofertaItemId");
+
     // 4.2 Agregar línea válida de ítem comercial
     $cotConItem = $cotizacionServicio->agregarLineaItem(
         organizacionId: $tenantA,
@@ -456,6 +617,33 @@ try {
     afirmar($lineaItem->precioUnitario === 250.00, "4.8: Precio unitario congelado desde tarifa (250.00)");
     afirmar($lineaItem->subtotal === 500.00, "4.9: Subtotal de línea calculado correctamente (2 * 250.00 = 500.00)");
 
+    // 4.9b Integridad BD: CHECK constraint chk_cotizacion_lineas_tipo rechaza ITEM sin oferta_item_id
+    $checkDbItemSinOferta = false;
+    try {
+        $pdo->exec("INSERT INTO `cotizacion_lineas` (`cotizacion_id`, `tipo_linea`, `item_comercial_id`, `paquete_id`, `oferta_item_id`, `oferta_paquete_id`, `concepto_codigo`, `concepto_nombre`, `unidad_medida`, `cantidad`, `precio_unitario`, `subtotal`, `moneda`) VALUES ({$borrador->id}, 'ITEM', {$item1Id}, NULL, NULL, NULL, 'C1', 'N1', 'UND', 1.0, 10.0, 10.0, 'PEN')");
+    } catch (\Throwable $e) {
+        $checkDbItemSinOferta = true;
+    }
+    afirmar($checkDbItemSinOferta, "4.9b: DB CHECK: chk_cotizacion_lineas_tipo rechaza fila ITEM con oferta_item_id = NULL");
+
+    // 4.9c Integridad BD: CHECK constraint rechaza ITEM con paquete_id no nulo
+    $checkDbItemConPaquete = false;
+    try {
+        $pdo->exec("INSERT INTO `cotizacion_lineas` (`cotizacion_id`, `tipo_linea`, `item_comercial_id`, `paquete_id`, `oferta_item_id`, `oferta_paquete_id`, `concepto_codigo`, `concepto_nombre`, `unidad_medida`, `cantidad`, `precio_unitario`, `subtotal`, `moneda`) VALUES ({$borrador->id}, 'ITEM', {$item1Id}, 88101, {$ofertaItem1Id}, NULL, 'C1', 'N1', 'UND', 1.0, 10.0, 10.0, 'PEN')");
+    } catch (\Throwable $e) {
+        $checkDbItemConPaquete = true;
+    }
+    afirmar($checkDbItemConPaquete, "4.9c: DB CHECK: chk_cotizacion_lineas_tipo rechaza fila ITEM con paquete_id no nulo");
+
+    // 4.9d Integridad BD: FK RESTRICT en oferta_item_id impide borrado físico de oferta cotizada
+    $fkRestrictOfertaItem = false;
+    try {
+        $pdo->exec("DELETE FROM `ofertas_items_edicion` WHERE `id` = {$ofertaItem1Id}");
+    } catch (\Throwable $e) {
+        $fkRestrictOfertaItem = true;
+    }
+    afirmar($fkRestrictOfertaItem, "4.9d: DB FK RESTRICT: Prohibido eliminar oferta de ítem que esté referenciada en una cotización");
+
     // 4.10 Verificar inmutabilidad del snapshot: cambiar nombre y precio en catálogo
     $pdo->exec("UPDATE `items_comerciales` SET `nombre` = 'TRIBUNA MODIFICADA EN CATÁLOGO' WHERE `id` = {$item1Id}");
     $pdo->exec("UPDATE `tarifas_items_edicion` SET `precio` = 999.00 WHERE `id` = 66101");
@@ -468,6 +656,62 @@ try {
     // BLOQUE 5: PAQUETES COMERCIALES Y SNAPSHOT RELACIONAL DE COMPONENTES
     // ==============================================================================
     echo "\n--- BLOQUE 5: PAQUETES COMERCIALES Y SNAPSHOT RELACIONAL DE COMPONENTES ---\n";
+
+    // 5.0a Invariante Entidad: CotizacionLinea de tipo PAQUETE exige obligatoriamente ofertaPaqueteId
+    $entidadPaqueteSinOferta = false;
+    try {
+        new \Aplicacion\Entidades\CotizacionLinea(
+            id: null,
+            cotizacionId: $borrador->id,
+            tipoLinea: TipoLineaCotizacion::PAQUETE,
+            itemComercialId: null,
+            paqueteId: $paqueteId,
+            ofertaItemId: null,
+            ofertaPaqueteId: null, // Prohibido null para PAQUETE
+            conceptoCodigo: 'CODE',
+            conceptoNombre: 'NAME',
+            conceptoDescripcion: null,
+            unidadMedida: 'PAQ',
+            cantidad: 1.0,
+            precioUnitario: 300.0,
+            moneda: 'PEN'
+        );
+    } catch (InvalidArgumentException $e) {
+        $entidadPaqueteSinOferta = true;
+    }
+    afirmar($entidadPaqueteSinOferta, "5.0a: Invariante Entidad: CotizacionLinea de tipo PAQUETE exige obligatoriamente ofertaPaqueteId");
+
+    // 5.0b Validación de oferta paquete: rechazo si la oferta pertenece a otro tenant
+    $ofertaPaqOtroTenantRechazada = false;
+    try {
+        $cotizacionServicio->agregarLineaPaquete(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            paqueteId: $paqueteId,
+            cantidad: 1.00,
+            ofertaPaqueteId: $ofertaPaqueteTenantBId,
+            contexto: $ctxAdminTenantA
+        );
+    } catch (InvalidArgumentException $e) {
+        $ofertaPaqOtroTenantRechazada = true;
+    }
+    afirmar($ofertaPaqOtroTenantRechazada, "5.0b: Procedencia: Rechazada oferta_paquete_id perteneciente a otra organización (cross-tenant)");
+
+    // 5.0c Validación de oferta paquete: rechazo si la oferta se encuentra inactiva
+    $ofertaPaqInactivaRechazada = false;
+    try {
+        $cotizacionServicio->agregarLineaPaquete(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            paqueteId: 88198,
+            cantidad: 1.00,
+            ofertaPaqueteId: $ofertaPaqueteInactivaId,
+            contexto: $ctxAdminTenantA
+        );
+    } catch (InvalidArgumentException $e) {
+        $ofertaPaqInactivaRechazada = true;
+    }
+    afirmar($ofertaPaqInactivaRechazada, "5.0c: Procedencia: Rechazada oferta_paquete_id inactiva");
 
     $cotConPaquete = $cotizacionServicio->agregarLineaPaquete(
         organizacionId: $tenantA,
@@ -486,6 +730,33 @@ try {
     afirmar($lineaPaquete->precioUnitario === 340.00, "5.5: Precio de paquete congelado desde tarifa (340.00)");
     afirmar(count($lineaPaquete->componentes) === 2, "5.6: Snapshot relacional congeló exactamente los 2 componentes del paquete en cotizacion_linea_componentes");
 
+    // 5.6b Integridad BD: CHECK constraint chk_cotizacion_lineas_tipo rechaza PAQUETE sin oferta_paquete_id
+    $checkDbPaqSinOferta = false;
+    try {
+        $pdo->exec("INSERT INTO `cotizacion_lineas` (`cotizacion_id`, `tipo_linea`, `item_comercial_id`, `paquete_id`, `oferta_item_id`, `oferta_paquete_id`, `concepto_codigo`, `concepto_nombre`, `unidad_medida`, `cantidad`, `precio_unitario`, `subtotal`, `moneda`) VALUES ({$borrador->id}, 'PAQUETE', NULL, {$paqueteId}, NULL, NULL, 'CP', 'NP', 'PAQ', 1.0, 100.0, 100.0, 'PEN')");
+    } catch (\Throwable $e) {
+        $checkDbPaqSinOferta = true;
+    }
+    afirmar($checkDbPaqSinOferta, "5.6b: DB CHECK: chk_cotizacion_lineas_tipo rechaza fila PAQUETE con oferta_paquete_id = NULL");
+
+    // 5.6c Integridad BD: CHECK constraint rechaza PAQUETE con item_comercial_id no nulo
+    $checkDbPaqConItem = false;
+    try {
+        $pdo->exec("INSERT INTO `cotizacion_lineas` (`cotizacion_id`, `tipo_linea`, `item_comercial_id`, `paquete_id`, `oferta_item_id`, `oferta_paquete_id`, `concepto_codigo`, `concepto_nombre`, `unidad_medida`, `cantidad`, `precio_unitario`, `subtotal`, `moneda`) VALUES ({$borrador->id}, 'PAQUETE', {$item1Id}, {$paqueteId}, NULL, {$ofertaPaqueteId}, 'CP', 'NP', 'PAQ', 1.0, 100.0, 100.0, 'PEN')");
+    } catch (\Throwable $e) {
+        $checkDbPaqConItem = true;
+    }
+    afirmar($checkDbPaqConItem, "5.6c: DB CHECK: chk_cotizacion_lineas_tipo rechaza fila PAQUETE con item_comercial_id no nulo");
+
+    // 5.6d Integridad BD: FK RESTRICT en oferta_paquete_id impide borrado físico de oferta cotizada
+    $fkRestrictOfertaPaq = false;
+    try {
+        $pdo->exec("DELETE FROM `ofertas_paquetes_edicion` WHERE `id` = {$ofertaPaqueteId}");
+    } catch (\Throwable $e) {
+        $fkRestrictOfertaPaq = true;
+    }
+    afirmar($fkRestrictOfertaPaq, "5.6d: DB FK RESTRICT: Prohibido eliminar oferta de paquete referenciada en una cotización");
+
     // 5.7 Inmutabilidad de componentes ante cambios en paquete_items
     $pdo->exec("DELETE FROM `paquete_items` WHERE `paquete_id` = {$paqueteId} AND `item_comercial_id` = {$item2Id}");
     $lineasTrasAlterarPaquete = $cotizacionRepo->obtenerLineas($borrador->id);
@@ -495,6 +766,22 @@ try {
     // BLOQUE 6: DESCUENTOS ESTRUCTURADOS Y PERMISOS RBAC
     // ==============================================================================
     echo "\n--- BLOQUE 6: DESCUENTOS ESTRUCTURADOS Y PERMISOS RBAC ---\n";
+
+    // 6.0a Descuento cero no exige motivo (PASS)
+    $lineaDescCero = $cotizacionServicio->agregarLineaItem(
+        organizacionId: $tenantA,
+        cotizacionId: $borrador->id,
+        itemComercialId: $item2Id,
+        cantidad: 1.00,
+        precioUnitario: 60.00,
+        descuentoTipo: TipoDescuentoCotizacion::NINGUNO,
+        descuentoValor: 0.00,
+        descuentoMotivo: null,
+        contexto: $ctxAdminTenantA
+    );
+    afirmar(count($lineaDescCero->lineas) === 3, "6.0a: Línea con descuento cero no exige motivo y es aceptada exitosamente");
+    // Retirar la línea temporal de prueba para mantener el orden determinista
+    $cotizacionServicio->eliminarLinea($tenantA, $borrador->id, $lineaDescCero->lineas[2]->id, $ctxAdminTenantA);
 
     // 6.1 Descuento sin permiso dedicado (Operador) es denegado
     $descuentoSinPermiso = false;
@@ -514,6 +801,41 @@ try {
         $descuentoSinPermiso = true;
     }
     afirmar($descuentoSinPermiso, "6.1: RBAC: Descuento rechazado a usuario sin permiso 'cotizaciones.aplicar_descuento'");
+
+    // 6.1b Usuario con cotizaciones.editar pero SIN cotizaciones.aplicar_descuento: descuento rechazado
+    $editarSinAplicarDescuentoRechazado = false;
+    try {
+        $cotizacionServicio->agregarLineaItem(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            itemComercialId: $item2Id,
+            cantidad: 1.00,
+            precioUnitario: 60.00,
+            descuentoTipo: TipoDescuentoCotizacion::PORCENTAJE,
+            descuentoValor: 10.00,
+            descuentoMotivo: 'Descuento intentado por editor simple',
+            contexto: $ctxSoloEditor // Tiene editar pero NO aplicar_descuento
+        );
+    } catch (AccesoDenegadoExcepcion $e) {
+        $editarSinAplicarDescuentoRechazado = true;
+    }
+    afirmar($editarSinAplicarDescuentoRechazado, "6.1b: RBAC Separación: Usuario con 'cotizaciones.editar' pero SIN 'cotizaciones.aplicar_descuento' NO puede aplicar descuentos");
+
+    // 6.1c Usuario con cotizaciones.aplicar_descuento pero SIN cotizaciones.editar: NO concede edición general
+    $descuentoSinEditarRechazado = false;
+    try {
+        $cotizacionServicio->agregarLineaItem(
+            organizacionId: $tenantA,
+            cotizacionId: $borrador->id,
+            itemComercialId: $item2Id,
+            cantidad: 1.00,
+            precioUnitario: 60.00,
+            contexto: $ctxSoloDescuento // Tiene aplicar_descuento pero NO editar
+        );
+    } catch (AccesoDenegadoExcepcion $e) {
+        $descuentoSinEditarRechazado = true;
+    }
+    afirmar($descuentoSinEditarRechazado, "6.1c: RBAC Separación: Permiso 'cotizaciones.aplicar_descuento' NO concede capacidad de edición general (requiere cotizaciones.editar)");
 
     // 6.2 Descuento > 100% es rechazado
     $descuentoExcesivo = false;
@@ -568,6 +890,31 @@ try {
     $linea3 = $cotConDescLinea->lineas[2];
     afirmar($linea3->descuentoMonto === 20.00, "6.4: Descuento de línea fijado en 20.00");
     afirmar($linea3->subtotal === 100.00, "6.5: Subtotal de línea neto calculado correctamente (120 - 20 = 100.00)");
+
+    // 6.5b Modificar descuento de línea con aplicarDescuentoLinea
+    $cotConDescModificado = $cotizacionServicio->aplicarDescuentoLinea(
+        organizacionId: $tenantA,
+        cotizacionId: $borrador->id,
+        lineaId: $linea3->id,
+        tipo: TipoDescuentoCotizacion::MONTO_FIJO,
+        valor: 30.00,
+        motivo: 'Ajuste adicional de descuento por campaña',
+        contexto: $ctxAdminTenantA
+    );
+    $lineasMod = $cotizacionRepo->obtenerLineas($borrador->id);
+    afirmar($lineasMod[2]->descuentoMonto === 30.00, "6.5b: aplicarDescuentoLinea(): Descuento actualizado con motivo obligatorio");
+    afirmar($lineasMod[2]->subtotal === 90.00, "6.5c: aplicarDescuentoLinea(): Subtotal de línea recalculado en 90.00");
+
+    // Restaurar a 20.00 para mantener el total determinista de los siguientes bloques
+    $cotizacionServicio->aplicarDescuentoLinea(
+        organizacionId: $tenantA,
+        cotizacionId: $borrador->id,
+        lineaId: $linea3->id,
+        tipo: TipoDescuentoCotizacion::MONTO_FIJO,
+        valor: 20.00,
+        motivo: 'Restauración para pruebas siguientes',
+        contexto: $ctxAdminTenantA
+    );
 
     // 6.6 Descuento global sobre la cotización
     $cotConDescGlobal = $cotizacionServicio->aplicarDescuentoGlobal(
@@ -901,6 +1248,34 @@ try {
         $conflictoConcurrencia = true;
     }
     afirmar($conflictoConcurrencia, "13.1: Concurrencia Optimista: ConflictoConcurrenciaExcepcion lanzada ante version_bloqueo desfasada");
+
+    // 13.2 Moneda institucional Fail-Closed: Sin configuración de plataforma válida, la creación falla inmediatamente
+    $configServicio->limpiarCache();
+    $pdo->exec("UPDATE `parametros_configuracion` SET `valor` = '' WHERE `codigo` = 'plataforma.moneda_principal'");
+    $monedaFailClosed = false;
+    try {
+        $cotizacionServicio->crearBorrador(
+            organizacionId: $tenantA,
+            edicionId: $edicionAId,
+            clienteId: $clienteAId,
+            titulo: 'Test Moneda Ausente',
+            contexto: $ctxAdminTenantA
+        );
+    } catch (\RuntimeException $e) {
+        if (str_contains($e->getMessage(), 'FAIL CLOSED')) {
+            $monedaFailClosed = true;
+        }
+    } finally {
+        $pdo->exec("UPDATE `parametros_configuracion` SET `valor` = 'PEN' WHERE `codigo` = 'plataforma.moneda_principal'");
+        $configServicio->limpiarCache();
+    }
+    afirmar($monedaFailClosed, "13.2: Divisa Soberana: plataforma.moneda_principal ausente o inválida produce FAIL CLOSED inmediato sin fallback");
+
+    // 13.3 Desacoplamiento HTTP del dominio: Excepciones y servicios son puros (sin 409 ni Response)
+    $esPuraDominio = is_subclass_of(ConflictoConcurrenciaExcepcion::class, \RuntimeException::class);
+    $reflectionEx = new \ReflectionClass(ConflictoConcurrenciaExcepcion::class);
+    $sinMetodosHttp = !$reflectionEx->hasMethod('getStatusCode') && !$reflectionEx->hasMethod('getResponse');
+    afirmar($esPuraDominio && $sinMetodosHttp, "13.3: Dominio Puro: ConflictoConcurrenciaExcepcion es pura sin acoplamiento a HTTP ni status codes");
 
     // ==============================================================================
     // BLOQUE 14: AUDITORÍA TÉCNICA TRANSVERSAL
