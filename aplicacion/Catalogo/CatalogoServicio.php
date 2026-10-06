@@ -779,7 +779,7 @@ class CatalogoServicio
         // Validar tenant a través de la oferta
         $oferta = $this->ofertaItemRepo->buscarPorId($tarifa->ofertaItemId, $organizacionId);
         if ($oferta === null) {
-            throw new InvalidArgumentException("La tarifa no pertenece a la organización solicitante.");
+            throw new AccesoDenegadoExcepcion("La tarifa no pertenece a la organización solicitante.");
         }
 
         if ($nuevoPrecio < 0.0) {
@@ -918,7 +918,7 @@ class CatalogoServicio
 
         $oferta = $this->ofertaPaqueteRepo->buscarPorId($tarifa->ofertaPaqueteId, $organizacionId);
         if ($oferta === null) {
-            throw new InvalidArgumentException("La tarifa no pertenece a la organización solicitante.");
+            throw new AccesoDenegadoExcepcion("La tarifa no pertenece a la organización solicitante.");
         }
 
         if ($nuevoPrecio < 0.0) {
@@ -1028,12 +1028,13 @@ class CatalogoServicio
         ?int $categoriaId,
         ?TipoItemComercial $tipo,
         ?EstadoCatalogo $estado,
-        ContextoOperacion $contexto
+        ContextoOperacion $contexto,
+        ?string $busqueda = null
     ): array {
         $this->validarPermiso('catalogo.ver', $contexto);
         $this->validarTenantContexto($organizacionId, $contexto);
 
-        return $this->itemRepo->listar($organizacionId, $categoriaId, $tipo, $estado);
+        return $this->itemRepo->listar($organizacionId, $categoriaId, $tipo, $estado, $busqueda);
     }
 
     public function obtenerPaquete(int $organizacionId, int $paqueteId, ContextoOperacion $contexto): ?Paquete
@@ -1047,12 +1048,16 @@ class CatalogoServicio
     /**
      * @return Paquete[]
      */
-    public function listarPaquetes(int $organizacionId, ?EstadoCatalogo $estado, ContextoOperacion $contexto): array
-    {
+    public function listarPaquetes(
+        int $organizacionId,
+        ?EstadoCatalogo $estado,
+        ContextoOperacion $contexto,
+        ?string $busqueda = null
+    ): array {
         $this->validarPermiso('catalogo.ver', $contexto);
         $this->validarTenantContexto($organizacionId, $contexto);
 
-        return $this->paqueteRepo->listar($organizacionId, $estado);
+        return $this->paqueteRepo->listar($organizacionId, $estado, $busqueda);
     }
 
     public function obtenerOfertaItem(int $organizacionId, int $ofertaId, ContextoOperacion $contexto): ?OfertaItemEdicion

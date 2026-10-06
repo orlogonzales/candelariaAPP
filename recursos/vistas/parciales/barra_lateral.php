@@ -7,6 +7,7 @@ $puedeVerEdiciones = false;
 $puedeVerClientes = false;
 $puedeVerCrm = false;
 $puedeAdministrarOrigenes = false;
+$puedeVerCatalogo = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
@@ -17,11 +18,13 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerClientes = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'clientes.ver');
     $puedeVerCrm = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'crm.oportunidades.ver');
     $puedeAdministrarOrigenes = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'crm.origenes.administrar');
+    $puedeVerCatalogo = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'catalogo.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
 $esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes'], true);
-$esPrincipal = !$esConfig && !$esClientesCrm;
+$esCatalogo = in_array($seccionActual, ['catalogo_items', 'catalogo_paquetes', 'catalogo_ofertas'], true);
+$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo;
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
 $orgOperativa = ($contextoBarra !== null && $contextoBarra->organizacionId !== null && $contextoBarra->organizacionId > 0)
@@ -54,6 +57,12 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                 <li class="nav-item">
                     <a href="#" class="nav-link <?= $esClientesCrm ? 'active' : '' ?>" data-target="menuClientes" title="CLIENTES Y CRM" aria-label="Clientes y CRM" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-users" aria-hidden="true"></i>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="#" class="nav-link <?= $esCatalogo ? 'active' : '' ?>" data-target="menuCatalogo" title="CATÁLOGO COMERCIAL" aria-label="Catálogo Comercial" data-bs-toggle="tooltip" data-bs-placement="right">
+                        <i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>
                     </a>
                 </li>
 
@@ -178,6 +187,27 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                                     </a>
                                 </li>
                             </ul>
+                        </li>
+                        <?php endif; ?>
+                    </ul>
+
+                    <!-- Menú: Catálogo Comercial -->
+                    <ul class="main-menu" id="menuCatalogo" style="<?= $esCatalogo ? '' : 'display: none;' ?>">
+                        <?php if ($puedeVerCatalogo): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('catalogo/items') ?>" class="<?= $seccionActual === 'catalogo_items' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-box-open me-2 text-secondary"></i> Ítems Comerciales
+                            </a>
+                        </li>
+                        <li class="no-sub">
+                            <a href="<?= url_base('catalogo/paquetes') ?>" class="<?= $seccionActual === 'catalogo_paquetes' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-boxes-packing me-2 text-secondary"></i> Paquetes
+                            </a>
+                        </li>
+                        <li class="no-sub">
+                            <a href="<?= url_base('catalogo/ofertas') ?>" class="<?= $seccionActual === 'catalogo_ofertas' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-tags me-2 text-secondary"></i> Ofertas por Edición
+                            </a>
                         </li>
                         <?php endif; ?>
                     </ul>

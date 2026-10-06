@@ -253,3 +253,46 @@ Enrutador::post('/api/v1/crm/origenes', [\Aplicacion\Controladores\OrigenComerci
 Enrutador::put('/api/v1/crm/origenes/{id}', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'actualizar']);
 Enrutador::patch('/api/v1/crm/origenes/{id}/estado', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'cambiarEstado']);
 Enrutador::delete('/api/v1/crm/origenes/{id}', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'eliminar']);
+
+// ==============================================================================
+// GESTIÓN COMERCIAL: CATÁLOGO, PAQUETES, OFERTAS Y TARIFAS (FASE 2.3C)
+// ==============================================================================
+// Categorías
+Enrutador::get('/api/v1/catalogo/categorias', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarCategorias']);
+Enrutador::post('/api/v1/catalogo/categorias', [\Aplicacion\Controladores\CatalogoControlador::class, 'crearCategoria']);
+Enrutador::put('/api/v1/catalogo/categorias/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'actualizarCategoria']);
+Enrutador::patch('/api/v1/catalogo/categorias/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoCategoria']);
+
+// Ítems Comerciales
+Enrutador::get('/api/v1/catalogo/items', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarItems']);
+Enrutador::get('/api/v1/catalogo/items/buscar', [\Aplicacion\Controladores\CatalogoControlador::class, 'buscarItems']);
+Enrutador::get('/api/v1/catalogo/items/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'detalleItem']);
+Enrutador::post('/api/v1/catalogo/items', [\Aplicacion\Controladores\CatalogoControlador::class, 'crearItem']);
+Enrutador::put('/api/v1/catalogo/items/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'actualizarItem']);
+Enrutador::patch('/api/v1/catalogo/items/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoItem']);
+
+// Paquetes Comerciales y Composición
+Enrutador::get('/api/v1/catalogo/paquetes', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarPaquetes']);
+Enrutador::get('/api/v1/catalogo/paquetes/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'detallePaquete']);
+Enrutador::post('/api/v1/catalogo/paquetes', [\Aplicacion\Controladores\CatalogoControlador::class, 'crearPaquete']);
+Enrutador::put('/api/v1/catalogo/paquetes/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'actualizarPaquete']);
+Enrutador::patch('/api/v1/catalogo/paquetes/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoPaquete']);
+Enrutador::get('/api/v1/catalogo/paquetes/{id}/composicion', [\Aplicacion\Controladores\CatalogoControlador::class, 'obtenerComposicion']);
+Enrutador::post('/api/v1/catalogo/paquetes/{id}/composicion', [\Aplicacion\Controladores\CatalogoControlador::class, 'sincronizarComposicion']);
+
+// Ofertas por Edición
+Enrutador::get('/api/v1/catalogo/ofertas', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarOfertas']);
+Enrutador::post('/api/v1/catalogo/ofertas/items', [\Aplicacion\Controladores\CatalogoControlador::class, 'habilitarOfertaItem']);
+Enrutador::patch('/api/v1/catalogo/ofertas/items/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoOfertaItem']);
+Enrutador::post('/api/v1/catalogo/ofertas/paquetes', [\Aplicacion\Controladores\CatalogoControlador::class, 'habilitarOfertaPaquete']);
+Enrutador::patch('/api/v1/catalogo/ofertas/paquetes/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoOfertaPaquete']);
+
+// Tarifas Vigentes y Optimistic Locking
+Enrutador::post('/api/v1/catalogo/tarifas/items/inicial', [\Aplicacion\Controladores\CatalogoControlador::class, 'fijarTarifaInicialItem']);
+Enrutador::put('/api/v1/catalogo/tarifas/items/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'actualizarTarifaItem']);
+Enrutador::post('/api/v1/catalogo/tarifas/paquetes/inicial', [\Aplicacion\Controladores\CatalogoControlador::class, 'fijarTarifaInicialPaquete']);
+Enrutador::put('/api/v1/catalogo/tarifas/paquetes/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'actualizarTarifaPaquete']);
+
+// Historial de Tarifas (Append-Only)
+Enrutador::get('/api/v1/catalogo/tarifas/items/{id}/historial', [\Aplicacion\Controladores\CatalogoControlador::class, 'historialTarifaItem']);
+Enrutador::get('/api/v1/catalogo/tarifas/paquetes/{id}/historial', [\Aplicacion\Controladores\CatalogoControlador::class, 'historialTarifaPaquete']);

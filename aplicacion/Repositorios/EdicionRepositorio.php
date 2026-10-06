@@ -158,6 +158,22 @@ class EdicionRepositorio
     }
 
     /**
+     * Lista todas las ediciones registradas, opcionalmente filtradas por organización.
+     * @return Edicion[]
+     */
+    public function listarTodas(?int $organizacionId = null): array
+    {
+        if ($organizacionId !== null) {
+            return $this->listarPorOrganizacion($organizacionId);
+        }
+
+        $stmt = $this->pdo->query("SELECT * FROM `ediciones_candelaria` ORDER BY `anio` DESC");
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(fn($f) => $this->hidratar($f), $filas);
+    }
+
+    /**
      * Lista todas las ediciones de una organización ordenadas cronológicamente descendente.
      * @return Edicion[]
      */

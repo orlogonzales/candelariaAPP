@@ -191,3 +191,10 @@ Enrutador::get('/clientes/{id}', [\Aplicacion\Controladores\ClienteControlador::
 Enrutador::get('/crm/oportunidades', [\Aplicacion\Controladores\OportunidadControlador::class, 'index']);
 Enrutador::get('/crm/origenes', [\Aplicacion\Controladores\OrigenComercialControlador::class, 'index']);
 
+// ==============================================================================
+// CATÁLOGO COMERCIAL Y OFERTAS (FASE 2.3C)
+// ==============================================================================
+Enrutador::get('/catalogo/items', [\Aplicacion\Controladores\CatalogoControlador::class, 'vistaItems']);
+Enrutador::get('/catalogo/paquetes', [\Aplicacion\Controladores\CatalogoControlador::class, 'vistaPaquetes']);
+Enrutador::get('/catalogo/ofertas', [\Aplicacion\Controladores\CatalogoControlador::class, 'vistaOfertas']);
+

@@ -112,7 +112,8 @@ class ItemComercialRepositorio
         int $organizacionId,
         ?int $categoriaId = null,
         ?TipoItemComercial $tipo = null,
-        ?EstadoCatalogo $estado = null
+        ?EstadoCatalogo $estado = null,
+        ?string $busqueda = null
     ): array {
         $sql = "SELECT * FROM `items_comerciales` WHERE `organizacion_id` = :organizacion_id";
         $params = ['organizacion_id' => $organizacionId];
@@ -130,6 +131,12 @@ class ItemComercialRepositorio
         if ($estado !== null) {
             $sql .= " AND `estado` = :estado";
             $params['estado'] = $estado->value;
+        }
+
+        if ($busqueda !== null && trim($busqueda) !== '') {
+            $sql .= " AND (`nombre` LIKE :busqueda_nom OR `codigo` LIKE :busqueda_cod)";
+            $params['busqueda_nom'] = '%' . trim($busqueda) . '%';
+            $params['busqueda_cod'] = '%' . trim($busqueda) . '%';
         }
 
         $sql .= " ORDER BY `nombre` ASC";

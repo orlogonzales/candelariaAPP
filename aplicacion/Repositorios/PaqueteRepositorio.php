@@ -109,7 +109,7 @@ class PaqueteRepositorio
     /**
      * @return Paquete[]
      */
-    public function listar(int $organizacionId, ?EstadoCatalogo $estado = null): array
+    public function listar(int $organizacionId, ?EstadoCatalogo $estado = null, ?string $busqueda = null): array
     {
         $sql = "SELECT * FROM `paquetes` WHERE `organizacion_id` = :organizacion_id";
         $params = ['organizacion_id' => $organizacionId];
@@ -117,6 +117,12 @@ class PaqueteRepositorio
         if ($estado !== null) {
             $sql .= " AND `estado` = :estado";
             $params['estado'] = $estado->value;
+        }
+
+        if ($busqueda !== null && trim($busqueda) !== '') {
+            $sql .= " AND (`nombre` LIKE :busqueda_nom OR `codigo` LIKE :busqueda_cod)";
+            $params['busqueda_nom'] = '%' . trim($busqueda) . '%';
+            $params['busqueda_cod'] = '%' . trim($busqueda) . '%';
         }
 
         $sql .= " ORDER BY `nombre` ASC";
