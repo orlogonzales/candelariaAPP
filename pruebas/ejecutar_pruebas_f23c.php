@@ -481,6 +481,22 @@ try {
     // ==============================================================================
     echo "\n--- BLOQUE 3: ENDPOINTS API DE ÍTEMS COMERCIALES (PRODUCTOS Y SERVICIOS) ---\n";
 
+    // 3.0A Listar unidades de medida sin catalogo.ver retorna 403
+    $cambiarContexto($ctxSinPermiso);
+    $resUni403 = json_decode($controlador->listarUnidadesMedida(), true);
+    afirmar($resUni403['codigo'] === 403, 'GET /api/v1/catalogo/unidades-medida deniega acceso (403) sin catalogo.ver');
+
+    // 3.0B Listar unidades de medida con catalogo.ver retorna 200 con las 9 canónicas
+    $cambiarContexto($ctxOperadorA);
+    $resUni200 = json_decode($controlador->listarUnidadesMedida(), true);
+    afirmar(
+        $resUni200['codigo'] === 200 &&
+        $resUni200['exito'] === true &&
+        count($resUni200['datos']['unidades']) === 9 &&
+        isset($resUni200['datos']['unidades'][0]['semantica']),
+        'GET /api/v1/catalogo/unidades-medida retorna 200 OK con 9 unidades canónicas (Fuente única de verdad)'
+    );
+
     // 3.1 Listar ítems sin catalogo.ver retorna 403
     $cambiarContexto($ctxSinPermiso);
     $resListItems403 = json_decode($controlador->listarItems(), true);
@@ -576,6 +592,32 @@ try {
     // Reactivar para permitir empaquetamiento y oferta
     $_POST = ['estado' => 'ACTIVO'];
     $controlador->cambiarEstadoItem($itemProdId);
+
+    // 3.12 Seguridad XSS: Creación y renderizado de ítem con payload malicioso
+    $codigoXss = 'XSS_TEST_' . time();
+    $_POST = [
+        'categoria_id'  => $categoriaCreadaId,
+        'codigo'        => $codigoXss,
+        'nombre'        => 'Ítem <script>alert("XSS")</script>',
+        'tipo'          => 'SERVICIO',
+        'unidad_medida' => 'SERVICIO',
+        'descripcion'   => 'Descripción <img src=x onerror=alert(1)>',
+        'activo'        => true,
+    ];
+    $resCrearXss = json_decode($controlador->crearItem(), true);
+    afirmar($resCrearXss['codigo'] === 201 && $resCrearXss['exito'] === true, 'Seguridad XSS: creación de ítem con payload malicioso no corrompe respuesta ni ejecuta código');
+
+    // 3.13 Seguridad CSRF en mutaciones: PUT /api/v1/catalogo/items/{id} sin CSRF retorna 403
+    unset($_SERVER['HTTP_X_CSRF_TOKEN']);
+    $_POST = [
+        'categoria_id'  => $categoriaCreadaId,
+        'nombre'        => 'Intento sin CSRF',
+        'tipo'          => 'PRODUCTO',
+        'unidad_medida' => 'UNIDAD',
+    ];
+    $resCsrfAusente = json_decode($controlador->actualizarItem($itemProdId), true);
+    afirmar($resCsrfAusente['codigo'] === 403 && str_contains($resCsrfAusente['mensaje'], 'CSRF'), 'Seguridad CSRF: PUT /api/v1/catalogo/items/{id} rechaza petición ante CSRF ausente con 403');
+    $_SERVER['HTTP_X_CSRF_TOKEN'] = $tokenCsrfValido;
 
     // ==============================================================================
     // BLOQUE 4: ENDPOINTS API DE PAQUETES Y COMPOSICIÓN (REGLA SOBERANA)
@@ -774,8 +816,12 @@ try {
     afirmar(
         $resConflicto409['codigo'] === 409 &&
         $resConflicto409['exito'] === false &&
-        str_contains($resConflicto409['mensaje'], 'concurrentemente'),
-        'PUT /api/v1/catalogo/tarifas/items/{id} detecta colisión concurrente, retorna HTTP 409 e instruye recarga'
+        str_contains($resConflicto409['mensaje'], 'concurrentemente') &&
+        isset($resConflicto409['errores']['codigo']) &&
+        $resConflicto409['errores']['codigo'] === 'CONFLICTO_CONCURRENCIA' &&
+        isset($resConflicto409['errores']['version_actual']) &&
+        (int) $resConflicto409['errores']['version_actual'] === ($versionInicial + 1),
+        'PUT /api/v1/catalogo/tarifas/items/{id} detecta colisión concurrente, retorna HTTP 409 con errores.codigo=CONFLICTO_CONCURRENCIA y version_actual'
     );
 
     // 6.5 Actualización de tarifa de paquete con colisión concurrente idéntica (409)
@@ -796,7 +842,14 @@ try {
     // Forzar colisión con vPaq anterior
     $_POST['version_bloqueo'] = $vPaq;
     $resConflictoPaq409 = json_decode($controlador->actualizarTarifaPaquete($tarifaPaqId), true);
-    afirmar($resConflictoPaq409['codigo'] === 409, 'PUT /api/v1/catalogo/tarifas/paquetes/{id} retorna HTTP 409 ante versión desactualizada');
+    afirmar(
+        $resConflictoPaq409['codigo'] === 409 &&
+        $resConflictoPaq409['exito'] === false &&
+        isset($resConflictoPaq409['errores']['codigo']) &&
+        $resConflictoPaq409['errores']['codigo'] === 'CONFLICTO_CONCURRENCIA' &&
+        isset($resConflictoPaq409['errores']['version_actual']),
+        'PUT /api/v1/catalogo/tarifas/paquetes/{id} retorna HTTP 409 con errores.codigo=CONFLICTO_CONCURRENCIA ante versión desactualizada'
+    );
 
     // ==============================================================================
     // BLOQUE 7: HISTORIAL DE TARIFAS APPEND-ONLY Y PRIVACIDAD ZERO PII

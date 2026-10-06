@@ -109,7 +109,7 @@
 <!-- Tabla Principal de Paquetes -->
 <div class="card border-0 shadow-sm b-r-12">
     <div class="card-body p-0">
-        <div class="table-responsive p-3">
+        <div class="table-responsive p-3" id="contenedorTablaPaquetes">
             <table class="table table-hover align-middle w-100" id="tablaPaquetes">
                 <thead class="table-light">
                     <tr>
@@ -232,7 +232,7 @@
                 <?php endif; ?>
 
                 <!-- Tabla de Composición Actual -->
-                <div class="table-responsive">
+                <div class="table-responsive" id="contenedorTablaComposicion">
                     <table class="table table-hover align-middle w-100" id="tablaComposicionItems">
                         <thead class="table-light">
                             <tr>

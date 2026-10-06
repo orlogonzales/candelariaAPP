@@ -140,6 +140,10 @@ class ModuloCatalogoItems {
             btnRecargar.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Cargando...';
         }
 
+        if (window.Skeleton) {
+            Skeleton.show('#contenedorTablaItems', 'table', { filas: 5, columnas: 7 });
+        }
+
         try {
             const resp = await this.api.peticion('catalogo/items');
             const items = Array.isArray(resp.datos) ? resp.datos : (resp.datos?.items || []);
@@ -151,8 +155,18 @@ class ModuloCatalogoItems {
                 CandelariaUI.notificarError(resp.mensaje || 'No se pudieron obtener los ítems.');
             }
         } catch (error) {
-            CandelariaUI.notificarError(error.message || 'Error de conexión al cargar ítems.');
+            if (window.Skeleton) {
+                Skeleton.error('#contenedorTablaItems', 'Error al cargar ítems: ' + (error.message || 'Error del servidor'), {
+                    texto: 'Reintentar',
+                    accion: () => this.cargarItems()
+                });
+            } else {
+                CandelariaUI.notificarError(error.message || 'Error de conexión al cargar ítems.');
+            }
         } finally {
+            if (window.Skeleton) {
+                Skeleton.hide('#contenedorTablaItems');
+            }
             if (btnRecargar) {
                 btnRecargar.disabled = false;
                 btnRecargar.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> Actualizar';

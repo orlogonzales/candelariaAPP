@@ -10,6 +10,7 @@ use Aplicacion\Catalogo\EstadoCatalogo;
 use Aplicacion\Catalogo\TipoItemComercial;
 use Aplicacion\Catalogo\UnidadMedidaItem;
 use Aplicacion\Configuracion\ConfiguracionServicio;
+use Aplicacion\Ediciones\ContextoEdicionResolver;
 use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
 use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use Aplicacion\Repositorios\AuditoriaRepositorio;
@@ -48,6 +49,7 @@ class CatalogoControlador
     private AutorizacionMiddleware $authzMiddleware;
     private CatalogoServicio $catalogoServicio;
     private EdicionRepositorio $edicionRepo;
+    private ContextoEdicionResolver $contextoEdicionResolver;
     private ConfiguracionServicio $configServicio;
     private CategoriaItemRepositorio $categoriaRepo;
     private ItemComercialRepositorio $itemRepo;
@@ -71,6 +73,7 @@ class CatalogoControlador
         $this->authMiddleware = $authMiddleware ?? new AutenticacionMiddleware();
         $this->authzMiddleware = $authzMiddleware ?? new AutorizacionMiddleware();
         $this->edicionRepo = $edicionRepo ?? new EdicionRepositorio($this->pdo);
+        $this->contextoEdicionResolver = new ContextoEdicionResolver($this->edicionRepo);
 
         $this->categoriaRepo = new CategoriaItemRepositorio($this->pdo);
         $this->itemRepo = new ItemComercialRepositorio($this->pdo);
@@ -156,6 +159,7 @@ class CatalogoControlador
             'tituloSeccion'   => 'Catálogo Comercial',
             'seccionActiva'   => 'catalogo_items',
             'categorias'      => $categorias,
+            'unidadesMedida'  => UnidadMedidaItem::catalogo(),
             'permisos'        => $permisos,
             'monedaPrincipal' => $monedaPrincipal,
             'scriptAdicional' => url_base('publico/js/catalogo_items.js')
@@ -450,6 +454,27 @@ class CatalogoControlador
     // =========================================================================
     // 3. ENDPOINTS API: ÍTEMS COMERCIALES (PRODUCTOS Y SERVICIOS)
     // =========================================================================
+
+    /**
+     * GET /api/v1/catalogo/unidades-medida
+     * Catálogo canónico cerrado de unidades de medida (Fuente única de verdad).
+     */
+    public function listarUnidadesMedida(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('catalogo.ver', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso catalogo.ver.');
+        }
+
+        return $this->responderJson(true, 200, 'Unidades de medida consultadas exitosamente.', [
+            'total'    => count(UnidadMedidaItem::cases()),
+            'unidades' => UnidadMedidaItem::catalogo(),
+        ]);
+    }
 
     /**
      * GET /api/v1/catalogo/items
@@ -1100,7 +1125,7 @@ class CatalogoControlador
         }
 
         try {
-            $edicionId = $this->resolverEdicionContextual();
+            $edicionId = $this->resolverEdicionContextual($contexto);
             if ($edicionId === null || $edicionId <= 0) {
                 return $this->responderJson(false, 400, 'Se requiere especificar la edición contextual (parámetro edicion_id o header X-Edicion-Id).');
             }
@@ -1237,7 +1262,7 @@ class CatalogoControlador
         }
 
         try {
-            $edicionId = isset($cuerpo['edicion_id']) ? (int) $cuerpo['edicion_id'] : $this->resolverEdicionContextual();
+            $edicionId = isset($cuerpo['edicion_id']) ? (int) $cuerpo['edicion_id'] : $this->resolverEdicionContextual($contexto);
             $itemComercialId = isset($cuerpo['item_comercial_id']) ? (int) $cuerpo['item_comercial_id'] : 0;
             $capacidadReferencial = isset($cuerpo['capacidad_referencial']) && $cuerpo['capacidad_referencial'] !== '' && is_numeric($cuerpo['capacidad_referencial'])
                 ? (int) $cuerpo['capacidad_referencial']
@@ -1353,7 +1378,7 @@ class CatalogoControlador
         }
 
         try {
-            $edicionId = isset($cuerpo['edicion_id']) ? (int) $cuerpo['edicion_id'] : $this->resolverEdicionContextual();
+            $edicionId = isset($cuerpo['edicion_id']) ? (int) $cuerpo['edicion_id'] : $this->resolverEdicionContextual($contexto);
             $paqueteId = isset($cuerpo['paquete_id']) ? (int) $cuerpo['paquete_id'] : 0;
             $capacidadReferencial = isset($cuerpo['capacidad_referencial']) && $cuerpo['capacidad_referencial'] !== '' && is_numeric($cuerpo['capacidad_referencial'])
                 ? (int) $cuerpo['capacidad_referencial']
@@ -1546,10 +1571,16 @@ class CatalogoControlador
                 'tarifa' => $tarifa->toArray(),
             ]);
         } catch (ConflictoConcurrenciaExcepcion $e) {
+            $tarifaActual = $this->tarifaItemRepo->buscarPorId($idInt);
             return $this->responderJson(
                 false,
                 409,
-                'La tarifa fue modificada por otro usuario concurrentemente. Por favor recargue los datos para continuar.'
+                'La tarifa fue modificada por otro usuario concurrentemente. Por favor recargue los datos para continuar.',
+                (object) [],
+                [
+                    'codigo'         => 'CONFLICTO_CONCURRENCIA',
+                    'version_actual' => $tarifaActual?->versionBloqueo ?? null,
+                ]
             );
         } catch (AccesoDenegadoExcepcion $e) {
             return $this->responderJson(false, 403, $e->getMessage());
@@ -1655,10 +1686,16 @@ class CatalogoControlador
                 'tarifa' => $tarifa->toArray(),
             ]);
         } catch (ConflictoConcurrenciaExcepcion $e) {
+            $tarifaActual = $this->tarifaPaqueteRepo->buscarPorId($idInt);
             return $this->responderJson(
                 false,
                 409,
-                'La tarifa fue modificada por otro usuario concurrentemente. Por favor recargue los datos para continuar.'
+                'La tarifa fue modificada por otro usuario concurrentemente. Por favor recargue los datos para continuar.',
+                (object) [],
+                [
+                    'codigo'         => 'CONFLICTO_CONCURRENCIA',
+                    'version_actual' => $tarifaActual?->versionBloqueo ?? null,
+                ]
             );
         } catch (AccesoDenegadoExcepcion $e) {
             return $this->responderJson(false, 403, $e->getMessage());
@@ -1693,7 +1730,7 @@ class CatalogoControlador
             $tarifaItemId = $idInt;
             $tarifa = $this->tarifaItemRepo->buscarPorId($idInt);
             if ($tarifa === null) {
-                $edicionId = $this->resolverEdicionContextual();
+                $edicionId = $this->resolverEdicionContextual($contexto);
                 if ($edicionId === null) {
                     $edicionActual = $this->edicionRepo->obtenerActual((int) $contexto->organizacionId);
                     $edicionId = $edicionActual?->id;
@@ -1754,7 +1791,7 @@ class CatalogoControlador
             $tarifaPaqueteId = $idInt;
             $tarifa = $this->tarifaPaqueteRepo->buscarPorId($idInt);
             if ($tarifa === null) {
-                $edicionId = $this->resolverEdicionContextual();
+                $edicionId = $this->resolverEdicionContextual($contexto);
                 if ($edicionId === null) {
                     $edicionActual = $this->edicionRepo->obtenerActual((int) $contexto->organizacionId);
                     $edicionId = $edicionActual?->id;
@@ -1800,14 +1837,18 @@ class CatalogoControlador
     // UTILIDADES PRIVADAS DE CONTROLADOR
     // =========================================================================
 
-    private function resolverEdicionContextual(): ?int
+    private function resolverEdicionContextual(ContextoOperacion $contexto): ?int
     {
-        if (isset($_GET['edicion_id']) && is_numeric($_GET['edicion_id'])) {
-            return (int) $_GET['edicion_id'];
+        $candidato = null;
+        if (isset($_GET['edicion_id'])) {
+            $candidato = (string) $_GET['edicion_id'];
+        } elseif (!empty($_SERVER['HTTP_X_EDICION_ID'])) {
+            $candidato = (string) $_SERVER['HTTP_X_EDICION_ID'];
         }
 
-        if (!empty($_SERVER['HTTP_X_EDICION_ID']) && is_numeric($_SERVER['HTTP_X_EDICION_ID'])) {
-            return (int) $_SERVER['HTTP_X_EDICION_ID'];
+        if ($candidato !== null) {
+            $ctxResuelto = $this->contextoEdicionResolver->resolver($contexto, $candidato);
+            return $ctxResuelto->edicionTrabajoId;
         }
 
         return null;
@@ -1830,7 +1871,7 @@ class CatalogoControlador
         if ($tokenEsperado !== null) {
             $tokenRecibido = $cuerpo['_csrf_token'] ?? $cuerpo['csrf_token'] ?? $_POST['_csrf_token'] ?? $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
             if ($tokenRecibido === null || !ProtectorCsrf::validarToken($tokenEsperado, $tokenRecibido)) {
-                return $this->responderJson(false, 403, 'Token de seguridad CSRF inválido o ausente.');
+                return $this->responderJson(false, 403, 'Token de seguridad CSRF inválido o ausente.', (object) [], ['csrf' => 'TOKEN_INVALIDO']);
             }
         }
         return null;
@@ -1852,15 +1893,9 @@ class CatalogoControlador
             'exito'   => $exito,
             'codigo'  => $codigoHttp,
             'mensaje' => $mensaje,
+            'datos'   => is_array($datos) && empty($datos) ? (object) [] : ($datos ?? (object) []),
+            'errores' => is_array($errores) && empty($errores) ? (object) [] : ($errores ?? (object) []),
         ];
-
-        if ($datos !== null) {
-            $payload['datos'] = $datos;
-        }
-
-        if (!empty($errores)) {
-            $payload['errores'] = $errores;
-        }
 
         return json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
@@ -1868,6 +1903,6 @@ class CatalogoControlador
     private function responderErrorSeguro(Throwable $e): string
     {
         error_log("[CatalogoControlador Error] " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
-        return $this->responderJson(false, 500, 'Ha ocurrido un error inesperado al procesar la solicitud en el catálogo comercial.');
+        return $this->responderJson(false, 500, 'Ha ocurrido un error inesperado al procesar la solicitud en el catálogo comercial.', (object) [], ['error' => 'ERROR_INTERNO']);
     }
 }

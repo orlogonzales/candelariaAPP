@@ -116,6 +116,10 @@ class ModuloCatalogoPaquetes {
             btnRecargar.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Cargando...';
         }
 
+        if (window.Skeleton) {
+            Skeleton.show('#contenedorTablaPaquetes', 'table', { filas: 5, columnas: 6 });
+        }
+
         try {
             const resp = await this.api.peticion('catalogo/paquetes');
             const paqs = Array.isArray(resp.datos) ? resp.datos : (resp.datos?.paquetes || []);
@@ -127,8 +131,18 @@ class ModuloCatalogoPaquetes {
                 CandelariaUI.notificarError(resp.mensaje || 'No se pudieron obtener los paquetes.');
             }
         } catch (error) {
-            CandelariaUI.notificarError(error.message || 'Error de conexión al cargar paquetes.');
+            if (window.Skeleton) {
+                Skeleton.error('#contenedorTablaPaquetes', 'Error al cargar paquetes: ' + (error.message || 'Error del servidor'), {
+                    texto: 'Reintentar',
+                    accion: () => this.cargarPaquetes()
+                });
+            } else {
+                CandelariaUI.notificarError(error.message || 'Error de conexión al cargar paquetes.');
+            }
         } finally {
+            if (window.Skeleton) {
+                Skeleton.hide('#contenedorTablaPaquetes');
+            }
             if (btnRecargar) {
                 btnRecargar.disabled = false;
                 btnRecargar.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> Actualizar';
@@ -371,11 +385,17 @@ class ModuloCatalogoPaquetes {
         document.getElementById('compCantidad').value = '1';
         document.getElementById('compNota').value = '';
 
+        this.modalComposicion?.show();
+        if (window.Skeleton) {
+            Skeleton.show('#contenedorTablaComposicion', 'table', { filas: 3, columnas: 5 });
+        }
+
         // Cargar composición desde backend
         try {
             const resp = await this.api.peticion(`catalogo/paquetes/${id}/composicion`);
-            if (resp.exito && Array.isArray(resp.datos)) {
-                this.composicionLocal = resp.datos.map((item, idx) => ({
+            const list = Array.isArray(resp.datos) ? resp.datos : (resp.datos?.items || []);
+            if (resp.exito) {
+                this.composicionLocal = list.map((item, idx) => ({
                     itemId: item.itemId,
                     codigo: item.itemCodigo || '',
                     nombre: item.itemNombre || '',
@@ -391,10 +411,12 @@ class ModuloCatalogoPaquetes {
         } catch (error) {
             this.composicionLocal = [];
             console.error('[CatalogoPaquetes] Error al cargar composición:', error);
+        } finally {
+            if (window.Skeleton) {
+                Skeleton.hide('#contenedorTablaComposicion');
+            }
+            this.renderizarTablaComposicion();
         }
-
-        this.renderizarTablaComposicion();
-        this.modalComposicion?.show();
     }
 
     renderizarTablaComposicion() {

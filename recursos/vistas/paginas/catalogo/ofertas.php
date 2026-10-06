@@ -112,7 +112,7 @@
         <div class="tab-content" id="ofertasTabContent">
             <!-- TAB 1: ÍTEMS COMERCIALES -->
             <div class="tab-pane fade show active p-3" id="tabItems" role="tabpanel" aria-labelledby="tabItems-tab">
-                <div class="table-responsive">
+                <div class="table-responsive" id="contenedorTablaOfertasItems">
                     <table class="table table-hover align-middle w-100" id="tablaOfertasItems">
                         <thead class="table-light">
                             <tr>
@@ -121,7 +121,7 @@
                                 <th class="f-s-12 text-muted text-uppercase">Tipo / Categoría</th>
                                 <th class="f-s-12 text-muted text-uppercase text-center">En Oferta</th>
                                 <th class="f-s-12 text-muted text-uppercase text-center">
-                                    Capacidad Ref.
+                                    Capacidad Referencial
                                     <i class="fa-solid fa-circle-question text-secondary ms-1" data-bs-toggle="tooltip" title="Capacidad máxima referencial estimada para esta edición. Sin control transaccional de stock."></i>
                                 </th>
                                 <th class="f-s-12 text-muted text-uppercase text-end">Tarifa Vigente</th>
@@ -137,7 +137,7 @@
 
             <!-- TAB 2: PAQUETES -->
             <div class="tab-pane fade p-3" id="tabPaquetes" role="tabpanel" aria-labelledby="tabPaquetes-tab">
-                <div class="table-responsive">
+                <div class="table-responsive" id="contenedorTablaOfertasPaquetes">
                     <table class="table table-hover align-middle w-100" id="tablaOfertasPaquetes">
                         <thead class="table-light">
                             <tr>
@@ -146,7 +146,7 @@
                                 <th class="f-s-12 text-muted text-uppercase text-center">Ítems Incluidos</th>
                                 <th class="f-s-12 text-muted text-uppercase text-center">En Oferta</th>
                                 <th class="f-s-12 text-muted text-uppercase text-center">
-                                    Capacidad Ref.
+                                    Capacidad Referencial
                                     <i class="fa-solid fa-circle-question text-secondary ms-1" data-bs-toggle="tooltip" title="Capacidad máxima referencial estimada para esta edición. Sin control transaccional de stock."></i>
                                 </th>
                                 <th class="f-s-12 text-muted text-uppercase text-end">Tarifa Vigente</th>
@@ -187,7 +187,7 @@
 
                     <div class="mb-3">
                         <label for="habCapacidad" class="form-label f-w-600 f-s-13">
-                            Capacidad Referencial (Cupos Estimados)
+                            Capacidad Referencial
                             <i class="fa-solid fa-circle-question text-secondary ms-1" data-bs-toggle="tooltip" title="Capacidad máxima referencial estimada para esta edición. Sin control transaccional de stock."></i>
                         </label>
                         <input type="number" class="form-control" id="habCapacidad" name="capacidad_referencial" min="1" step="1" placeholder="Ej. 50 (Opcional)">
@@ -313,7 +313,7 @@
                     <span class="badge bg-secondary px-3 py-2" id="historialElementoCodigo">-</span>
                 </div>
 
-                <div class="table-responsive">
+                <div class="table-responsive" id="contenedorTablaHistorial">
                     <table class="table table-sm table-hover align-middle w-100" id="tablaHistorialTarifas">
                         <thead class="table-light">
                             <tr>

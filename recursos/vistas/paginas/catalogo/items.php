@@ -133,7 +133,7 @@
 <!-- Tabla Principal de Ítems Comerciales -->
 <div class="card border-0 shadow-sm b-r-12">
     <div class="card-body p-0">
-        <div class="table-responsive p-3">
+        <div class="table-responsive p-3" id="contenedorTablaItems">
             <table class="table table-hover align-middle w-100" id="tablaItems">
                 <thead class="table-light">
                     <tr>
@@ -200,15 +200,23 @@
                         <div class="col-md-6">
                             <label for="itemUnidadMedida" class="form-label f-w-600 f-s-13">Unidad de Medida <span class="text-danger">*</span></label>
                             <select class="form-select" id="itemUnidadMedida" name="unidad_medida" required>
-                                <option value="UNIDAD">UNIDAD</option>
-                                <option value="PERSONA">PERSONA</option>
-                                <option value="NOCHE">NOCHE</option>
-                                <option value="HABITACION">HABITACION</option>
-                                <option value="TICKET">TICKET</option>
-                                <option value="SERVICIO" selected>SERVICIO</option>
-                                <option value="TRAMO">TRAMO</option>
-                                <option value="DIA">DIA</option>
-                                <option value="HORA">HORA</option>
+                                <?php if (!empty($unidadesMedida)): ?>
+                                    <?php foreach ($unidadesMedida as $u): ?>
+                                        <option value="<?= escapar_html($u['codigo']) ?>" <?= $u['codigo'] === 'SERVICIO' ? 'selected' : '' ?>>
+                                            <?= escapar_html($u['etiqueta']) ?> (<?= escapar_html($u['semantica']) ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="UNIDAD">UNIDAD</option>
+                                    <option value="PERSONA">PERSONA</option>
+                                    <option value="NOCHE">NOCHE</option>
+                                    <option value="HABITACION">HABITACION</option>
+                                    <option value="TICKET">TICKET</option>
+                                    <option value="SERVICIO" selected>SERVICIO</option>
+                                    <option value="TRAMO">TRAMO</option>
+                                    <option value="DIA">DIA</option>
+                                    <option value="HORA">HORA</option>
+                                <?php endif; ?>
                             </select>
                         </div>
                         <div class="col-md-6 d-flex align-items-center pt-4">

@@ -102,6 +102,11 @@ class ModuloCatalogoOfertas {
             btnRecargar.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Cargando...';
         }
 
+        if (window.Skeleton) {
+            Skeleton.show('#contenedorTablaOfertasItems', 'table', { filas: 5, columnas: 7 });
+            Skeleton.show('#contenedorTablaOfertasPaquetes', 'table', { filas: 4, columnas: 7 });
+        }
+
         try {
             const resp = await this.api.peticion(`catalogo/ofertas?edicion_id=${this.edicionIdActual}`);
             if (resp.exito && resp.datos) {
@@ -113,8 +118,19 @@ class ModuloCatalogoOfertas {
                 CandelariaUI.notificarError(resp.mensaje || 'No se pudieron obtener las ofertas.');
             }
         } catch (error) {
-            CandelariaUI.notificarError(error.message || 'Error al conectar con el servidor.');
+            if (window.Skeleton) {
+                Skeleton.error('#contenedorTablaOfertasItems', 'Error al cargar ofertas: ' + (error.message || 'Error del servidor'), {
+                    texto: 'Reintentar',
+                    accion: () => this.cargarOfertas()
+                });
+            } else {
+                CandelariaUI.notificarError(error.message || 'Error al conectar con el servidor.');
+            }
         } finally {
+            if (window.Skeleton) {
+                Skeleton.hide('#contenedorTablaOfertasItems');
+                Skeleton.hide('#contenedorTablaOfertasPaquetes');
+            }
             if (btnRecargar) {
                 btnRecargar.disabled = false;
                 btnRecargar.innerHTML = '<i class="fa-solid fa-rotate me-1"></i> Actualizar';
@@ -157,8 +173,8 @@ class ModuloCatalogoOfertas {
                 : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1"><i class="fa-solid fa-ban me-1"></i> Inactivo</span>';
 
             const capRef = item.capacidadReferencial !== null && item.capacidadReferencial !== undefined
-                ? `<span class="badge bg-light text-dark border">${item.capacidadReferencial} cupos</span>`
-                : '<span class="text-muted f-s-12">Sin límite</span>';
+                ? `<span class="badge bg-light text-dark border">${item.capacidadReferencial}</span>`
+                : '<span class="text-muted f-s-12">No especificada</span>';
 
             let displayTarifa = '<span class="text-muted f-s-12">Sin fijar</span>';
             if (item.tarifaVigente) {
@@ -251,8 +267,8 @@ class ModuloCatalogoOfertas {
             const badgeItems = `<span class="badge bg-info-subtle text-info"><i class="fa-solid fa-layer-group me-1"></i> ${cantItems} ítems</span>`;
 
             const capRef = paq.capacidadReferencial !== null && paq.capacidadReferencial !== undefined
-                ? `<span class="badge bg-light text-dark border">${paq.capacidadReferencial} cupos</span>`
-                : '<span class="text-muted f-s-12">Sin límite</span>';
+                ? `<span class="badge bg-light text-dark border">${paq.capacidadReferencial}</span>`
+                : '<span class="text-muted f-s-12">No especificada</span>';
 
             let displayTarifa = '<span class="text-muted f-s-12">Sin fijar</span>';
             if (paq.tarifaVigente) {
@@ -500,6 +516,9 @@ class ModuloCatalogoOfertas {
         }
 
         this.modalHistorial?.show();
+        if (window.Skeleton) {
+            Skeleton.show('#contenedorTablaHistorial', 'table', { filas: 3, columnas: 6 });
+        }
 
         try {
             const endpoint = tipo === 'ITEM'
@@ -515,6 +534,10 @@ class ModuloCatalogoOfertas {
             }
         } catch (error) {
             if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-danger">${this.escaparHtml(error.message)}</td></tr>`;
+        } finally {
+            if (window.Skeleton) {
+                Skeleton.hide('#contenedorTablaHistorial');
+            }
         }
     }
 
@@ -533,9 +556,10 @@ class ModuloCatalogoOfertas {
                 : '-';
             const precioNuevo = parseFloat(r.precioNuevo).toFixed(2);
 
+            const actorTxt = r.actor_display || r.actorDisplay || (r.actorTipo === 'HUMANO' ? 'Operador Comercial' : 'Sistema');
             const badgeActor = r.actorTipo === 'HUMANO'
-                ? `<span class="badge bg-light text-dark border"><i class="fa-solid fa-user me-1 text-primary"></i> ${this.escaparHtml(r.actorNombre || 'Operador')}</span>`
-                : `<span class="badge bg-light text-secondary border"><i class="fa-solid fa-robot me-1 text-info"></i> ${this.escaparHtml(r.actorNombre || 'Sistema')}</span>`;
+                ? `<span class="badge bg-light text-dark border"><i class="fa-solid fa-user me-1 text-primary"></i> ${this.escaparHtml(actorTxt)}</span>`
+                : `<span class="badge bg-light text-secondary border"><i class="fa-solid fa-robot me-1 text-info"></i> ${this.escaparHtml(actorTxt)}</span>`;
 
             return `
                 <tr>

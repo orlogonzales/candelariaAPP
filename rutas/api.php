@@ -264,6 +264,7 @@ Enrutador::put('/api/v1/catalogo/categorias/{id}', [\Aplicacion\Controladores\Ca
 Enrutador::patch('/api/v1/catalogo/categorias/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoCategoria']);
 
 // Ítems Comerciales
+Enrutador::get('/api/v1/catalogo/unidades-medida', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarUnidadesMedida']);
 Enrutador::get('/api/v1/catalogo/items', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarItems']);
 Enrutador::get('/api/v1/catalogo/items/buscar', [\Aplicacion\Controladores\CatalogoControlador::class, 'buscarItems']);
 Enrutador::get('/api/v1/catalogo/items/{id}', [\Aplicacion\Controladores\CatalogoControlador::class, 'detalleItem']);
@@ -279,6 +280,7 @@ Enrutador::put('/api/v1/catalogo/paquetes/{id}', [\Aplicacion\Controladores\Cata
 Enrutador::patch('/api/v1/catalogo/paquetes/{id}/estado', [\Aplicacion\Controladores\CatalogoControlador::class, 'cambiarEstadoPaquete']);
 Enrutador::get('/api/v1/catalogo/paquetes/{id}/composicion', [\Aplicacion\Controladores\CatalogoControlador::class, 'obtenerComposicion']);
 Enrutador::post('/api/v1/catalogo/paquetes/{id}/composicion', [\Aplicacion\Controladores\CatalogoControlador::class, 'sincronizarComposicion']);
+Enrutador::put('/api/v1/catalogo/paquetes/{id}/composicion', [\Aplicacion\Controladores\CatalogoControlador::class, 'sincronizarComposicion']);
 
 // Ofertas por Edición
 Enrutador::get('/api/v1/catalogo/ofertas', [\Aplicacion\Controladores\CatalogoControlador::class, 'listarOfertas']);
