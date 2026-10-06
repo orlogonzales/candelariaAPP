@@ -553,9 +553,10 @@ try {
     afirmar($datosAceptar['exito'] === true && $datosAceptar['datos']['cotizacion']['estado'] === 'ACEPTADA', "9.1: Cotización transiciona formalmente a ACEPTADA");
 
     // 9.2 Desacoplamiento estricto
-    $stmtVentas = $pdo->query("SHOW TABLES LIKE 'ventas'");
+    $stmtVentas = $pdo->prepare("SELECT COUNT(*) FROM `ventas` WHERE `cotizacion_id` = :id");
+    $stmtVentas->execute(['id' => $revCotId]);
+    afirmar((int) $stmtVentas->fetchColumn() === 0, "9.2: Desacoplamiento: Aceptación de cotización no genera venta automáticamente");
     $stmtReservas = $pdo->query("SHOW TABLES LIKE 'reservas'");
-    afirmar($stmtVentas->rowCount() === 0, "9.2: Desacoplamiento: No existe tabla 'ventas'");
     afirmar($stmtReservas->rowCount() === 0, "9.3: Desacoplamiento: No existe tabla 'reservas'");
 
     // Oportunidad no forzada a GANADA
