@@ -572,6 +572,208 @@ CREATE TABLE `crm_interacciones` (
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bitácora inmutable de interacciones comerciales de clientes y oportunidades';
 
+-- ------------------------------------------------------------------------------
+-- 19. CATEGORÍAS DE CATÁLOGO (TAXONOMÍA COMERCIAL)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `categorias_items`;
+CREATE TABLE `categorias_items` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `codigo` VARCHAR(50) NOT NULL COMMENT 'Código taxonómico único por tenant en MAYÚSCULAS',
+    `nombre` VARCHAR(100) NOT NULL,
+    `descripcion` VARCHAR(255) DEFAULT NULL,
+    `orden` INT UNSIGNED NOT NULL DEFAULT 0,
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_categorias_items_org_codigo` (`organizacion_id`, `codigo`),
+    KEY `idx_categorias_items_org_estado` (`organizacion_id`, `estado`, `orden`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Categorías taxonómicas para ítems comerciales del tenant';
+
+-- ------------------------------------------------------------------------------
+-- 20. ÍTEMS COMERCIALES (MAESTRO DE BIENES Y PRESTACIONES)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `items_comerciales`;
+CREATE TABLE `items_comerciales` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `categoria_id` INT UNSIGNED NOT NULL,
+    `codigo` VARCHAR(60) NOT NULL COMMENT 'Código único por tenant en MAYÚSCULAS',
+    `nombre` VARCHAR(150) NOT NULL,
+    `tipo` ENUM('PRODUCTO', 'SERVICIO') NOT NULL,
+    `unidad_medida` VARCHAR(30) NOT NULL COMMENT 'UNIDAD, PERSONA, NOCHE, HABITACION, TICKET, SERVICIO, TRAMO, DIA, HORA',
+    `descripcion` TEXT DEFAULT NULL,
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`categoria_id`) REFERENCES `categorias_items` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_items_comerciales_org_codigo` (`organizacion_id`, `codigo`),
+    KEY `idx_items_comerciales_org_categoria` (`organizacion_id`, `categoria_id`),
+    KEY `idx_items_comerciales_org_tipo_estado` (`organizacion_id`, `tipo`, `estado`),
+    CONSTRAINT `chk_items_comerciales_unidad` CHECK (`unidad_medida` IN ('UNIDAD', 'PERSONA', 'NOCHE', 'HABITACION', 'TICKET', 'SERVICIO', 'TRAMO', 'DIA', 'HORA'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Maestro de bienes y prestaciones comerciales por organización';
+
+-- ------------------------------------------------------------------------------
+-- 21. PAQUETES COMERCIALES Y COMPOSICIÓN DE ÍTEMS
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `paquetes`;
+CREATE TABLE `paquetes` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `codigo` VARCHAR(60) NOT NULL COMMENT 'Código único por tenant en MAYÚSCULAS',
+    `nombre` VARCHAR(150) NOT NULL,
+    `descripcion` TEXT DEFAULT NULL,
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_paquetes_org_codigo` (`organizacion_id`, `codigo`),
+    KEY `idx_paquetes_org_estado` (`organizacion_id`, `estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Paquetes estructurados que agrupan ítems comerciales';
+
+DROP TABLE IF EXISTS `paquete_items`;
+CREATE TABLE `paquete_items` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `paquete_id` INT UNSIGNED NOT NULL,
+    `item_comercial_id` INT UNSIGNED NOT NULL,
+    `cantidad` DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+    `orden` INT UNSIGNED NOT NULL DEFAULT 0,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`paquete_id`) REFERENCES `paquetes` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`item_comercial_id`) REFERENCES `items_comerciales` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_paquete_items_composicion` (`paquete_id`, `item_comercial_id`),
+    KEY `idx_paquete_items_item` (`item_comercial_id`),
+    CONSTRAINT `chk_paquete_items_cantidad` CHECK (`cantidad` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Composición de ítems incluidos dentro de un paquete';
+
+-- ------------------------------------------------------------------------------
+-- 22. OFERTAS DE ÍTEMS Y PAQUETES POR EDICIÓN FOLCLÓRICA
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `ofertas_items_edicion`;
+CREATE TABLE `ofertas_items_edicion` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `item_comercial_id` INT UNSIGNED NOT NULL,
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `capacidad_referencial` INT UNSIGNED DEFAULT NULL COMMENT 'Dato informativo comercial, no inventario transaccional',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`item_comercial_id`) REFERENCES `items_comerciales` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_ofertas_items_edicion` (`organizacion_id`, `edicion_id`, `item_comercial_id`),
+    KEY `idx_ofertas_items_edicion_estado` (`organizacion_id`, `edicion_id`, `estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Habilitación comercial de un ítem para una edición folclórica';
+
+DROP TABLE IF EXISTS `ofertas_paquetes_edicion`;
+CREATE TABLE `ofertas_paquetes_edicion` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `paquete_id` INT UNSIGNED NOT NULL,
+    `estado` ENUM('ACTIVO', 'INACTIVO') NOT NULL DEFAULT 'ACTIVO',
+    `capacidad_referencial` INT UNSIGNED DEFAULT NULL COMMENT 'Dato informativo comercial, no inventario transaccional',
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`paquete_id`) REFERENCES `paquetes` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_ofertas_paquetes_edicion` (`organizacion_id`, `edicion_id`, `paquete_id`),
+    KEY `idx_ofertas_paquetes_edicion_estado` (`organizacion_id`, `edicion_id`, `estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Habilitación comercial de un paquete para una edición folclórica';
+
+-- ------------------------------------------------------------------------------
+-- 23. TARIFAS VIGENTES E HISTORIAL APPEND-ONLY
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `tarifas_items_edicion`;
+CREATE TABLE `tarifas_items_edicion` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `oferta_item_id` INT UNSIGNED NOT NULL,
+    `moneda` CHAR(3) NOT NULL COMMENT 'Snapshot inmutable de plataforma.moneda_principal',
+    `precio` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`oferta_item_id`) REFERENCES `ofertas_items_edicion` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_tarifas_items_oferta` (`oferta_item_id`),
+    CONSTRAINT `chk_tarifas_items_precio` CHECK (`precio` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tarifa comercial vigente para una oferta de ítem en una edición';
+
+DROP TABLE IF EXISTS `tarifas_paquetes_edicion`;
+CREATE TABLE `tarifas_paquetes_edicion` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `oferta_paquete_id` INT UNSIGNED NOT NULL,
+    `moneda` CHAR(3) NOT NULL COMMENT 'Snapshot inmutable de plataforma.moneda_principal',
+    `precio` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`oferta_paquete_id`) REFERENCES `ofertas_paquetes_edicion` (`id`) ON DELETE RESTRICT,
+    UNIQUE KEY `uk_tarifas_paquetes_oferta` (`oferta_paquete_id`),
+    CONSTRAINT `chk_tarifas_paquetes_precio` CHECK (`precio` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tarifa comercial vigente propia para una oferta de paquete en una edición';
+
+DROP TABLE IF EXISTS `historial_tarifas_items`;
+CREATE TABLE `historial_tarifas_items` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tarifa_item_id` INT UNSIGNED NOT NULL,
+    `precio_anterior` DECIMAL(12,2) NOT NULL,
+    `precio_nuevo` DECIMAL(12,2) NOT NULL,
+    `moneda` CHAR(3) NOT NULL,
+    `motivo` VARCHAR(255) DEFAULT NULL,
+    `actor_tipo` ENUM('HUMANO', 'SISTEMA') NOT NULL DEFAULT 'HUMANO',
+    `usuario_id` INT UNSIGNED DEFAULT NULL,
+    `actor_sistema_id` SMALLINT UNSIGNED DEFAULT NULL,
+    `canal_id` TINYINT UNSIGNED DEFAULT NULL,
+    `correlacion_id` VARCHAR(64) NOT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`tarifa_item_id`) REFERENCES `tarifas_items_edicion` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`actor_sistema_id`) REFERENCES `actores_sistema` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`canal_id`) REFERENCES `canales` (`id`) ON DELETE RESTRICT,
+    KEY `idx_historial_tarifas_items_tarifa` (`tarifa_item_id`, `creado_en`),
+    KEY `idx_historial_tarifas_items_correlacion` (`correlacion_id`),
+    CONSTRAINT `chk_historial_tarifas_items_actor` CHECK (
+        (`actor_tipo` = 'HUMANO' AND `usuario_id` IS NOT NULL AND `actor_sistema_id` IS NULL)
+        OR
+        (`actor_tipo` = 'SISTEMA' AND `usuario_id` IS NULL AND `actor_sistema_id` IS NOT NULL)
+    ),
+    CONSTRAINT `chk_historial_tarifas_items_precio_ant` CHECK (`precio_anterior` >= 0),
+    CONSTRAINT `chk_historial_tarifas_items_precio_nue` CHECK (`precio_nuevo` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Historial append-only de cambios de tarifa en ofertas de ítems';
+
+DROP TABLE IF EXISTS `historial_tarifas_paquetes`;
+CREATE TABLE `historial_tarifas_paquetes` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `tarifa_paquete_id` INT UNSIGNED NOT NULL,
+    `precio_anterior` DECIMAL(12,2) NOT NULL,
+    `precio_nuevo` DECIMAL(12,2) NOT NULL,
+    `moneda` CHAR(3) NOT NULL,
+    `motivo` VARCHAR(255) DEFAULT NULL,
+    `actor_tipo` ENUM('HUMANO', 'SISTEMA') NOT NULL DEFAULT 'HUMANO',
+    `usuario_id` INT UNSIGNED DEFAULT NULL,
+    `actor_sistema_id` SMALLINT UNSIGNED DEFAULT NULL,
+    `canal_id` TINYINT UNSIGNED DEFAULT NULL,
+    `correlacion_id` VARCHAR(64) NOT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`tarifa_paquete_id`) REFERENCES `tarifas_paquetes_edicion` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`actor_sistema_id`) REFERENCES `actores_sistema` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`canal_id`) REFERENCES `canales` (`id`) ON DELETE RESTRICT,
+    KEY `idx_historial_tarifas_paquetes_tarifa` (`tarifa_paquete_id`, `creado_en`),
+    KEY `idx_historial_tarifas_paquetes_correlacion` (`correlacion_id`),
+    CONSTRAINT `chk_historial_tarifas_paquetes_actor` CHECK (
+        (`actor_tipo` = 'HUMANO' AND `usuario_id` IS NOT NULL AND `actor_sistema_id` IS NULL)
+        OR
+        (`actor_tipo` = 'SISTEMA' AND `usuario_id` IS NULL AND `actor_sistema_id` IS NOT NULL)
+    ),
+    CONSTRAINT `chk_historial_tarifas_paquetes_precio_ant` CHECK (`precio_anterior` >= 0),
+    CONSTRAINT `chk_historial_tarifas_paquetes_precio_nue` CHECK (`precio_nuevo` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Historial append-only de cambios de tarifa en ofertas de paquetes';
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 

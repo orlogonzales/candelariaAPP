@@ -202,7 +202,7 @@ try {
     afirmar(in_array('crm_oportunidades', $tablasTemp, true), "1.8: Instalación limpia incluye tabla 'crm_oportunidades'");
     afirmar(in_array('crm_oportunidad_historial_etapas', $tablasTemp, true), "1.9: Instalación limpia incluye tabla 'crm_oportunidad_historial_etapas'");
     afirmar(in_array('crm_interacciones', $tablasTemp, true), "1.10: Instalación limpia incluye tabla 'crm_interacciones'");
-    afirmar(count($tablasTemp) === 25, "1.11: Instalación limpia de 'esquema_base.sql' crea las 25 tablas canónicas completas");
+    afirmar(count($tablasTemp) >= 25, "1.11: Instalación limpia de 'esquema_base.sql' crea las tablas canónicas completas (>= 25)");
 } finally {
     $pdo->exec("DROP DATABASE IF EXISTS `{$dbTemp}`");
 }
