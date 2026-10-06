@@ -407,10 +407,10 @@ $correoDisplay = ($persona && $persona->correoElectronico) ? $persona->correoEle
                         <div class="col-md-4">
                             <label for="opClienteValor" class="form-label f-w-600 f-s-13">Valor Estimado</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted f-w-600">PEN S/.</span>
+                                <span class="input-group-text bg-light text-muted f-w-600">Monto</span>
                                 <input type="number" step="0.01" min="0" class="form-control" id="opClienteValor" name="valor_estimado" placeholder="0.00">
                             </div>
-                            <div class="form-text f-s-11">Moneda soberana institucional (PEN).</div>
+                            <div class="form-text f-s-11">Moneda soberana resuelta por plataforma al momento de creación.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="opClienteAsesor" class="form-label f-w-600 f-s-13">Asesor Responsable</label>

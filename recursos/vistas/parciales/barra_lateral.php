@@ -6,6 +6,7 @@ $puedeVerConfigGeneral = false;
 $puedeVerEdiciones = false;
 $puedeVerClientes = false;
 $puedeVerCrm = false;
+$puedeAdministrarOrigenes = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
@@ -15,6 +16,7 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerEdiciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'ediciones.ver');
     $puedeVerClientes = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'clientes.ver');
     $puedeVerCrm = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'crm.oportunidades.ver');
+    $puedeAdministrarOrigenes = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'crm.origenes.administrar');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
@@ -141,22 +143,26 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
 
                     <!-- Menú: Clientes y CRM -->
                     <ul class="main-menu" id="menuClientes" style="<?= $esClientesCrm ? '' : 'display: none;' ?>">
-                        <?php if ($puedeVerCrm): ?>
+                        <?php if ($puedeVerCrm || $puedeAdministrarOrigenes): ?>
                         <li>
                             <a aria-expanded="true" data-bs-toggle="collapse" href="#subCrm">
                                 <i class="fa-solid fa-bullseye me-2 text-secondary"></i> CRM Comercial
                             </a>
                             <ul class="collapse show" id="subCrm">
+                                <?php if ($puedeVerCrm): ?>
                                 <li>
                                     <a href="<?= url_base('crm/oportunidades') ?>" class="<?= $seccionActual === 'crm_oportunidades' ? 'active' : '' ?>">
                                         <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Oportunidades y Pipeline
                                     </a>
                                 </li>
+                                <?php endif; ?>
+                                <?php if ($puedeAdministrarOrigenes): ?>
                                 <li>
                                     <a href="<?= url_base('crm/origenes') ?>" class="<?= $seccionActual === 'crm_origenes' ? 'active' : '' ?>">
                                         <i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Orígenes Comerciales
                                     </a>
                                 </li>
+                                <?php endif; ?>
                             </ul>
                         </li>
                         <?php endif; ?>

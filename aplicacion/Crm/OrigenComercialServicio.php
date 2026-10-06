@@ -40,7 +40,7 @@ class OrigenComercialServicio
     ): OrigenComercial {
         $contexto = $this->resolverContexto($contexto);
         $this->validarAlcanceTenant($organizacionId, $contexto);
-        $this->validarPermiso('crm.oportunidades.crear', $contexto);
+        $this->validarPermiso('crm.origenes.administrar', $contexto);
 
         $codigoNormalizado = strtoupper(trim($codigo));
         $origenExistente = $this->origenRepo->buscarPorCodigo($organizacionId, $codigoNormalizado);
@@ -78,7 +78,7 @@ class OrigenComercialServicio
     {
         $contexto = $this->resolverContexto($contexto);
         $this->validarAlcanceTenant($organizacionId, $contexto);
-        $this->validarPermiso('crm.oportunidades.editar', $contexto);
+        $this->validarPermiso('crm.origenes.administrar', $contexto);
 
         $origen = $this->origenRepo->buscarPorId($origenId);
         if ($origen === null || $origen->organizacionId !== $organizacionId) {
@@ -106,7 +106,7 @@ class OrigenComercialServicio
     {
         $contexto = $this->resolverContexto($contexto);
         $this->validarAlcanceTenant($organizacionId, $contexto);
-        $this->validarPermiso('crm.oportunidades.editar', $contexto);
+        $this->validarPermiso('crm.origenes.administrar', $contexto);
 
         $origen = $this->origenRepo->buscarPorId($origenId);
         if ($origen === null || $origen->organizacionId !== $organizacionId) {
@@ -140,7 +140,7 @@ class OrigenComercialServicio
     ): OrigenComercial {
         $contexto = $this->resolverContexto($contexto);
         $this->validarAlcanceTenant($organizacionId, $contexto);
-        $this->validarPermiso('crm.oportunidades.editar', $contexto);
+        $this->validarPermiso('crm.origenes.administrar', $contexto);
 
         $origen = $this->origenRepo->buscarPorId($origenId);
         if ($origen === null || $origen->organizacionId !== $organizacionId) {

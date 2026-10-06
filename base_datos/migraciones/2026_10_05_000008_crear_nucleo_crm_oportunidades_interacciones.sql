@@ -172,7 +172,8 @@ INSERT INTO `permisos` (`id`, `modulo_id`, `codigo`, `nombre`, `descripcion`) VA
 (29, 2, 'crm.oportunidades.cambiar_etapa', 'Cambiar Etapa de Oportunidad', 'Permite avanzar o cerrar oportunidades en el pipeline comercial'),
 (30, 2, 'crm.oportunidades.asignar', 'Asignar Asesor a Oportunidad', 'Permite asignar o reasignar el responsable comercial de una oportunidad'),
 (31, 2, 'crm.interacciones.ver', 'Ver Interacciones Comerciales', 'Permite consultar la bitácora de llamadas, notas y mensajes de CRM'),
-(32, 2, 'crm.interacciones.crear', 'Registrar Interacción Comercial', 'Permite añadir llamadas, reuniones, minutas y notas de seguimiento en CRM')
+(32, 2, 'crm.interacciones.crear', 'Registrar Interacción Comercial', 'Permite añadir llamadas, reuniones, minutas y notas de seguimiento en CRM'),
+(33, 2, 'crm.origenes.administrar', 'Administrar Orígenes Comerciales', 'Permite configurar, crear, editar y activar/desactivar orígenes comerciales del tenant')
 ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
 
 -- ------------------------------------------------------------------------------
@@ -180,11 +181,11 @@ ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`des
 -- ------------------------------------------------------------------------------
 -- Superadministrador de Plataforma (acceso pleno a CRM)
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES
-(1, 26), (1, 27), (1, 28), (1, 29), (1, 30), (1, 31), (1, 32);
+(1, 26), (1, 27), (1, 28), (1, 29), (1, 30), (1, 31), (1, 32), (1, 33);
 
 -- Administrador de Organización (gestión completa de CRM en su tenant)
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES
-(2, 26), (2, 27), (2, 28), (2, 29), (2, 30), (2, 31), (2, 32);
+(2, 26), (2, 27), (2, 28), (2, 29), (2, 30), (2, 31), (2, 32), (2, 33);
 
 -- Operador de Producción (solo consulta de CRM)
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES

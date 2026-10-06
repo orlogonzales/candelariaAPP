@@ -381,6 +381,8 @@ class ModuloCrmOportunidades {
                 document.getElementById('editarOpEdicionDisplay').value = op.edicion_nombre;
                 document.getElementById('editarOpTitulo').value = op.titulo;
                 document.getElementById('editarOpValor').value = op.valor_estimado || '';
+                const monedaEl = document.getElementById('editarOpMonedaDisplay');
+                if (monedaEl) monedaEl.textContent = op.moneda ? `${op.moneda}` : 'Monto';
                 document.getElementById('editarOpOrigenId').value = op.origen_comercial_id || '';
                 document.getElementById('editarOpSeguimiento').value = op.proximo_seguimiento_en || '';
                 document.getElementById('editarOpNotas').value = op.notas || '';

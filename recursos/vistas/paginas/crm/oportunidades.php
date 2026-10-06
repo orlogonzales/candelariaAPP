@@ -98,8 +98,9 @@
                 <select class="form-select form-select-sm" id="filtroEtapa">
                     <option value="">Todas las Etapas</option>
                     <option value="NUEVA">NUEVA</option>
-                    <option value="CONTACTADO">CONTACTADO</option>
-                    <option value="PROPUESTA">PROPUESTA</option>
+                    <option value="CONTACTADA">CONTACTADA</option>
+                    <option value="CALIFICADA">CALIFICADA</option>
+                    <option value="COTIZACION">COTIZACIÓN</option>
                     <option value="NEGOCIACION">NEGOCIACIÓN</option>
                     <option value="GANADA">GANADA</option>
                     <option value="PERDIDA">PERDIDA</option>
@@ -188,10 +189,10 @@
                         <div class="col-md-4">
                             <label for="crearValorEstimado" class="form-label f-w-600 f-s-13">Valor Estimado</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted f-w-600">PEN S/.</span>
+                                <span class="input-group-text bg-light text-muted f-w-600">Monto</span>
                                 <input type="number" step="0.01" min="0" class="form-control" id="crearValorEstimado" name="valor_estimado" placeholder="0.00">
                             </div>
-                            <div class="form-text f-s-11">Moneda soberana institucional (PEN).</div>
+                            <div class="form-text f-s-11">Moneda soberana resuelta por plataforma al momento de creación.</div>
                         </div>
                         <div class="col-md-4">
                             <label for="crearAsesorId" class="form-label f-w-600 f-s-13">Asesor Responsable</label>
@@ -264,8 +265,9 @@
                         <select class="form-select" id="etapaNuevaSelect" name="etapa" required>
                             <option value="">Seleccione nueva etapa...</option>
                             <option value="NUEVA">NUEVA</option>
-                            <option value="CONTACTADO">CONTACTADO</option>
-                            <option value="PROPUESTA">PROPUESTA</option>
+                            <option value="CONTACTADA">CONTACTADA</option>
+                            <option value="CALIFICADA">CALIFICADA</option>
+                            <option value="COTIZACION">COTIZACIÓN</option>
                             <option value="NEGOCIACION">NEGOCIACIÓN</option>
                             <option value="GANADA">GANADA (Cierre Exitoso)</option>
                             <option value="PERDIDA">PERDIDA (Negocio Descartado)</option>
@@ -341,7 +343,7 @@
                         <div class="col-md-4">
                             <label for="editarOpValor" class="form-label f-w-600 f-s-13">Valor Estimado</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted f-w-600">PEN S/.</span>
+                                <span class="input-group-text bg-light text-muted f-w-600" id="editarOpMonedaDisplay">Monto</span>
                                 <input type="number" step="0.01" min="0" class="form-control" id="editarOpValor" name="valor_estimado">
                             </div>
                         </div>

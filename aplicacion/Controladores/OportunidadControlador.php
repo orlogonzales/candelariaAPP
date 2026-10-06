@@ -86,9 +86,11 @@ class OportunidadControlador
             $permRepo = new PermisoRepositorio($this->pdo);
             $auditoriaRepo = new AuditoriaRepositorio($this->pdo);
             $authzServicio = new AutorizacionServicio($rolRepo, $permRepo, $this->usuarioRepo, $auditoriaRepo, $this->pdo);
-            $configPlatRepo = new ConfiguracionPlataformaRepositorio($this->pdo);
-            $configOrgRepo = new ConfiguracionOrganizacionRepositorio($this->pdo);
-            $configServicio = new ConfiguracionServicio($configPlatRepo, $configOrgRepo, $authzServicio, $auditoriaRepo, $this->pdo);
+            $configServicio = new ConfiguracionServicio(
+                authzServicio: $authzServicio,
+                auditoriaRepo: $auditoriaRepo,
+                pdo: $this->pdo
+            );
 
             $this->oportunidadServicio = new OportunidadServicio(
                 $this->oportunidadRepo,
@@ -132,7 +134,7 @@ class OportunidadControlador
         $origenes = $this->origenRepo->listarPorOrganizacion($orgId, true);
         $asesores = $this->usuarioRepo->buscarPorOrganizacion($orgId, 200, 0);
 
-        return Vista::renderizar('paginas/crm/oportunidades', [
+        return Vista::renderizar('crm/oportunidades', [
             'titulo'          => 'Oportunidades Comerciales | CandelariaAPP',
             'subtitulo'       => 'Pipeline y Seguimiento de Prospectos por Edición',
             'tituloSeccion'   => 'CRM Oportunidades',

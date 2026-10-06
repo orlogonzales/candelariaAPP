@@ -76,17 +76,17 @@ class OrigenComercialControlador
             exit;
         }
 
-        if (!$this->authzMiddleware->verificarPermiso('crm.oportunidades.ver', $contexto, false)) {
+        if (!$this->authzMiddleware->verificarPermiso('crm.origenes.administrar', $contexto, false)) {
             http_response_code(403);
             return Vista::renderizar('errores/403', [
                 'titulo'        => 'Acceso Denegado | CandelariaAPP',
                 'subtitulo'     => 'Orígenes Comerciales',
                 'tituloSeccion' => 'Error 403',
-                'mensaje'       => 'No cuenta con los privilegios necesarios (crm.oportunidades.ver) para acceder a los orígenes comerciales.'
+                'mensaje'       => 'No cuenta con los privilegios necesarios (crm.origenes.administrar) para acceder a los orígenes comerciales.'
             ], 'principal');
         }
 
-        return Vista::renderizar('paginas/crm/origenes', [
+        return Vista::renderizar('crm/origenes', [
             'titulo'          => 'Orígenes Comerciales | CandelariaAPP',
             'subtitulo'       => 'Catálogo Institucional de Canales de Captación',
             'tituloSeccion'   => 'Orígenes Comerciales',
@@ -108,8 +108,9 @@ class OrigenComercialControlador
             return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
         }
 
-        if (!$this->authzMiddleware->verificarPermiso('crm.oportunidades.ver', $contexto, false)) {
-            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.oportunidades.ver.');
+        if (!$this->authzMiddleware->verificarPermiso('crm.origenes.administrar', $contexto, false)
+            && !$this->authzMiddleware->verificarPermiso('crm.oportunidades.ver', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con los permisos necesarios para consultar orígenes comerciales.');
         }
 
         try {
@@ -142,8 +143,8 @@ class OrigenComercialControlador
             return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
         }
 
-        if (!$this->authzMiddleware->verificarPermiso('crm.oportunidades.crear', $contexto, false)) {
-            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.oportunidades.crear.');
+        if (!$this->authzMiddleware->verificarPermiso('crm.origenes.administrar', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.origenes.administrar.');
         }
 
         $cuerpo = $this->obtenerCuerpo();
@@ -193,8 +194,8 @@ class OrigenComercialControlador
             return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
         }
 
-        if (!$this->authzMiddleware->verificarPermiso('crm.oportunidades.editar', $contexto, false)) {
-            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.oportunidades.editar.');
+        if (!$this->authzMiddleware->verificarPermiso('crm.origenes.administrar', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.origenes.administrar.');
         }
 
         $cuerpo = $this->obtenerCuerpo();
@@ -244,8 +245,8 @@ class OrigenComercialControlador
             return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
         }
 
-        if (!$this->authzMiddleware->verificarPermiso('crm.oportunidades.editar', $contexto, false)) {
-            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.oportunidades.editar.');
+        if (!$this->authzMiddleware->verificarPermiso('crm.origenes.administrar', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso crm.origenes.administrar.');
         }
 
         $cuerpo = $this->obtenerCuerpo();

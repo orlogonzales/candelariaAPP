@@ -456,6 +456,26 @@ try {
     $resDeleteOrigen = json_decode($origenCtrl->eliminar($origenCreadoId), true);
     afirmar($resDeleteOrigen['codigo'] === 405, "DELETE /api/v1/crm/origenes/{$origenCreadoId} responde 405 Method Not Allowed");
 
+    // 2.6 RBAC: Permiso 'crm.origenes.administrar' registrado y asignado
+    $stmtPerm33 = $pdo->prepare("SELECT id FROM `permisos` WHERE `codigo` = 'crm.origenes.administrar'");
+    $stmtPerm33->execute();
+    afirmar((int) $stmtPerm33->fetchColumn() === 33, "Permiso soberano 'crm.origenes.administrar' (ID 33) formalmente registrado");
+
+    // 2.7 RBAC: Operador sin 'crm.origenes.administrar' es rechazado con 403
+    $origenCtrlOperador = new OrigenComercialControlador(
+        authMiddleware: $authMiddlewareOperadorMock,
+        authzMiddleware: $authzMiddlewareReal,
+        origenServicio: $origenServicio,
+        origenRepo: $origenRepo,
+        pdo: $pdo
+    );
+    $_POST = [
+        'codigo' => 'ORIGEN_NO_AUTORIZADO',
+        'nombre' => 'Intento No Autorizado'
+    ];
+    $resRbacOrigen = json_decode($origenCtrlOperador->crear(), true);
+    afirmar($resRbacOrigen['codigo'] === 403, "RBAC: Operador sin 'crm.origenes.administrar' es rechazado con 403 al intentar crear origen");
+
     // ==========================================================================
     // BLOQUE 3: CONTROLADOR DE OPORTUNIDADES (OportunidadControlador)
     // ==========================================================================
@@ -490,7 +510,8 @@ try {
     $resCrearOp = json_decode($oportunidadCtrl->crear(), true);
     afirmar($resCrearOp['exito'] === true, "POST /api/v1/crm/oportunidades crea oportunidad comercial");
     $op1Id = (int) $resCrearOp['datos']['oportunidad']['id'];
-    afirmar($resCrearOp['datos']['oportunidad']['moneda'] === 'PEN', "Moneda institucional soberana PEN snapshot inmutable fijada por backend");
+    $monedaEsperada = (string) $configServicio->obtenerPlataforma('plataforma.moneda_principal');
+    afirmar($resCrearOp['datos']['oportunidad']['moneda'] === $monedaEsperada, "Moneda adopta soberanamente el snapshot institucional de 'plataforma.moneda_principal' ('{$monedaEsperada}')");
     afirmar($resCrearOp['datos']['oportunidad']['etapa'] === 'NUEVA', "Etapa inicial NUEVA");
     afirmar($resCrearOp['datos']['oportunidad']['version_bloqueo'] === 1, "version_bloqueo inicial = 1");
 

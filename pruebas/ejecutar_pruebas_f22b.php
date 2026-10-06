@@ -163,11 +163,12 @@ $permisosEsperados = [
     'crm.oportunidades.asignar',
     'crm.interacciones.ver',
     'crm.interacciones.crear',
+    'crm.origenes.administrar',
 ];
 $stmtPerms = $pdo->query("SELECT codigo FROM permisos WHERE codigo LIKE 'crm.%'");
 $permsEnBd = $stmtPerms->fetchAll(PDO::FETCH_COLUMN);
 $diffPerms = array_diff($permisosEsperados, $permsEnBd);
-afirmar(empty($diffPerms) && count($permsEnBd) === 7, "1.6: Los 7 nuevos permisos RBAC 'crm.*' registrados en la BD");
+afirmar(empty($diffPerms) && count($permsEnBd) === 8, "1.6: Los 8 permisos RBAC soberanos 'crm.*' registrados en la BD");
 
 // 1.7 Clean install test en base de datos temporal
 $dbTemp = 'candelaria_test_clean_f22b_' . time();

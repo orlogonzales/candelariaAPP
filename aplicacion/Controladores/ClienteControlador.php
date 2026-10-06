@@ -98,7 +98,7 @@ class ClienteControlador
         $stmtTipos = $this->pdo->query("SELECT id, codigo, nombre FROM tipos_documento WHERE activo = 1 ORDER BY id ASC");
         $tiposDocumento = $stmtTipos->fetchAll(PDO::FETCH_ASSOC);
 
-        return Vista::renderizar('paginas/clientes/index', [
+        return Vista::renderizar('clientes/index', [
             'titulo'          => 'Padrón de Clientes | CandelariaAPP',
             'subtitulo'       => 'Gestión Comercial y Cartera de Clientes',
             'tituloSeccion'   => 'Clientes',
@@ -144,7 +144,7 @@ class ClienteControlador
 
         $persona = $this->personaRepo->buscarPorId($cliente->personaId);
 
-        return Vista::renderizar('paginas/clientes/ficha', [
+        return Vista::renderizar('clientes/ficha', [
             'titulo'          => 'Ficha 360: ' . ($persona?->obtenerNombreCompleto() ?? 'Cliente #' . $id),
             'subtitulo'       => 'Historial Comercial, Oportunidades e Interacciones',
             'tituloSeccion'   => 'Ficha de Cliente',
