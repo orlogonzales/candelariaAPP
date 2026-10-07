@@ -625,17 +625,17 @@ try {
     // ==============================================================================
     echo "\n--- BLOQUE 9: DESACOPLAMIENTO ESTRICTO ---\n";
 
-    $stmtOperacion = $pdo->query("SHOW TABLES LIKE 'operacion_salidas'");
-    afirmar($stmtOperacion->rowCount() === 0, "9.1: Desacoplamiento Operación: CERO tabla 'operacion_salidas'");
-
     $stmtPagos = $pdo->query("SHOW TABLES LIKE 'pagos'");
-    afirmar($stmtPagos->rowCount() === 0, "9.2: Desacoplamiento Pagos: CERO tabla 'pagos'");
+    afirmar($stmtPagos->rowCount() === 0, "9.1: Desacoplamiento Pagos: CERO tabla 'pagos'");
 
     $stmtCaja = $pdo->query("SHOW TABLES LIKE 'caja_sesiones'");
-    afirmar($stmtCaja->rowCount() === 0, "9.3: Desacoplamiento Caja: CERO tabla 'caja_sesiones'");
+    afirmar($stmtCaja->rowCount() === 0, "9.2: Desacoplamiento Caja: CERO tabla 'caja_sesiones'");
 
     $stmtSunat = $pdo->query("SHOW TABLES LIKE 'comprobantes_pago'");
-    afirmar($stmtSunat->rowCount() === 0, "9.4: Desacoplamiento SUNAT: CERO tabla 'comprobantes_pago'");
+    afirmar($stmtSunat->rowCount() === 0, "9.3: Desacoplamiento SUNAT: CERO tabla 'comprobantes_pago'");
+
+    $stmtSunatLineas = $pdo->query("SHOW TABLES LIKE 'comprobante_lineas'");
+    afirmar($stmtSunatLineas->rowCount() === 0, "9.4: Desacoplamiento SUNAT: CERO tabla 'comprobante_lineas'");
 
     // ==============================================================================
     // BLOQUE 10: ALINA UI, SKELETON, SWEETALERT2, JS Y XSS

@@ -805,7 +805,7 @@ try {
     afirmar(!in_array('pagos', $tablas, true), "9.3: Desacoplamiento Pagos: CERO tabla 'pagos'");
     afirmar(!in_array('caja_sesiones', $tablas, true), "9.4: Desacoplamiento Caja: CERO tabla 'caja_sesiones'");
     afirmar(!in_array('comprobantes_pago', $tablas, true), "9.5: Desacoplamiento SUNAT: CERO tabla 'comprobantes_pago'");
-    afirmar(!in_array('operacion_salidas', $tablas, true), "9.6: Desacoplamiento Operación de Campo: CERO tabla 'operacion_salidas'");
+    afirmar(!in_array('comprobante_lineas', $tablas, true), "9.6: Desacoplamiento SUNAT: CERO tabla 'comprobante_lineas'");
 
     // ==============================================================================
     // BLOQUE 10: TRAZABILIDAD DE AUDITORÍA Y ZERO-PII
