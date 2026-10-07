@@ -10,7 +10,7 @@ use InvalidArgumentException;
 
 /**
  * Entidad de dominio ReservaParticipante:
- * Pasajero o beneficiario operativo del servicio (ZERO-PII minimizado).
+ * Pasajero o beneficiario operativo del servicio (PII operacional minimizada y legítimamente necesaria).
  * PARTICIPANTE != CLIENTE.
  */
 class ReservaParticipante

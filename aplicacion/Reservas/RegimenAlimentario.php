@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Aplicacion\Reservas;
 
 /**
- * Tags cerrados de régimen alimentario (Minimización estricta ZERO-PII).
+ * Tags cerrados de régimen alimentario (Minimización de datos y sin campos médicos libres).
  */
 enum RegimenAlimentario: string
 {

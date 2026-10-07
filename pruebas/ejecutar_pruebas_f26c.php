@@ -318,6 +318,101 @@ try {
     }
     afirmar($coherenciaRechazada, "3.5: Regla de coherencia: requiere_agendamiento=1 con requiere_reserva=0 es rechazada");
 
+    // 3.6: Rechazo ante omisión de tipo_capacidad (cero default COLECTIVA)
+    $omisionTipoCapRechazada = false;
+    try {
+        $reservaServicio->configurarOperativamenteItem($orgId, (int) $itemTour->id, [
+            'requiere_reserva'       => true,
+            'requiere_agendamiento'  => true,
+            'requiere_participantes' => true,
+        ], $ctxAdmin);
+    } catch (InvalidArgumentException $e) {
+        $omisionTipoCapRechazada = true;
+    }
+    afirmar($omisionTipoCapRechazada, "3.6: Omisión de tipo_capacidad es rechazada (sin default COLECTIVA)");
+
+    // 3.7: Rechazo ante omisión de requiere_reserva (cero default true)
+    $omisionReqResRechazada = false;
+    try {
+        $reservaServicio->configurarOperativamenteItem($orgId, (int) $itemTour->id, [
+            'requiere_agendamiento'  => true,
+            'requiere_participantes' => true,
+            'tipo_capacidad'         => 'COLECTIVA',
+        ], $ctxAdmin);
+    } catch (InvalidArgumentException $e) {
+        $omisionReqResRechazada = true;
+    }
+    afirmar($omisionReqResRechazada, "3.7: Omisión de requiere_reserva es rechazada (sin default true)");
+
+    // 3.8: Fail-Closed: Venta de ítem sin configuración operativa es rechazada con RuntimeException
+    $itemSinCfg = new ItemComercial(
+        id: null,
+        organizacionId: $orgId,
+        categoriaId: (int) $cat->id,
+        codigo: 'SRV_SIN_CFG_F26C',
+        nombre: 'SERVICIO SIN CONFIGURACION OPERATIVA',
+        descripcion: 'Item sin registro en item_configuracion_operativa',
+        tipo: \Aplicacion\Catalogo\TipoItemComercial::SERVICIO,
+        unidadMedida: \Aplicacion\Catalogo\UnidadMedidaItem::PERSONA
+    );
+    $itemRepo->guardar($itemSinCfg);
+    $itemSinCfg = $itemRepo->buscarPorCodigo('SRV_SIN_CFG_F26C', $orgId);
+
+    $stmtOfSinCfg = $pdo->prepare("
+        INSERT INTO `ofertas_items_edicion` (`organizacion_id`, `edicion_id`, `item_comercial_id`, `estado`)
+        VALUES (:org_id, :edicion_id, :item_id, 'ACTIVO')
+    ");
+    $stmtOfSinCfg->execute([
+        'org_id'     => $orgId,
+        'edicion_id' => $edicionId,
+        'item_id'    => (int) $itemSinCfg->id,
+    ]);
+    $ofertaSinCfgId = (int) $pdo->lastInsertId();
+
+    $stmtVSinCfg = $pdo->prepare("
+        INSERT INTO `ventas` (
+            `organizacion_id`, `edicion_id`, `cliente_id`, `origen_tipo`,
+            `correlativo`, `fecha_venta`, `estado`,
+            `cliente_nombre_completo`, `moneda`, `subtotal`, `total`, `creado_por`
+        ) VALUES (
+            :org_id, :edicion_id, :cliente_id, 'DIRECTA',
+            'VTA-2026-880099', '2026-02-02', 'CONFIRMADA',
+            'CLIENTE SIN CONFIGURACION', 'PEN', 150.00, 150.00, :creado_por
+        )
+    ");
+    $stmtVSinCfg->execute([
+        'org_id'     => $orgId,
+        'edicion_id' => $edicionId,
+        'cliente_id' => 8803,
+        'creado_por' => $adminSinteticoId,
+    ]);
+    $ventaSinCfgId = (int) $pdo->lastInsertId();
+
+    $stmtLSinCfg = $pdo->prepare("
+        INSERT INTO `venta_lineas` (
+            `venta_id`, `tipo_linea`, `item_comercial_id`, `oferta_item_id`, `concepto_codigo`,
+            `concepto_nombre`, `unidad_medida`, `cantidad`, `precio_unitario`,
+            `subtotal`, `moneda`
+        ) VALUES (
+            :venta_id, 'ITEM', :item_id, :of_id, 'SRV_SIN_CFG_F26C',
+            'SERVICIO SIN CONFIGURACION OPERATIVA', 'PERSONA', 1.00, 150.00,
+            150.00, 'PEN'
+        )
+    ");
+    $stmtLSinCfg->execute([
+        'venta_id' => $ventaSinCfgId,
+        'item_id'  => (int) $itemSinCfg->id,
+        'of_id'    => $ofertaSinCfgId,
+    ]);
+
+    $failClosedRechazado = false;
+    try {
+        $reservaServicio->formalizarDesdeVenta($orgId, $ventaSinCfgId, $ctxAdmin);
+    } catch (RuntimeException $e) {
+        $failClosedRechazado = str_contains($e->getMessage(), 'carece de configuración operativa explícita');
+    }
+    afirmar($failClosedRechazado, "3.8: Fail-Closed: Ítem sin configuración operativa aborta formalización sin producir reserva");
+
     // ==============================================================================
     // BLOQUE 4: GENERACIÓN ATÓMICA VENTA -> RESERVA (1:1 E IDEMPOTENCIA)
     // ==============================================================================
@@ -543,9 +638,9 @@ try {
     afirmar($entrega3->items[0]->cantidad === 2.0, "5.8: Cantidad efectiva de entrega = 2 paquetes * 1 unidad = 2.00");
 
     // ==============================================================================
-    // BLOQUE 6: PARTICIPANTES, ASIGNACIÓN M:N Y MINIMIZACIÓN ZERO-PII
+    // BLOQUE 6: PARTICIPANTES, ASIGNACIÓN M:N Y PII OPERACIONAL MINIMIZADA
     // ==============================================================================
-    echo "\n--- BLOQUE 6: PARTICIPANTES, ASIGNACIÓN M:N Y MINIMIZACIÓN ZERO-PII ---\n";
+    echo "\n--- BLOQUE 6: PARTICIPANTES, ASIGNACIÓN M:N Y PII OPERACIONAL MINIMIZADA ---\n";
 
     $prestacion1Id = (int) $reserva1->prestaciones[0]->id;
 
@@ -606,6 +701,16 @@ try {
         $duplicadoDocRechazado = true;
     }
     afirmar($duplicadoDocRechazado, "6.10: Documento duplicado en la misma reserva es rechazado");
+
+    // 6.11 y 6.12: Registro sin nacionalidad ni rango etario almacena strictly NULL (sin defaults 'PE' ni 'ADULTO')
+    $partSinDefaults = $reservaServicio->registrarParticipante($orgId, (int) $reserva1->id, [
+        'nombres'           => 'MARIA SIN DEFAULTS',
+        'apellidos'         => 'CONDORI FLORES',
+        'tipo_documento_id' => 1,
+        'numero_documento'  => '70809099',
+    ], [], $ctxAdmin);
+    afirmar($partSinDefaults->nacionalidad === null, "6.11: Participante sin nacionalidad explícita almacena strictly NULL (cero default 'PE')");
+    afirmar($partSinDefaults->rangoEtario === null, "6.12: Participante sin rango etario explícito almacena strictly NULL (cero default 'ADULTO')");
 
     // ==============================================================================
     // BLOQUE 7: PROGRAMACIÓN Y REPROGRAMACIÓN APPEND-ONLY

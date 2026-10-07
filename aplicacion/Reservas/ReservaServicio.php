@@ -32,7 +32,7 @@ use RuntimeException;
  * Servicio Central de Dominio de Reservas (F2.6C).
  * Implementa la formalización de compromisos de servicio desde ventas confirmadas,
  * bifurcación limpia de bienes tangibles hacia órdenes de entrega,
- * agendamiento diferido, reprogramación inmutable y gestión de participantes con ZERO-PII.
+ * agendamiento diferido, reprogramación inmutable y gestión de participantes con PII operacional minimizada.
  */
 class ReservaServicio
 {
@@ -517,7 +517,7 @@ class ReservaServicio
             throw new InvalidArgumentException("No se pueden registrar participantes en una reserva CANCELADA.");
         }
 
-        // Validación y sanitización estricta (Minimización ZERO-PII: cero campos médicos libres)
+        // Validación y sanitización estricta (Minimización de datos: PII operacional legítimamente necesaria, sin campos médicos libres)
         $nombres = trim((string) ($datos['nombres'] ?? ''));
         $apellidos = trim((string) ($datos['apellidos'] ?? ''));
         $tipoDocId = (int) ($datos['tipo_documento_id'] ?? 0);
