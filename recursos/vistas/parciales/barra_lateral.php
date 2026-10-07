@@ -23,12 +23,18 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerCatalogo = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'catalogo.ver');
     $puedeVerCotizaciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'cotizaciones.ver');
     $puedeVerVentas = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'ventas.ver');
+    $puedeVerReservas = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'reservas.ver');
+    $puedeVerOperaciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'operacion.ver');
+    $puedeVerProveedores = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'proveedores.ver');
+    $puedeVerRecursos = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'recursos.ver');
+    $puedeVerEntregas = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'entregas.despachar');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
 $esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes', 'cotizaciones', 'ventas'], true);
 $esCatalogo = in_array($seccionActual, ['catalogo_items', 'catalogo_paquetes', 'catalogo_ofertas'], true);
-$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo;
+$esOperaciones = in_array($seccionActual, ['reservas', 'operaciones', 'recursos', 'entregas'], true);
+$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo && !$esOperaciones;
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
 $orgOperativa = ($contextoBarra !== null && $contextoBarra->organizacionId !== null && $contextoBarra->organizacionId > 0)
@@ -71,8 +77,8 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                 </li>
 
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="menuOperaciones" title="OPERACIONES Y COBERTURA" aria-label="Operaciones y Cobertura" data-bs-toggle="tooltip" data-bs-placement="right">
-                        <i class="fa-solid fa-video" aria-hidden="true"></i>
+                    <a href="#" class="nav-link <?= $esOperaciones ? 'active' : '' ?>" data-target="menuOperaciones" title="RESERVAS Y OPERACIÓN" aria-label="Reservas y Operación" data-bs-toggle="tooltip" data-bs-placement="right">
+                        <i class="fa-solid fa-route" aria-hidden="true"></i>
                     </a>
                 </li>
 
@@ -244,26 +250,36 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                         <?php endif; ?>
                     </ul>
 
-                    <!-- Menú: Operaciones -->
-                    <ul class="main-menu" id="menuOperaciones" style="display: none;">
-                        <li>
-                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subOperaciones">
-                                <i class="fa-solid fa-video me-2 text-secondary"></i> Cobertura en Campo
+                    <!-- Menú: Reservas y Operación (F2.6E) -->
+                    <ul class="main-menu" id="menuOperaciones" style="<?= $esOperaciones ? '' : 'display: none;' ?>">
+                        <?php if ($puedeVerReservas): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('reservas') ?>" class="<?= $seccionActual === 'reservas' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-calendar-check me-2 text-secondary"></i> Reservas y Turnos
                             </a>
-                            <ul class="collapse show" id="subOperaciones">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Asignación de Equipos</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Puntos de Veneración</a></li>
-                            </ul>
                         </li>
-                        <li>
-                            <a aria-expanded="false" data-bs-toggle="collapse" href="#subActivos">
-                                <i class="fa-solid fa-id-badge me-2 text-secondary"></i> Identificación y Activos
+                        <?php endif; ?>
+                        <?php if ($puedeVerOperaciones): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('operaciones') ?>" class="<?= $seccionActual === 'operaciones' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-person-hiking me-2 text-secondary"></i> Salidas de Campo
                             </a>
-                            <ul class="collapse" id="subActivos">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Pines y Credenciales</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Trazabilidad de Retorno</a></li>
-                            </ul>
                         </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerProveedores || $puedeVerRecursos): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('operaciones/recursos') ?>" class="<?= $seccionActual === 'recursos' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-ship me-2 text-secondary"></i> Recursos y Proveedores
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerEntregas): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('operaciones/entregas') ?>" class="<?= $seccionActual === 'entregas' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-box-open me-2 text-secondary"></i> Despacho de Entregas
+                            </a>
+                        </li>
+                        <?php endif; ?>
                     </ul>
 
                     <!-- Menú: Agenda -->

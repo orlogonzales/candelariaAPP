@@ -207,3 +207,15 @@ Enrutador::get('/cotizaciones', [\Aplicacion\Controladores\CotizacionControlador
 // GESTIÓN DE VENTAS COMERCIALES (FASE 2.5C)
 // ==============================================================================
 Enrutador::get('/ventas', [\Aplicacion\Controladores\VentaControlador::class, 'index']);
+
+// ==============================================================================
+// GESTIÓN DE RESERVAS Y AGENDAMIENTO (FASE 2.6E)
+// ==============================================================================
+Enrutador::get('/reservas', [\Aplicacion\Controladores\ReservaControlador::class, 'index']);
+
+// ==============================================================================
+// OPERACIONES DE CAMPO, SALIDAS Y RECURSOS (FASE 2.6E)
+// ==============================================================================
+Enrutador::get('/operaciones', [\Aplicacion\Controladores\OperacionControlador::class, 'index']);
+Enrutador::get('/operaciones/recursos', [\Aplicacion\Controladores\OperacionControlador::class, 'vistaRecursos']);
+Enrutador::get('/operaciones/entregas', [\Aplicacion\Controladores\OperacionControlador::class, 'vistaEntregas']);

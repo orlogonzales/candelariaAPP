@@ -368,6 +368,122 @@ class OperacionServicio
     }
 
     /**
+     * Desasigna un recurso físico o persona de la salida operativa.
+     */
+    public function desasignarRecursoDeSalida(
+        int $organizacionId,
+        int $salidaId,
+        int $salidaRecursoId,
+        ?ContextoOperacion $contexto = null
+    ): void {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('operacion.asignar_recursos', $contexto);
+
+        $salida = $this->salidaRepo->buscarPorId($salidaId, $organizacionId);
+        if ($salida === null) {
+            throw new InvalidArgumentException("La salida operativa #{$salidaId} no existe en su organización.");
+        }
+
+        if ($salida->estado->esTerminal()) {
+            throw new InvalidArgumentException("No se pueden modificar recursos de una salida en estado terminal.");
+        }
+
+        $this->salidaRepo->desasignarRecurso($salidaRecursoId);
+
+        $this->registrarAuditoria(
+            $contexto,
+            'RECURSO_DESASIGNADO_DE_SALIDA',
+            'operacion_salidas',
+            $salidaId,
+            ['salida_recurso_id' => $salidaRecursoId]
+        );
+    }
+
+    /**
+     * Consulta las prestaciones agendadas compatibles y disponibles para ser asignadas a esta salida.
+     */
+    public function obtenerPrestacionesCompatiblesParaSalida(
+        int $organizacionId,
+        int $salidaId,
+        ?ContextoOperacion $contexto = null
+    ): array {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('operacion.ver', $contexto);
+
+        $salida = $this->salidaRepo->buscarPorId($salidaId, $organizacionId);
+        if ($salida === null) {
+            throw new InvalidArgumentException("La salida operativa #{$salidaId} no existe en su organización.");
+        }
+
+        $ocupacionActual = $this->salidaRepo->calcularOcupacionActiva($salidaId);
+        $capacidadDisponible = ($salida->capacidadMaxima !== null)
+            ? max(0, $salida->capacidadMaxima - (int) $ocupacionActual)
+            : 999;
+
+        $stmt = $this->pdo->prepare("
+            SELECT
+                rp.id,
+                rp.reserva_id,
+                rp.concepto_codigo,
+                rp.concepto_nombre,
+                rp.cantidad,
+                rp.tipo_capacidad,
+                rp.fecha_servicio,
+                rp.hora_servicio,
+                rp.punto_encuentro,
+                r.correlativo AS reserva_correlativo,
+                r.contacto_nombre AS titular_reserva,
+                (SELECT COUNT(*) FROM `prestacion_participantes` pp WHERE pp.prestacion_id = rp.id) AS participantes_registrados
+            FROM `reserva_prestaciones` rp
+            INNER JOIN `reservas` r ON r.id = rp.reserva_id
+            WHERE r.organizacion_id = :org_id
+              AND r.edicion_id = :edicion_id
+              AND rp.item_comercial_id = :item_id
+              AND rp.fecha_servicio = :fecha_salida
+              AND rp.estado_agendamiento = 'PROGRAMADA'
+              AND r.estado <> 'CANCELADA'
+              AND rp.id NOT IN (
+                  SELECT osp.prestacion_id
+                  FROM `operacion_salida_prestaciones` osp
+                  INNER JOIN `operacion_salidas` os ON os.id = osp.salida_id
+                  WHERE os.estado <> 'CANCELADA'
+              )
+            ORDER BY rp.hora_servicio ASC, rp.id ASC
+        ");
+
+        $stmt->execute([
+            'org_id'        => $organizacionId,
+            'edicion_id'    => $salida->edicionId,
+            'item_id'       => $salida->itemComercialId,
+            'fecha_salida'  => $salida->fechaSalida,
+        ]);
+
+        $candidatas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(function ($c) use ($capacidadDisponible, $salida, $ocupacionActual) {
+            $cant = (float) $c['cantidad'];
+            $esCompatibleCapacidad = true;
+            $motivoIncompatibilidad = null;
+
+            if ($salida->tipoCapacidad === TipoCapacidad::COLECTIVA && $salida->capacidadMaxima !== null) {
+                if ($cant > $capacidadDisponible) {
+                    $esCompatibleCapacidad = false;
+                    $motivoIncompatibilidad = "Excede capacidad disponible ({$cant} pax > {$capacidadDisponible} libres)";
+                }
+            } elseif ($salida->tipoCapacidad === TipoCapacidad::EXCLUSIVA && $ocupacionActual > 0) {
+                $esCompatibleCapacidad = false;
+                $motivoIncompatibilidad = "Salida exclusiva ya tiene grupo asignado";
+            }
+
+            $c['es_compatible'] = $esCompatibleCapacidad;
+            $c['motivo_incompatibilidad'] = $motivoIncompatibilidad;
+            return $c;
+        }, $candidatas);
+    }
+
+    /**
      * Registra el check-in (presencia, no-show y asignación de asiento) de un participante individual.
      */
     public function marcarCheckin(
@@ -817,12 +933,17 @@ class OperacionServicio
             throw new InvalidArgumentException("La orden de entrega #{$entregaId} no existe en su organización.");
         }
 
+        if ($entrega->estado !== \Aplicacion\Reservas\EstadoEntregaProducto::PENDIENTE_ENTREGA) {
+            throw new InvalidArgumentException("Solo se pueden despachar entregas en estado PENDIENTE_ENTREGA (estado actual: {$entrega->estado->value}).");
+        }
+
         $ahora = date('Y-m-d H:i:s');
         $stmt = $this->pdo->prepare("
             UPDATE `entregas_productos`
             SET `estado` = 'ENTREGADO',
                 `fecha_entrega` = :fecha,
-                `entregado_por` = :usuario_id
+                `entregado_por` = :usuario_id,
+                `version_bloqueo` = `version_bloqueo` + 1
             WHERE `id` = :id AND `organizacion_id` = :org_id
         ");
         $stmt->execute([

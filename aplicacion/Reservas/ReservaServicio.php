@@ -609,6 +609,70 @@ class ReservaServicio
     }
 
     /**
+     * Elimina un participante de la reserva y de sus prestaciones asociadas.
+     */
+    public function eliminarParticipante(
+        int $organizacionId,
+        int $reservaId,
+        int $participanteId,
+        ?ContextoOperacion $contexto = null
+    ): void {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('reservas.gestionar_participantes', $contexto);
+
+        $reserva = $this->reservaRepo->buscarPorId($reservaId);
+        if ($reserva === null || $reserva->organizacionId !== $organizacionId) {
+            throw new InvalidArgumentException("La reserva #{$reservaId} no existe en su organización.");
+        }
+
+        if ($reserva->estado === EstadoReserva::CANCELADA) {
+            throw new InvalidArgumentException("No se pueden modificar participantes en una reserva CANCELADA.");
+        }
+
+        $participante = $this->reservaRepo->buscarParticipantePorId($participanteId);
+        if ($participante === null || $participante->reservaId !== $reservaId) {
+            throw new InvalidArgumentException("El participante #{$participanteId} no pertenece a la reserva #{$reservaId}.");
+        }
+
+        $this->reservaRepo->eliminarParticipante($reservaId, $participanteId);
+
+        $this->registrarAuditoria(
+            $contexto,
+            'PARTICIPANTE_ELIMINADO',
+            'reserva_participantes',
+            $participanteId,
+            ['reserva_id' => $reservaId]
+        );
+    }
+
+    /**
+     * Obtiene el historial inmutable de reprogramaciones de una prestación.
+     * @return ReservaReprogramacion[]
+     */
+    public function obtenerReprogramacionesPrestacion(
+        int $organizacionId,
+        int $prestacionId,
+        ?ContextoOperacion $contexto = null
+    ): array {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('reservas.ver', $contexto);
+
+        $prestacion = $this->reservaRepo->buscarPrestacionPorId($prestacionId);
+        if ($prestacion === null) {
+            throw new InvalidArgumentException("La prestación #{$prestacionId} no existe.");
+        }
+
+        $reserva = $this->reservaRepo->buscarPorId($prestacion->reservaId);
+        if ($reserva === null || $reserva->organizacionId !== $organizacionId) {
+            throw new InvalidArgumentException("La prestación #{$prestacionId} no pertenece a su organización.");
+        }
+
+        return $this->reservaRepo->obtenerReprogramacionesPorPrestacion($prestacionId);
+    }
+
+    /**
      * Cancela una reserva administrativamente antes de su despacho a campo.
      */
     public function cancelarReserva(

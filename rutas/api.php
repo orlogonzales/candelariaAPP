@@ -330,3 +330,56 @@ Enrutador::get('/api/v1/ventas/{id}', [\Aplicacion\Controladores\VentaControlado
 Enrutador::post('/api/v1/ventas/desde-cotizacion', [\Aplicacion\Controladores\VentaControlador::class, 'crearDesdeCotizacion']);
 Enrutador::post('/api/v1/ventas/{id}/cancelar', [\Aplicacion\Controladores\VentaControlador::class, 'cancelar']);
 Enrutador::post('/api/v1/ventas/{id}/anular', [\Aplicacion\Controladores\VentaControlador::class, 'anular']);
+
+// ==============================================================================
+// GESTIÓN DE RESERVAS Y AGENDAMIENTO (FASE 2.6E)
+// ==============================================================================
+Enrutador::get('/api/v1/reservas', [\Aplicacion\Controladores\ReservaControlador::class, 'listar']);
+Enrutador::get('/api/v1/reservas/aux/ventas-confirmadas', [\Aplicacion\Controladores\ReservaControlador::class, 'auxVentasConfirmadas']);
+Enrutador::get('/api/v1/reservas/aux/tipos-documento', [\Aplicacion\Controladores\ReservaControlador::class, 'auxTiposDocumento']);
+Enrutador::get('/api/v1/reservas/{id}', [\Aplicacion\Controladores\ReservaControlador::class, 'detalle']);
+Enrutador::post('/api/v1/reservas/desde-venta/{ventaId}', [\Aplicacion\Controladores\ReservaControlador::class, 'formalizarDesdeVenta']);
+Enrutador::post('/api/v1/reservas/{id}/cancelar', [\Aplicacion\Controladores\ReservaControlador::class, 'cancelar']);
+Enrutador::post('/api/v1/reservas/{id}/participantes', [\Aplicacion\Controladores\ReservaControlador::class, 'registrarParticipante']);
+Enrutador::delete('/api/v1/reservas/{id}/participantes/{participanteId}', [\Aplicacion\Controladores\ReservaControlador::class, 'eliminarParticipante']);
+Enrutador::post('/api/v1/reservas/prestaciones/{prestacionId}/programar', [\Aplicacion\Controladores\ReservaControlador::class, 'programarPrestacion']);
+Enrutador::post('/api/v1/reservas/prestaciones/{prestacionId}/reprogramar', [\Aplicacion\Controladores\ReservaControlador::class, 'reprogramarPrestacion']);
+Enrutador::get('/api/v1/reservas/prestaciones/{prestacionId}/reprogramaciones', [\Aplicacion\Controladores\ReservaControlador::class, 'obtenerReprogramaciones']);
+
+// ==============================================================================
+// OPERACIONES DE CAMPO, SALIDAS Y RECURSOS (FASE 2.6E)
+// ==============================================================================
+Enrutador::get('/api/v1/operaciones/salidas', [\Aplicacion\Controladores\OperacionControlador::class, 'listarSalidas']);
+Enrutador::get('/api/v1/operaciones/salidas/{id}', [\Aplicacion\Controladores\OperacionControlador::class, 'detalleSalida']);
+Enrutador::post('/api/v1/operaciones/salidas', [\Aplicacion\Controladores\OperacionControlador::class, 'crearSalida']);
+Enrutador::put('/api/v1/operaciones/salidas/{id}', [\Aplicacion\Controladores\OperacionControlador::class, 'actualizarSalida']);
+Enrutador::get('/api/v1/operaciones/salidas/{id}/prestaciones-compatibles', [\Aplicacion\Controladores\OperacionControlador::class, 'prestacionesCompatibles']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/prestaciones', [\Aplicacion\Controladores\OperacionControlador::class, 'asignarPrestacion']);
+Enrutador::delete('/api/v1/operaciones/salidas/{id}/prestaciones/{prestacionId}', [\Aplicacion\Controladores\OperacionControlador::class, 'desasignarPrestacion']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/recursos', [\Aplicacion\Controladores\OperacionControlador::class, 'asignarRecurso']);
+Enrutador::delete('/api/v1/operaciones/salidas/{id}/recursos/{asignacionId}', [\Aplicacion\Controladores\OperacionControlador::class, 'desasignarRecurso']);
+Enrutador::get('/api/v1/operaciones/salidas/{id}/manifiesto', [\Aplicacion\Controladores\OperacionControlador::class, 'manifiesto']);
+Enrutador::get('/api/v1/operaciones/salidas/{id}/checkin', [\Aplicacion\Controladores\OperacionControlador::class, 'listadoCheckin']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/checkin', [\Aplicacion\Controladores\OperacionControlador::class, 'marcarCheckin']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/despachar', [\Aplicacion\Controladores\OperacionControlador::class, 'despachar']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/finalizar', [\Aplicacion\Controladores\OperacionControlador::class, 'finalizar']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/interrumpir', [\Aplicacion\Controladores\OperacionControlador::class, 'interrumpir']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/cancelar', [\Aplicacion\Controladores\OperacionControlador::class, 'cancelar']);
+Enrutador::get('/api/v1/operaciones/salidas/{id}/incidencias', [\Aplicacion\Controladores\OperacionControlador::class, 'listarIncidencias']);
+Enrutador::post('/api/v1/operaciones/salidas/{id}/incidencias', [\Aplicacion\Controladores\OperacionControlador::class, 'registrarIncidencia']);
+
+// Proveedores y Recursos
+Enrutador::get('/api/v1/operaciones/proveedores', [\Aplicacion\Controladores\OperacionControlador::class, 'listarProveedores']);
+Enrutador::post('/api/v1/operaciones/proveedores', [\Aplicacion\Controladores\OperacionControlador::class, 'registrarProveedor']);
+Enrutador::patch('/api/v1/operaciones/proveedores/{id}/suspender', [\Aplicacion\Controladores\OperacionControlador::class, 'suspenderProveedor']);
+Enrutador::get('/api/v1/operaciones/recursos', [\Aplicacion\Controladores\OperacionControlador::class, 'listarRecursos']);
+Enrutador::post('/api/v1/operaciones/recursos', [\Aplicacion\Controladores\OperacionControlador::class, 'registrarRecurso']);
+Enrutador::patch('/api/v1/operaciones/recursos/{id}/estado', [\Aplicacion\Controladores\OperacionControlador::class, 'cambiarEstadoRecurso']);
+Enrutador::get('/api/v1/operaciones/aux/personas', [\Aplicacion\Controladores\OperacionControlador::class, 'auxPersonas']);
+Enrutador::get('/api/v1/operaciones/aux/servicios', [\Aplicacion\Controladores\OperacionControlador::class, 'auxServicios']);
+Enrutador::get('/api/v1/operaciones/aux/recursos-activos', [\Aplicacion\Controladores\OperacionControlador::class, 'auxRecursosActivos']);
+
+// Despacho de Entregas
+Enrutador::get('/api/v1/operaciones/entregas', [\Aplicacion\Controladores\OperacionControlador::class, 'listarEntregas']);
+Enrutador::get('/api/v1/operaciones/entregas/{id}', [\Aplicacion\Controladores\OperacionControlador::class, 'detalleEntrega']);
+Enrutador::post('/api/v1/operaciones/entregas/{id}/despachar', [\Aplicacion\Controladores\OperacionControlador::class, 'despacharEntrega']);

@@ -470,6 +470,75 @@ class ReservaRepositorio
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
+    /**
+     * @return ReservaReprogramacion[]
+     */
+    public function obtenerReprogramacionesPorPrestacion(int $prestacionId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM `reserva_reprogramaciones`
+            WHERE `prestacion_id` = :prest_id
+            ORDER BY `creado_en` DESC, `id` DESC
+        ");
+        $stmt->execute(['prest_id' => $prestacionId]);
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(function ($f) {
+            return new ReservaReprogramacion(
+                id: (int) $f['id'],
+                prestacionId: (int) $f['prestacion_id'],
+                fechaAnterior: $f['fecha_anterior'],
+                fechaNueva: (string) $f['fecha_nueva'],
+                horaAnterior: $f['hora_anterior'],
+                horaNueva: $f['hora_nueva'],
+                motivoCategoria: MotivoReprogramacion::from($f['motivo_categoria']),
+                motivoDetalle: (string) $f['motivo_detalle'],
+                creadoPor: (int) $f['creado_por'],
+                creadoEn: (string) $f['creado_en']
+            );
+        }, $filas);
+    }
+
+    public function buscarParticipantePorId(int $participanteId): ?ReservaParticipante
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM `reserva_participantes` WHERE `id` = :id");
+        $stmt->execute(['id' => $participanteId]);
+        $f = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$f) {
+            return null;
+        }
+
+        return new ReservaParticipante(
+            id: (int) $f['id'],
+            reservaId: (int) $f['reserva_id'],
+            personaId: $f['persona_id'] !== null ? (int) $f['persona_id'] : null,
+            tipoDocumentoId: (int) $f['tipo_documento_id'],
+            numeroDocumento: (string) $f['numero_documento'],
+            nombres: (string) $f['nombres'],
+            apellidos: (string) $f['apellidos'],
+            nacionalidad: $f['nacionalidad'],
+            rangoEtario: $f['rango_etario'] !== null ? RangoEtarioParticipante::from($f['rango_etario']) : null,
+            telefonoContacto: $f['telefono_contacto'],
+            tallaIndumentaria: $f['talla_indumentaria'],
+            requiereAsistenciaMovilidad: (bool) $f['requiere_asistencia_movilidad'],
+            regimenAlimentario: $f['regimen_alimentario'] !== null ? RegimenAlimentario::from($f['regimen_alimentario']) : null,
+            esTitularReserva: (bool) $f['es_titular_reserva'],
+            creadoEn: $f['creado_en'],
+            actualizadoEn: $f['actualizado_en']
+        );
+    }
+
+    public function eliminarParticipante(int $reservaId, int $participanteId): void
+    {
+        // 1. Desasignar de prestaciones
+        $stmtPrest = $this->pdo->prepare("DELETE FROM `prestacion_participantes` WHERE `participante_id` = :id");
+        $stmtPrest->execute(['id' => $participanteId]);
+
+        // 2. Eliminar participante
+        $stmt = $this->pdo->prepare("DELETE FROM `reserva_participantes` WHERE `id` = :id AND `reserva_id` = :reserva_id");
+        $stmt->execute(['id' => $participanteId, 'reserva_id' => $reservaId]);
+    }
+
     private function hidratarReserva(array $f, array $prestaciones = [], array $participantes = []): Reserva
     {
         return new Reserva(
