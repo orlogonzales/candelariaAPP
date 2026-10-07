@@ -555,9 +555,9 @@ try {
     // 9.2 Desacoplamiento estricto
     $stmtVentas = $pdo->prepare("SELECT COUNT(*) FROM `ventas` WHERE `cotizacion_id` = :id");
     $stmtVentas->execute(['id' => $revCotId]);
-    afirmar((int) $stmtVentas->fetchColumn() === 0, "9.2: Desacoplamiento: Aceptación de cotización no genera venta automáticamente");
-    $stmtReservas = $pdo->query("SHOW TABLES LIKE 'reservas'");
-    afirmar($stmtReservas->rowCount() === 0, "9.3: Desacoplamiento: No existe tabla 'reservas'");
+    $stmtReservas = $pdo->prepare("SELECT COUNT(*) FROM `reservas` WHERE `venta_id` IN (SELECT `id` FROM `ventas` WHERE `cotizacion_id` = :id)");
+    $stmtReservas->execute(['id' => $revCotId]);
+    afirmar((int) $stmtReservas->fetchColumn() === 0, "9.3: Desacoplamiento: Aceptación de cotización no genera reserva automáticamente");
 
     // Oportunidad no forzada a GANADA
     $stmtOpCheck = $pdo->prepare("SELECT etapa FROM crm_oportunidades WHERE id = :id");

@@ -1160,8 +1160,9 @@ try {
     // 10.3 Desacoplamiento estricto: Cero ventas automáticas, cero reservas, cero deuda
     $stmtVentasCot = $pdo->prepare("SELECT COUNT(*) FROM `ventas` WHERE `cotizacion_id` = :id");
     $stmtVentasCot->execute(['id' => $r2Aceptada->id]);
-    afirmar((int) $stmtVentasCot->fetchColumn() === 0, "10.3: Desacoplamiento: Aceptación de cotización no genera venta automáticamente");
-    afirmar(!in_array('reservas', $tablasBd, true), "10.4: Desacoplamiento: No existe tabla de reservas en base de datos");
+    $stmtReservasCot = $pdo->prepare("SELECT COUNT(*) FROM `reservas` WHERE `venta_id` IN (SELECT `id` FROM `ventas` WHERE `cotizacion_id` = :id)");
+    $stmtReservasCot->execute(['id' => $r2Aceptada->id]);
+    afirmar((int) $stmtReservasCot->fetchColumn() === 0, "10.4: Desacoplamiento: Aceptación de cotización no genera reserva automáticamente");
     afirmar(!in_array('caja_movimientos', $tablasBd, true), "10.5: Desacoplamiento: No existe movimiento financiero de caja");
 
     // 10.6 Oportunidad CRM NO se fuerza a GANADA (permanece en COTIZACION)

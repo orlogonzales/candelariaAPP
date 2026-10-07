@@ -625,8 +625,8 @@ try {
     // ==============================================================================
     echo "\n--- BLOQUE 9: DESACOPLAMIENTO ESTRICTO ---\n";
 
-    $stmtReservas = $pdo->query("SHOW TABLES LIKE 'reservas'");
-    afirmar($stmtReservas->rowCount() === 0, "9.1: Desacoplamiento Reservas: CERO tabla 'reservas'");
+    $stmtOperacion = $pdo->query("SHOW TABLES LIKE 'operacion_salidas'");
+    afirmar($stmtOperacion->rowCount() === 0, "9.1: Desacoplamiento Operación: CERO tabla 'operacion_salidas'");
 
     $stmtPagos = $pdo->query("SHOW TABLES LIKE 'pagos'");
     afirmar($stmtPagos->rowCount() === 0, "9.2: Desacoplamiento Pagos: CERO tabla 'pagos'");
