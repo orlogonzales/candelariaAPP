@@ -1001,7 +1001,7 @@ echo "--- BLOQUE 1: MIGRACIÓN, ESTRUCTURA DDL Y PARIDAD DE ESQUEMA ---\n";
     // ==============================================================================
     echo "\n--- BLOQUE 13: DESACOPLAMIENTO ESTRICTO (CERO PAGOS / CAJA / SUNAT) ---\n";
 
-    afirmar(!in_array('pagos', $tablas, true), "13.1: Desacoplamiento Pagos: CERO tabla 'pagos'");
+    afirmar(in_array('pagos', $tablas, true), "13.1: Desacoplamiento Pagos: Tabla 'pagos' existe como subsistema financiero desacoplado");
     afirmar(!in_array('caja_sesiones', $tablas, true), "13.2: Desacoplamiento Caja: CERO tabla 'caja_sesiones'");
     afirmar(!in_array('comprobantes_pago', $tablas, true), "13.3: Desacoplamiento SUNAT: CERO tabla 'comprobantes_pago'");
 

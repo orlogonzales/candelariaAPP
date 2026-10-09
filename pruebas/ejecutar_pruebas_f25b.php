@@ -290,7 +290,7 @@ try {
     // 1.6 Desacoplamiento de tablas prohibidas (Pagos, Caja, SUNAT)
     $stmtTablas = $pdo->query("SELECT TABLE_NAME FROM information_schema.tables WHERE TABLE_SCHEMA = DATABASE()");
     $tablas = $stmtTablas->fetchAll(PDO::FETCH_COLUMN);
-    afirmar(!in_array('pagos', $tablas, true), "1.6.1: Tabla 'pagos' no existe (desacoplamiento estricto)");
+    afirmar(in_array('pagos', $tablas, true), "1.6.1: Tabla 'pagos' existe como subsistema financiero desacoplado");
     afirmar(!in_array('caja_sesiones', $tablas, true), "1.6.2: Tablas de caja no existen (desacoplamiento estricto)");
     afirmar(!in_array('comprobantes_pago', $tablas, true), "1.6.3: Tablas de facturación/SUNAT no existen (desacoplamiento estricto)");
     afirmar(!in_array('comprobante_lineas', $tablas, true), "1.6.4: Tablas de líneas SUNAT no existen (desacoplamiento estricto)");

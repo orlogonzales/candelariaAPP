@@ -974,6 +974,9 @@ CREATE TABLE `ventas` (
     `descuento_global_motivo` VARCHAR(255) DEFAULT NULL COMMENT 'Motivo obligatorio cuando descuento_global_monto > 0',
     `descuento_lineas_total` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Suma de descuentos de cada línea',
     `total` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'subtotal - descuento_global_monto',
+    `monto_pagado` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Monto acumulado efectivamente cobrado',
+    `saldo_pendiente` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Saldo por cobrar de la venta',
+    `estado_financiero` ENUM('NO_PAGADA', 'PAGO_PARCIAL', 'PAGADA_TOTAL', 'SOBREPAGADA', 'NO_APLICA') NOT NULL DEFAULT 'NO_PAGADA',
     `terminos_condiciones` TEXT DEFAULT NULL COMMENT 'Snapshot inmutable de términos y condiciones acordados',
     `notas_comerciales` TEXT DEFAULT NULL COMMENT 'Notas comerciales de la venta',
 
@@ -997,6 +1000,8 @@ CREATE TABLE `ventas` (
 
     UNIQUE KEY `uk_ventas_correlativo` (`organizacion_id`, `correlativo`),
     UNIQUE KEY `uk_ventas_cotizacion` (`organizacion_id`, `cotizacion_id`),
+    UNIQUE KEY `uk_ventas_id_org_edic` (`id`, `organizacion_id`, `edicion_id`),
+    UNIQUE KEY `uk_ventas_id_org` (`id`, `organizacion_id`),
     KEY `idx_ventas_cliente` (`organizacion_id`, `cliente_id`, `estado`),
     KEY `idx_ventas_edicion` (`organizacion_id`, `edicion_id`, `estado`),
     KEY `idx_ventas_fecha` (`organizacion_id`, `fecha_venta`),
@@ -1581,6 +1586,252 @@ CREATE TABLE `operacion_incidencias` (
     KEY `idx_incidencias_salida` (`salida_id`),
     KEY `idx_incidencias_tipo` (`tipo_incidencia`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bitácora inmutable de incidencias operativas ocurridas en salidas';
+
+-- ------------------------------------------------------------------------------
+-- 51. TABLA `pasarelas_pago` (CATÁLOGO DE PASARELAS INSTITUCIONALES)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `pasarelas_pago`;
+CREATE TABLE `pasarelas_pago` (
+    `id` SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `codigo` VARCHAR(30) NOT NULL UNIQUE,
+    `nombre` VARCHAR(80) NOT NULL,
+    `descripcion` VARCHAR(255) NULL,
+    `tipo_integracion` ENUM('CHECKOUT_WEB', 'API_TOKEN', 'QR_ESTATICO', 'MANUAL') NOT NULL,
+    `protocolo_webhook` ENUM('HMAC_SHA256', 'BEARER_TOKEN', 'SIGNATURE_HEADER', 'QUERY_POLLING', 'NINGUNO') NOT NULL DEFAULT 'HMAC_SHA256',
+    `soporta_reembolsos` TINYINT(1) NOT NULL DEFAULT 1,
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Catálogo de pasarelas de pago soportadas en la plataforma';
+
+-- ------------------------------------------------------------------------------
+-- 52. TABLA `organizacion_pasarelas` (CONFIGURACIÓN TENANT Y REGLA D-01)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `organizacion_pasarelas`;
+CREATE TABLE `organizacion_pasarelas` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `pasarela_id` SMALLINT UNSIGNED NOT NULL,
+    `modo` ENUM('TEST', 'PRODUCCION') NOT NULL DEFAULT 'TEST',
+    `identificador_comercio` VARCHAR(150) NULL COMMENT 'Merchant ID o Public Key',
+    `credencial_secreta_enc` TEXT NULL COMMENT 'API Key privada cifrada en AES-256-GCM',
+    `webhook_secreto_enc` TEXT NULL COMMENT 'Secreto para verificación de webhook en AES-256-GCM',
+    `porcentaje_comision` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    `comision_fija` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    `asume_comision` ENUM('ORGANIZACION', 'CLIENTE') NOT NULL DEFAULT 'ORGANIZACION',
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_org_pasarelas_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_org_pasarelas_pasarela` FOREIGN KEY (`pasarela_id`) REFERENCES `pasarelas_pago` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_org_pasarela` UNIQUE (`organizacion_id`, `pasarela_id`),
+    CONSTRAINT `uk_org_pasarela_compuesta` UNIQUE (`id`, `organizacion_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Configuraciones de pasarela por organización';
+
+-- ------------------------------------------------------------------------------
+-- 53. TABLA `edicion_pasarelas` (ACTIVACIÓN SOBERANA POR EDICIÓN ANUAL)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `edicion_pasarelas`;
+CREATE TABLE `edicion_pasarelas` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `organizacion_pasarela_id` INT UNSIGNED NOT NULL,
+    `habilitado` TINYINT(1) NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_edicion_pas_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_edicion_pas_edicion` FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_edicion_pas_org_pas` FOREIGN KEY (`organizacion_pasarela_id`, `organizacion_id`)
+        REFERENCES `organizacion_pasarelas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_edicion_pasarela` UNIQUE (`organizacion_id`, `edicion_id`, `organizacion_pasarela_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Habilitación de pasarelas por edición anual';
+
+-- ------------------------------------------------------------------------------
+-- 54. TABLA `cuentas_bancarias_organizacion` (PADRÓN DE CUENTAS DE TRANSFERENCIA Y BILLETERAS)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `cuentas_bancarias_organizacion`;
+CREATE TABLE `cuentas_bancarias_organizacion` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `banco_nombre` VARCHAR(80) NOT NULL,
+    `tipo_cuenta` ENUM('CORRIENTE', 'AHORROS', 'BILLETERA_DIGITAL') NOT NULL DEFAULT 'CORRIENTE',
+    `moneda` CHAR(3) NOT NULL DEFAULT 'PEN',
+    `numero_cuenta` VARCHAR(50) NOT NULL,
+    `cci` VARCHAR(50) NULL,
+    `titular_nombre` VARCHAR(150) NOT NULL,
+    `titular_documento` VARCHAR(30) NULL,
+    `instrucciones_pago` TEXT NULL,
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_cuentas_bancarias_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_cuentas_bancarias_num` UNIQUE (`organizacion_id`, `numero_cuenta`),
+    CONSTRAINT `uk_cuentas_bancarias_compuesta` UNIQUE (`id`, `organizacion_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Cuentas bancarias institucionales para transferencias y depósitos';
+
+-- ------------------------------------------------------------------------------
+-- 55. TABLA `pagos_secuencias` (CORRELATIVOS DE PAGO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `pagos_secuencias`;
+CREATE TABLE `pagos_secuencias` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `anio` INT UNSIGNED NOT NULL,
+    `ultimo_numero` INT UNSIGNED NOT NULL DEFAULT 0,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_pagos_sec_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_pagos_secuencia` UNIQUE (`organizacion_id`, `anio`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Secuencias de numeración anual para pagos';
+
+-- ------------------------------------------------------------------------------
+-- 56. TABLA `reembolsos_secuencias` (CORRELATIVOS DE REEMBOLSO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `reembolsos_secuencias`;
+CREATE TABLE `reembolsos_secuencias` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `anio` INT UNSIGNED NOT NULL,
+    `ultimo_numero` INT UNSIGNED NOT NULL DEFAULT 0,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_reembolsos_sec_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_reembolsos_secuencia` UNIQUE (`organizacion_id`, `anio`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Secuencias de numeración anual para reembolsos';
+
+-- ------------------------------------------------------------------------------
+-- 57. TABLA `pagos` (LIBRO MAYOR INMUTABLE DE COBROS Y PAGOS)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `pagos`;
+CREATE TABLE `pagos` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `venta_id` BIGINT UNSIGNED NOT NULL,
+    `correlativo` VARCHAR(35) NOT NULL COMMENT 'PAG-AAAA-000001',
+    `metodo_pago` ENUM('EFECTIVO', 'TRANSFERENCIA_BANCARIA', 'TARJETA_CREDITO', 'TARJETA_DEBITO', 'BILLETERA_DIGITAL', 'PASARELA_ONLINE', 'DEPOSITO_VENTANILLA') NOT NULL,
+    `estado` ENUM('PENDIENTE_VERIFICACION', 'APROBADO', 'RECHAZADO', 'ANULADO') NOT NULL DEFAULT 'PENDIENTE_VERIFICACION',
+    `moneda` CHAR(3) NOT NULL DEFAULT 'PEN',
+
+    `monto_cobrado_cliente` DECIMAL(12,2) NOT NULL,
+    `monto_comision_pasarela` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `monto_neto_recibido` DECIMAL(12,2) NOT NULL,
+    `monto_aplicado_venta` DECIMAL(12,2) NOT NULL,
+    `monto_excedente` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    `monto_reembolsado_acumulado` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+
+    `cuenta_bancaria_id` INT UNSIGNED NULL,
+    `organizacion_pasarela_id` INT UNSIGNED NULL,
+    `transaccion_externa_id` VARCHAR(150) NULL,
+    `numero_operacion_bancaria` VARCHAR(60) NULL,
+    `boucher_archivo_url` VARCHAR(255) NULL,
+    `fecha_pago` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `verificado_por` INT UNSIGNED NULL,
+    `verificado_en` DATETIME NULL,
+    `notas_operativas` TEXT NULL,
+    `clave_idempotencia` VARCHAR(150) NULL,
+    `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
+    `creado_por` INT UNSIGNED NOT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT `fk_pagos_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_edicion` FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_venta` FOREIGN KEY (`venta_id`, `organizacion_id`, `edicion_id`)
+        REFERENCES `ventas` (`id`, `organizacion_id`, `edicion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_cuenta` FOREIGN KEY (`cuenta_bancaria_id`, `organizacion_id`)
+        REFERENCES `cuentas_bancarias_organizacion` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_org_pasarela` FOREIGN KEY (`organizacion_pasarela_id`, `organizacion_id`)
+        REFERENCES `organizacion_pasarelas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_verificador` FOREIGN KEY (`verificado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_creador` FOREIGN KEY (`creado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+
+    CONSTRAINT `uk_pagos_correlativo` UNIQUE (`organizacion_id`, `correlativo`),
+    CONSTRAINT `uk_pagos_idempotencia` UNIQUE (`organizacion_id`, `clave_idempotencia`),
+    CONSTRAINT `uk_pagos_compuesta` UNIQUE (`id`, `organizacion_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Libro mayor inmutable de pagos y cobros de ventas';
+
+-- ------------------------------------------------------------------------------
+-- 58. TABLA `pago_intentos_pasarela` (TRAZABILIDAD DE WEBHOOKS Y SESIONES CHECKOUT)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `pago_intentos_pasarela`;
+CREATE TABLE `pago_intentos_pasarela` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `pago_id` BIGINT UNSIGNED NULL,
+    `venta_id` BIGINT UNSIGNED NOT NULL,
+    `organizacion_pasarela_id` INT UNSIGNED NOT NULL,
+    `transaccion_externa_id` VARCHAR(150) NULL,
+    `orden_checkout_id` VARCHAR(150) NULL,
+    `monto` DECIMAL(12,2) NOT NULL,
+    `moneda` CHAR(3) NOT NULL DEFAULT 'PEN',
+    `estado_intento` ENUM('INICIADO', 'PROCESANDO', 'EXITOSO', 'FALLIDO', 'EXPIRADO') NOT NULL DEFAULT 'INICIADO',
+    `codigo_respuesta_pasarela` VARCHAR(50) NULL,
+    `mensaje_respuesta_pasarela` VARCHAR(255) NULL,
+    `payload_solicitud_sanitizado_json` JSON NULL,
+    `payload_respuesta_sanitizado_json` JSON NULL,
+    `tarjeta_marca` VARCHAR(30) NULL,
+    `tarjeta_ultimos_cuatro` CHAR(4) NULL,
+    `ip_origen` VARCHAR(45) NULL,
+    `firma_webhook_recibida` VARCHAR(255) NULL,
+    `clave_idempotencia_webhook` VARCHAR(150) NULL UNIQUE,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_intentos_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_intentos_pago` FOREIGN KEY (`pago_id`, `organizacion_id`) REFERENCES `pagos` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_intentos_venta` FOREIGN KEY (`venta_id`, `organizacion_id`) REFERENCES `ventas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_intentos_org_pas` FOREIGN KEY (`organizacion_pasarela_id`, `organizacion_id`)
+        REFERENCES `organizacion_pasarelas` (`id`, `organizacion_id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Intentos y eventos de pasarela web/webhook';
+
+-- ------------------------------------------------------------------------------
+-- 59. TABLA `pago_reembolsos` (ASIENTOS COMPENSATORIOS DE REEMBOLSO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `pago_reembolsos`;
+CREATE TABLE `pago_reembolsos` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `pago_id` BIGINT UNSIGNED NOT NULL,
+    `venta_id` BIGINT UNSIGNED NOT NULL,
+    `correlativo` VARCHAR(35) NOT NULL COMMENT 'REEM-AAAA-000001',
+    `monto_reembolsado` DECIMAL(12,2) NOT NULL,
+    `estado` ENUM('SOLICITADO', 'APROBADO', 'EJECUTADO', 'RECHAZADO', 'FALLIDO') NOT NULL DEFAULT 'EJECUTADO',
+    `motivo` ENUM('DESISTIMIENTO_CLIENTE', 'FUERZA_MAYOR_CLIMA', 'ERROR_DUPLICIDAD_PAGO', 'AJUSTE_COMERCIAL') NOT NULL,
+    `motivo_detalle` VARCHAR(255) NOT NULL,
+    `transaccion_reembolso_externa_id` VARCHAR(150) NULL,
+    `autorizado_por` INT UNSIGNED NOT NULL,
+    `ejecutado_en` DATETIME NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_reembolsos_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_reembolsos_pago` FOREIGN KEY (`pago_id`, `organizacion_id`) REFERENCES `pagos` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_reembolsos_venta` FOREIGN KEY (`venta_id`, `organizacion_id`) REFERENCES `ventas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_reembolsos_autorizado` FOREIGN KEY (`autorizado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_reembolsos_correlativo` UNIQUE (`organizacion_id`, `correlativo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Asientos compensatorios de reembolso y extorno';
+
+-- Semillas de pasarelas y RBAC módulo 11
+INSERT INTO `pasarelas_pago` (`id`, `codigo`, `nombre`, `descripcion`, `tipo_integracion`, `protocolo_webhook`, `soporta_reembolsos`, `activo`)
+VALUES
+    (1, 'CULQI', 'Culqi Online', 'Pasarela de pagos con tarjetas peruanas y billeteras', 'CHECKOUT_WEB', 'HMAC_SHA256', 1, 1),
+    (2, 'NIUBIZ', 'Niubiz Pago Web', 'Pasarela adquirente oficial de Visa y Mastercard en Perú', 'CHECKOUT_WEB', 'BEARER_TOKEN', 1, 1),
+    (3, 'STRIPE', 'Stripe Payments', 'Procesador internacional de tarjetas y pagos globales', 'CHECKOUT_WEB', 'HMAC_SHA256', 1, 1),
+    (4, 'MERCADOPAGO', 'Mercado Pago Perú', 'Checkout web y cobro QR de Mercado Libre', 'CHECKOUT_WEB', 'SIGNATURE_HEADER', 1, 1),
+    (5, 'YAPE_PLIN_MANUAL', 'Billeteras Móviles Manual', 'Cobro manual mediante QR estático y confirmación de boucher', 'MANUAL', 'NINGUNO', 0, 1)
+ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`);
+
+INSERT INTO `permisos` (`id`, `modulo_id`, `codigo`, `nombre`, `descripcion`) VALUES
+    (72, 11, 'pagos.ver', 'Ver Libro de Pagos', 'Consulta de pagos, transacciones y estados de cuenta de ventas'),
+    (73, 11, 'pagos.registrar_manual', 'Registrar Cobros Manuales', 'Registro de cobros en efectivo, transferencias bancarias y POS'),
+    (74, 11, 'pagos.verificar', 'Verificar Depósitos', 'Validación y aprobación/rechazo de comprobantes de transferencia'),
+    (75, 11, 'pagos.reembolsar', 'Emitir Reembolsos', 'Autorización y registro de asientos compensatorios de reembolso'),
+    (76, 11, 'pasarelas.gestionar', 'Gestionar Pasarelas', 'Configuración de credenciales de pasarelas y comisiones del tenant'),
+    (77, 11, 'cuentas_bancarias.gestionar', 'Gestionar Cuentas Bancarias', 'Padrón de cuentas bancarias y billeteras de la organización')
+ON DUPLICATE KEY UPDATE `codigo` = VALUES(`codigo`), `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
+
+INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES
+    (1, 72), (1, 73), (1, 74), (1, 75), (1, 76), (1, 77),
+    (2, 72), (2, 73), (2, 74), (2, 75), (2, 76), (2, 77),
+    (3, 72), (3, 73);
 
 SET FOREIGN_KEY_CHECKS = 1;
 

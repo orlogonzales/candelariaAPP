@@ -802,7 +802,7 @@ try {
     afirmar($prestacionCancelada->estadoAgendamiento === EstadoAgendamientoPrestacion::CANCELADA, "9.2: Prestaciones activas pasan a CANCELADA");
 
     // Desacoplamiento estricto
-    afirmar(!in_array('pagos', $tablas, true), "9.3: Desacoplamiento Pagos: CERO tabla 'pagos'");
+    afirmar(in_array('pagos', $tablas, true), "9.3: Desacoplamiento Pagos: Tabla 'pagos' existe como subsistema financiero desacoplado");
     afirmar(!in_array('caja_sesiones', $tablas, true), "9.4: Desacoplamiento Caja: CERO tabla 'caja_sesiones'");
     afirmar(!in_array('comprobantes_pago', $tablas, true), "9.5: Desacoplamiento SUNAT: CERO tabla 'comprobantes_pago'");
     afirmar(!in_array('comprobante_lineas', $tablas, true), "9.6: Desacoplamiento SUNAT: CERO tabla 'comprobante_lineas'");
