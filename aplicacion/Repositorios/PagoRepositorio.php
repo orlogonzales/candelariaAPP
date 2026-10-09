@@ -190,6 +190,21 @@ class PagoRepositorio
         return $stmt->rowCount() > 0;
     }
 
+    public function actualizarBoucherUrl(int $pagoId, int $organizacionId, string $boucherUrl): void
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `pagos`
+            SET `boucher_comprobante_url` = :url,
+                `actualizado_en` = NOW()
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+        $stmt->execute([
+            'id'     => $pagoId,
+            'org_id' => $organizacionId,
+            'url'    => $boucherUrl,
+        ]);
+    }
+
     public function acumularReembolsoEjecutado(int $pagoId, int $organizacionId, float $montoReembolso): void
     {
         $stmt = $this->pdo->prepare("
@@ -271,6 +286,132 @@ class PagoRepositorio
         ]);
 
         return (int) $this->pdo->lastInsertId();
+    }
+
+    public function buscarIntentoPorIdempotencia(int $organizacionId, string $claveIdempotencia): ?array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM `pago_intentos_pasarela`
+            WHERE `organizacion_id` = :org_id
+              AND `clave_idempotencia_webhook` = :clave
+            LIMIT 1
+        ");
+        $stmt->execute([
+            'org_id' => $organizacionId,
+            'clave'  => $claveIdempotencia,
+        ]);
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $fila ?: null;
+    }
+
+    /**
+     * Listado paginado de pagos con filtros múltiples.
+     *
+     * @param int $organizacionId
+     * @param int|null $edicionId
+     * @param array $filtros
+     * @param int $pagina
+     * @param int $porPagina
+     * @return array{items: Pago[], total: int, pagina: int, por_pagina: int, total_paginas: int}
+     */
+    public function listarPaginado(
+        int $organizacionId,
+        ?int $edicionId = null,
+        array $filtros = [],
+        int $pagina = 1,
+        int $porPagina = 20
+    ): array {
+        $pagina = max(1, $pagina);
+        $porPagina = max(1, min(100, $porPagina));
+        $offset = ($pagina - 1) * $porPagina;
+
+        $where = ["p.`organizacion_id` = :org_id"];
+        $params = ['org_id' => $organizacionId];
+
+        if ($edicionId !== null && $edicionId > 0) {
+            $where[] = "p.`edicion_id` = :edicion_id";
+            $params['edicion_id'] = $edicionId;
+        }
+
+        if (!empty($filtros['venta_id'])) {
+            $where[] = "p.`venta_id` = :venta_id";
+            $params['venta_id'] = (int) $filtros['venta_id'];
+        }
+
+        if (!empty($filtros['estado'])) {
+            $where[] = "p.`estado` = :estado";
+            $params['estado'] = $filtros['estado'] instanceof EstadoPago ? $filtros['estado']->value : (string) $filtros['estado'];
+        }
+
+        if (!empty($filtros['metodo_pago'])) {
+            $where[] = "p.`metodo_pago` = :metodo_pago";
+            $params['metodo_pago'] = $filtros['metodo_pago'] instanceof MetodoPago ? $filtros['metodo_pago']->value : (string) $filtros['metodo_pago'];
+        }
+
+        if (!empty($filtros['cuenta_bancaria_id'])) {
+            $where[] = "p.`cuenta_bancaria_id` = :cuenta_bancaria_id";
+            $params['cuenta_bancaria_id'] = (int) $filtros['cuenta_bancaria_id'];
+        }
+
+        if (!empty($filtros['organizacion_pasarela_id'])) {
+            $where[] = "p.`organizacion_pasarela_id` = :org_pas_id";
+            $params['org_pas_id'] = (int) $filtros['organizacion_pasarela_id'];
+        }
+
+        if (!empty($filtros['fecha_desde'])) {
+            $where[] = "DATE(p.`fecha_pago`) >= :fecha_desde";
+            $params['fecha_desde'] = $filtros['fecha_desde'];
+        }
+
+        if (!empty($filtros['fecha_hasta'])) {
+            $where[] = "DATE(p.`fecha_pago`) <= :fecha_hasta";
+            $params['fecha_hasta'] = $filtros['fecha_hasta'];
+        }
+
+        if (!empty($filtros['busqueda'])) {
+            $where[] = "(p.`correlativo` LIKE :busq OR p.`numero_operacion_bancaria` LIKE :busq OR v.`correlativo` LIKE :busq)";
+            $params['busq'] = '%' . trim((string) $filtros['busqueda']) . '%';
+        }
+
+        $clausulaWhere = implode(' AND ', $where);
+
+        $sqlCount = "
+            SELECT COUNT(*)
+            FROM `pagos` p
+            INNER JOIN `ventas` v ON v.id = p.venta_id
+            WHERE {$clausulaWhere}
+        ";
+        $stmtCount = $this->pdo->prepare($sqlCount);
+        $stmtCount->execute($params);
+        $total = (int) $stmtCount->fetchColumn();
+
+        $sqlItems = "
+            SELECT p.*, v.correlativo AS venta_correlativo,
+                   cb.banco_nombre AS banco_nombre,
+                   pas.nombre AS pasarela_nombre
+            FROM `pagos` p
+            INNER JOIN `ventas` v ON v.id = p.venta_id
+            LEFT JOIN `cuentas_bancarias_organizacion` cb ON cb.id = p.cuenta_bancaria_id
+            LEFT JOIN `organizacion_pasarelas` op ON op.id = p.organizacion_pasarela_id
+            LEFT JOIN `pasarelas_pago` pas ON pas.id = op.pasarela_id
+            WHERE {$clausulaWhere}
+            ORDER BY p.`id` DESC
+            LIMIT {$porPagina} OFFSET {$offset}
+        ";
+        $stmtItems = $this->pdo->prepare($sqlItems);
+        $stmtItems->execute($params);
+        $filas = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+
+        $items = array_map(fn($f) => $this->hidratar($f), $filas);
+
+        return [
+            'items'         => $items,
+            'total'         => $total,
+            'pagina'        => $pagina,
+            'por_pagina'    => $porPagina,
+            'total_paginas' => $total > 0 ? (int) ceil($total / $porPagina) : 1,
+        ];
     }
 
     private function hidratar(array $f): Pago

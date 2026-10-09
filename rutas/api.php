@@ -383,3 +383,25 @@ Enrutador::get('/api/v1/operaciones/aux/recursos-activos', [\Aplicacion\Controla
 Enrutador::get('/api/v1/operaciones/entregas', [\Aplicacion\Controladores\OperacionControlador::class, 'listarEntregas']);
 Enrutador::get('/api/v1/operaciones/entregas/{id}', [\Aplicacion\Controladores\OperacionControlador::class, 'detalleEntrega']);
 Enrutador::post('/api/v1/operaciones/entregas/{id}/despachar', [\Aplicacion\Controladores\OperacionControlador::class, 'despacharEntrega']);
+
+// ==============================================================================
+// GESTIÓN FINANCIERA, PAGOS Y PASARELAS (FASE 2.7D)
+// ==============================================================================
+Enrutador::get('/api/v1/pagos', [\Aplicacion\Controladores\PagoControlador::class, 'listar']);
+Enrutador::get('/api/v1/pagos/{id}', [\Aplicacion\Controladores\PagoControlador::class, 'detalle']);
+Enrutador::post('/api/v1/pagos/manual', [\Aplicacion\Controladores\PagoControlador::class, 'registrarManual']);
+Enrutador::post('/api/v1/pagos/{id}/boucher', [\Aplicacion\Controladores\PagoControlador::class, 'subirBoucher']);
+Enrutador::post('/api/v1/pagos/{id}/verificar', [\Aplicacion\Controladores\PagoControlador::class, 'verificar']);
+Enrutador::post('/api/v1/pagos/{id}/reembolsar', [\Aplicacion\Controladores\PagoControlador::class, 'reembolsar']);
+
+Enrutador::get('/api/v1/ventas/{id}/estado-cuenta', [\Aplicacion\Controladores\PagoControlador::class, 'estadoCuentaVenta']);
+Enrutador::post('/api/v1/ventas/{id}/liquidar', [\Aplicacion\Controladores\PagoControlador::class, 'liquidarVenta']);
+
+Enrutador::get('/api/v1/cuentas-bancarias', [\Aplicacion\Controladores\PagoControlador::class, 'listarCuentasBancarias']);
+Enrutador::post('/api/v1/cuentas-bancarias', [\Aplicacion\Controladores\PagoControlador::class, 'crearCuentaBancaria']);
+Enrutador::put('/api/v1/cuentas-bancarias/{id}', [\Aplicacion\Controladores\PagoControlador::class, 'actualizarCuentaBancaria']);
+
+Enrutador::get('/api/v1/pasarelas', [\Aplicacion\Controladores\PagoControlador::class, 'listarPasarelas']);
+Enrutador::put('/api/v1/pasarelas/{codigo}', [\Aplicacion\Controladores\PagoControlador::class, 'configurarPasarela']);
+
+Enrutador::post('/api/v1/webhooks/pasarelas/{codigo}', [\Aplicacion\Controladores\PagoControlador::class, 'recibirWebhook']);

@@ -88,7 +88,7 @@ class PagoServicio
         }
 
         // 4. Validar monto numérico y mínimo global
-        $monto = (float) ($datos['monto'] ?? 0.0);
+        $monto = (float) ($datos['monto'] ?? $datos['monto_cobrado_cliente'] ?? 0.0);
         if ($monto <= 0.0) {
             throw new InvalidArgumentException('El monto del pago debe ser estrictamente mayor a 0.00.');
         }
@@ -206,6 +206,184 @@ class PagoServicio
             }
             throw $e;
         }
+    }
+
+    /**
+     * Registra un pago confirmado proveniente de una pasarela web (vía webhook o checkout).
+     *
+     * @param int $organizacionId
+     * @param int $ventaId
+     * @param int $organizacionPasarelaId
+     * @param float $monto
+     * @param float $comisionPasarela
+     * @param string $transaccionExternaId
+     * @param string $claveIdempotencia
+     * @param array $datosMetadatos
+     * @param ContextoOperacion|null $contexto
+     * @return Pago
+     */
+    public function registrarPagoPasarelaWeb(
+        int $organizacionId,
+        int $ventaId,
+        int $organizacionPasarelaId,
+        float $monto,
+        float $comisionPasarela,
+        string $transaccionExternaId,
+        string $claveIdempotencia,
+        array $datosMetadatos = [],
+        ?ContextoOperacion $contexto = null
+    ): Pago {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        // 1. Idempotencia: si ya existe con esta clave, retornar el pago existente
+        $pagoExistente = $this->pagoRepo->buscarPorIdempotencia($organizacionId, $claveIdempotencia);
+        if ($pagoExistente !== null) {
+            return $pagoExistente;
+        }
+
+        // 2. Validar venta
+        $venta = $this->ventaRepo->buscarPorId($ventaId, $organizacionId);
+        if ($venta === null || $venta->organizacionId !== $organizacionId) {
+            throw new InvalidArgumentException("La venta #{$ventaId} no existe en su organización.");
+        }
+        if ($venta->estado === EstadoVenta::CANCELADA || $venta->estado === EstadoVenta::ANULADA) {
+            throw new InvalidArgumentException("No se pueden registrar pagos en ventas en estado {$venta->estado->value}.");
+        }
+        if ($venta->estado === EstadoVenta::LIQUIDADA) {
+            throw new InvalidArgumentException("La venta ya se encuentra formalmente LIQUIDADA. No admite nuevos pagos.");
+        }
+
+        // 3. Validar pasarela de la organización
+        $orgPasarela = $this->pasarelaRepo->buscarOrganizacionPasarelaPorId($organizacionPasarelaId, $organizacionId);
+        if ($orgPasarela === null || !$orgPasarela->activo) {
+            throw new InvalidArgumentException("La configuración de pasarela (#{$organizacionPasarelaId}) no existe o está inactiva.");
+        }
+
+        // 4. Saldo actual de la venta
+        $saldoActual = (float) ($venta->saldoPendiente ?? $venta->total);
+
+        $montoAplicado = min($monto, $saldoActual);
+        $montoExcedente = max(0.0, round($monto - $saldoActual, 2));
+
+        $montoNeto = max(0.0, round($monto - $comisionPasarela, 2));
+
+        $fechaPago = !empty($datosMetadatos['fecha_pago']) ? (string) $datosMetadatos['fecha_pago'] : date('Y-m-d H:i:s');
+        $anio = (int) date('Y', strtotime($fechaPago));
+        $correlativo = $this->pagoRepo->generarSiguienteCorrelativo($organizacionId, $anio);
+
+        $usuarioCreador = $contexto->usuarioId ?? $venta->creadoPor;
+
+        $asumeComision = $orgPasarela->asumeComision;
+
+        $pago = new Pago(
+            id: null,
+            organizacionId: $organizacionId,
+            edicionId: $venta->edicionId,
+            ventaId: $ventaId,
+            correlativo: $correlativo,
+            metodoPago: MetodoPago::TARJETA_PASARELA,
+            estado: EstadoPago::APROBADO,
+            moneda: 'PEN',
+            montoCobradoCliente: $monto,
+            comisionPorcentajeAplicada: (float) $orgPasarela->porcentajeComision,
+            comisionFijaAplicada: (float) $orgPasarela->comisionFija,
+            comisionPasarela: $comisionPasarela,
+            montoNetoRecibido: $montoNeto,
+            montoAplicadoVenta: $montoAplicado,
+            montoExcedente: $montoExcedente,
+            comisionAsumidaPor: $asumeComision,
+            montoReembolsadoAcumulado: 0.00,
+            fechaPago: $fechaPago,
+            cuentaBancariaId: null,
+            organizacionPasarelaId: $organizacionPasarelaId,
+            numeroOperacionBancaria: $transaccionExternaId,
+            boucherComprobanteUrl: null,
+            notasOperativas: $datosMetadatos['notas'] ?? "Pago confirmado vía pasarela {$orgPasarela->pasarelaCodigo} (Ref: {$transaccionExternaId})",
+            claveIdempotencia: $claveIdempotencia,
+            versionBloqueo: 1,
+            verificadoPor: $contexto->usuarioId,
+            verificadoEn: date('Y-m-d H:i:s'),
+            creadoPor: $usuarioCreador
+        );
+
+        $transaccionPropia = false;
+        if (!$this->pdo->inTransaction()) {
+            $this->pdo->beginTransaction();
+            $transaccionPropia = true;
+        }
+
+        try {
+            $nuevoId = $this->pagoRepo->registrarPago($pago);
+
+            $this->recalcularProyeccionVenta($ventaId, $organizacionId);
+
+            $this->auditoriaRepo->registrar(
+                contexto: $contexto,
+                modulo: 'pagos_caja',
+                accion: 'REGISTRAR_PAGO_PASARELA',
+                entidadTipo: 'PAGO',
+                entidadId: (string) $nuevoId,
+                datosPrevios: null,
+                datosNuevos: [
+                    'correlativo'         => $correlativo,
+                    'venta_id'            => $ventaId,
+                    'monto'               => $monto,
+                    'comision_pasarela'   => $comisionPasarela,
+                    'monto_neto'          => $montoNeto,
+                    'monto_aplicado'      => $montoAplicado,
+                    'monto_excedente'     => $montoExcedente,
+                    'metodo'              => MetodoPago::TARJETA_PASARELA->value,
+                    'estado'              => EstadoPago::APROBADO->value,
+                    'pasarela_id'         => $organizacionPasarelaId,
+                    'transaccion_externa' => $transaccionExternaId,
+                ]
+            );
+
+            if ($transaccionPropia) {
+                $this->pdo->commit();
+            }
+
+            return $this->pagoRepo->buscarPorId($nuevoId, $organizacionId);
+        } catch (\Throwable $e) {
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Actualiza el boucher o comprobante bancario de un pago.
+     */
+    public function registrarBoucher(
+        int $organizacionId,
+        int $pagoId,
+        string $boucherUrl,
+        ?ContextoOperacion $contexto = null
+    ): Pago {
+        $contexto = $this->resolverContexto($contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+        $this->validarPermiso('pagos.registrar_manual', $contexto);
+
+        $pago = $this->pagoRepo->buscarPorId($pagoId, $organizacionId);
+        if ($pago === null) {
+            throw new InvalidArgumentException("El pago #{$pagoId} no existe en su organización.");
+        }
+
+        $this->pagoRepo->actualizarBoucherUrl($pagoId, $organizacionId, $boucherUrl);
+
+        $this->auditoriaRepo->registrar(
+            contexto: $contexto,
+            modulo: 'pagos_caja',
+            accion: 'ACTUALIZAR_BOUCHER_PAGO',
+            entidadTipo: 'PAGO',
+            entidadId: (string) $pagoId,
+            datosPrevios: ['boucher_comprobante_url' => $pago->boucherComprobanteUrl],
+            datosNuevos: ['boucher_comprobante_url' => $boucherUrl]
+        );
+
+        return $this->pagoRepo->buscarPorId($pagoId, $organizacionId);
     }
 
     /**
