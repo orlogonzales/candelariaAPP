@@ -401,6 +401,20 @@ class ComunicacionControlador
 
         try {
             $modo = ModoComunicacion::from($modoStr);
+
+            if ($modo === ModoComunicacion::PRODUCCION) {
+                if ($proveedor === 'SIMULADOR_SANDBOX') {
+                    throw new \InvalidArgumentException('El modo PRODUCCION es incompatible con el proveedor SIMULADOR_SANDBOX.');
+                }
+                if (empty($phoneId) || empty($tokenAcceso) || empty($secret)) {
+                    throw new \InvalidArgumentException('El modo PRODUCCION exige credenciales completas de Meta Cloud API (Phone Number ID, Token de Acceso y App Secret).');
+                }
+                $produccionHabilitada = getenv('WHATSAPP_PRODUCCION_HABILITADA') === 'true';
+                if (!$produccionHabilitada) {
+                    throw new \DomainException('La activación de WhatsApp en modo PRODUCCION está deshabilitada por directiva institucional en este entorno. Opere exclusivamente en SIMULADOR.');
+                }
+            }
+
             $cfg = $this->configRepo->guardar(
                 orgId: $contexto->organizacionId,
                 proveedorCodigo: $proveedor,
@@ -761,7 +775,28 @@ class ComunicacionControlador
         }
         $contexto = $this->autenticarYAutorizar('comunicaciones.configurar_proveedor');
 
+        $limite = min(20, max(1, (int) ($_POST['limite'] ?? 20)));
+
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $lockKey = 'candelaria_outbox_manual_' . $contexto->organizacionId;
+        $lockAdquirido = true;
+
+        if ($driver === 'mysql') {
+            $stmtLock = $this->pdo->prepare("SELECT GET_LOCK(:lock, 0) AS adquirido");
+            $stmtLock->execute(['lock' => $lockKey]);
+            $lockAdquirido = ((int) $stmtLock->fetchColumn()) === 1;
+        }
+
+        if (!$lockAdquirido) {
+            $this->setCodigoHttp(409);
+            return json_encode([
+                'exito' => false,
+                'error' => 'El procesador Outbox ya se encuentra en ejecución activa para esta organización. Intente en unos segundos.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
         try {
+            $tInicio = microtime(true);
             $worker = new OutboxWorker(
                 mensajeRepo: $this->mensajeRepo,
                 consentimientoRepo: $this->consentimientoRepo,
@@ -770,17 +805,45 @@ class ComunicacionControlador
                 fabricaProveedores: new \Aplicacion\Comunicaciones\Proveedores\FabricaProveedorWhatsApp()
             );
 
-            $resultados = $worker->procesarLote(limite: 20);
+            $resultados = $worker->procesarLote(limite: $limite);
             $procesados = count($resultados);
+            $tiempoMs = (int) round((microtime(true) - $tInicio) * 1000);
+
+            // Registro inmutable de auditoría dual
+            try {
+                $auditoriaRepo = new \Aplicacion\Repositorios\AuditoriaRepositorio($this->pdo);
+                $auditoriaRepo->registrar(
+                    contexto: $contexto,
+                    modulo: 'comunicaciones',
+                    accion: 'EJECUTAR_OUTBOX_MANUAL',
+                    entidadTipo: 'comunicacion_mensajes',
+                    entidadId: 'lote_' . date('YmdHis'),
+                    datosPrevios: null,
+                    datosNuevos: [
+                        'limite'              => $limite,
+                        'procesados'          => $procesados,
+                        'tiempo_ejecucion_ms' => $tiempoMs,
+                        'ip'                  => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
+                    ]
+                );
+            } catch (Throwable $auditError) {
+                error_log("Aviso de auditoría outbox: " . $auditError->getMessage());
+            }
 
             return json_encode([
                 'exito'      => true,
-                'mensaje'    => "Lote Outbox procesado exitosamente. {$procesados} mensaje(s) despachado(s).",
-                'procesados' => $procesados
+                'mensaje'    => "Lote Outbox procesado exitosamente. {$procesados} mensaje(s) despachado(s) en {$tiempoMs}ms.",
+                'procesados' => $procesados,
+                'tiempo_ms'  => $tiempoMs
             ], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        } finally {
+            if ($driver === 'mysql' && $lockAdquirido) {
+                $stmtRelease = $this->pdo->prepare("SELECT RELEASE_LOCK(:lock)");
+                $stmtRelease->execute(['lock' => $lockKey]);
+            }
         }
     }
 

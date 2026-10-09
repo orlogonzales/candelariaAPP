@@ -1130,15 +1130,15 @@ document.addEventListener('DOMContentLoaded', function () {
     function obtenerBadgeEstadoMeta(estado) {
         switch (estado) {
             case 'APPROVED':
-                return '<span class="badge bg-success"><i class="fa-solid fa-check me-1"></i>APROBADA</span>';
+                return '<span class="badge bg-primary-subtle text-primary border border-primary"><i class="fa-solid fa-check me-1"></i>Válida (Simulación)</span>';
             case 'PAUSED':
-                return '<span class="badge bg-warning text-dark"><i class="fa-solid fa-pause me-1"></i>PAUSADA</span>';
+                return '<span class="badge bg-secondary-subtle text-secondary border border-secondary"><i class="fa-solid fa-pause me-1"></i>Pausada</span>';
             case 'REJECTED':
-                return '<span class="badge bg-danger"><i class="fa-solid fa-xmark me-1"></i>RECHAZADA</span>';
+                return '<span class="badge bg-danger-subtle text-danger border border-danger"><i class="fa-solid fa-xmark me-1"></i>Rechazada</span>';
             case 'PENDING':
-                return '<span class="badge bg-info"><i class="fa-solid fa-clock me-1"></i>PENDIENTE</span>';
+                return '<span class="badge bg-warning-subtle text-warning border border-warning"><i class="fa-solid fa-clock me-1"></i>Pendiente</span>';
             default:
-                return `<span class="badge bg-secondary">${escaparHtml(estado || 'LOCAL')}</span>`;
+                return `<span class="badge bg-light text-dark border">${escaparHtml(estado || 'LOCAL')}</span>`;
         }
     }
 
@@ -1150,6 +1150,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 return '<span class="badge bg-primary">ENCOLADO</span>';
             case 'EN_PROCESO':
                 return '<span class="badge bg-info text-dark">EN PROCESO</span>';
+            case 'REINTENTO_PROGRAMADO':
+                return '<span class="badge bg-warning text-dark"><i class="fa-solid fa-rotate me-1"></i>REINTENTO</span>';
             case 'ENVIADO':
                 return '<span class="badge bg-info">ENVIADO</span>';
             case 'ENTREGADO':
@@ -1175,6 +1177,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 return '<span class="badge bg-info">PROGRAMADA</span>';
             case 'EN_EJECUCION':
                 return '<span class="badge bg-success">EN EJECUCIÓN</span>';
+            case 'PAUSADA':
+                return '<span class="badge bg-secondary">PAUSADA</span>';
             case 'COMPLETADA':
                 return '<span class="badge bg-success"><i class="fa-solid fa-check-double me-1"></i>COMPLETADA</span>';
             case 'CANCELADA':

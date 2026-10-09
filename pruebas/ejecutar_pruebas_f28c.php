@@ -315,9 +315,115 @@ if ($primeraPlan !== null) {
 }
 
 // ------------------------------------------------------------------------------
-// SECCIÓN 6: Preservación de Identidad (Orlando ID 24)
+// SECCIÓN 6: Matriz Contractual de Estados, Monotonicidad y REINTENTO_PROGRAMADO
 // ------------------------------------------------------------------------------
-echo "\n--- SECCIÓN 6: Preservación de Identidad (Orlando ID 24) ---\n";
+echo "\n--- SECCIÓN 6: Matriz de Estados, Monotonicidad y REINTENTO_PROGRAMADO ---\n";
+use Aplicacion\Comunicaciones\EstadoMensaje;
+
+registrarAsercion("EstadoMensaje::REINTENTO_PROGRAMADO existe como caso canónico", EstadoMensaje::tryFrom('REINTENTO_PROGRAMADO') !== null);
+registrarAsercion("Peso de REINTENTO_PROGRAMADO (25) es coherente entre EN_PROCESO (20) y ENVIADO (30)", EstadoMensaje::REINTENTO_PROGRAMADO->peso() === 25);
+
+registrarAsercion("EN_PROCESO puede transicionar a REINTENTO_PROGRAMADO", EstadoMensaje::EN_PROCESO->puedeAvanzarHacia(EstadoMensaje::REINTENTO_PROGRAMADO));
+registrarAsercion("REINTENTO_PROGRAMADO puede transicionar de regreso a EN_PROCESO", EstadoMensaje::REINTENTO_PROGRAMADO->puedeAvanzarHacia(EstadoMensaje::EN_PROCESO));
+registrarAsercion("REINTENTO_PROGRAMADO puede transicionar a FALLIDO si agota reintentos", EstadoMensaje::REINTENTO_PROGRAMADO->puedeAvanzarHacia(EstadoMensaje::FALLIDO));
+
+// Monotonicidad inquebrantable
+registrarAsercion("ENTREGADO NO puede retroceder a ENVIADO, ENCOLADO ni pasar a FALLIDO", !EstadoMensaje::ENTREGADO->puedeAvanzarHacia(EstadoMensaje::FALLIDO) && !EstadoMensaje::ENTREGADO->puedeAvanzarHacia(EstadoMensaje::ENVIADO));
+registrarAsercion("ENTREGADO solo puede avanzar hacia LEIDO", EstadoMensaje::ENTREGADO->transicionesPermitidas() === [EstadoMensaje::LEIDO]);
+registrarAsercion("LEIDO es estado terminal absoluto (transiciones vacías)", empty(EstadoMensaje::LEIDO->transicionesPermitidas()));
+registrarAsercion("FALLIDO es estado terminal absoluto (transiciones vacías)", empty(EstadoMensaje::FALLIDO->transicionesPermitidas()));
+registrarAsercion("CANCELADO es estado terminal absoluto (transiciones vacías)", empty(EstadoMensaje::CANCELADO->transicionesPermitidas()));
+
+// Transición en Repositorio
+$msgRepo = new ComunicacionMensajeRepositorio($pdo);
+$stmtInsMsg = $pdo->prepare("
+    INSERT INTO comunicacion_mensajes (
+        organizacion_id, canal, tipo_mensaje, direccion,
+        destinatario_telefono, destinatario_nombre, contenido_texto,
+        estado, peso_estado, idempotency_key, correlacion_id, costo_estimado_usd, creado_en
+    ) VALUES (
+        ?, 'WHATSAPP', 'TRANSACCIONAL', 'SALIENTE',
+        '+51955443322', 'Cliente Monotonicidad', 'Mensaje de prueba de transición monotónica',
+        'EN_PROCESO', 20, ?, ?, 0.005, NOW()
+    )
+");
+$idempotencyKey = 'test_mono_' . bin2hex(random_bytes(16));
+$correlacionId = 'corr_' . bin2hex(random_bytes(16));
+$stmtInsMsg->execute([$orgId, $idempotencyKey, $correlacionId]);
+$msgId = (int)$pdo->lastInsertId();
+
+$msgRepo->programarReintento($msgId, $orgId, 60);
+$stmtVerifR = $pdo->prepare("SELECT estado, peso_estado FROM comunicacion_mensajes WHERE id = ?");
+$stmtVerifR->execute([$msgId]);
+$filaR = $stmtVerifR->fetch(PDO::FETCH_ASSOC);
+registrarAsercion("programarReintento() persiste estado 'REINTENTO_PROGRAMADO' con peso 25", ($filaR['estado'] ?? '') === 'REINTENTO_PROGRAMADO' && (int)($filaR['peso_estado'] ?? 0) === 25);
+
+// Intentar actualizar ENTREGADO a FALLIDO a través de actualizarEstadoMonotonico -> debe retornar false
+$stmtSetEnt = $pdo->prepare("UPDATE comunicacion_mensajes SET estado = 'ENTREGADO', peso_estado = 40 WHERE id = ?");
+$stmtSetEnt->execute([$msgId]);
+$cambioIlegal = $msgRepo->actualizarEstadoMonotonico($msgId, $orgId, EstadoMensaje::FALLIDO);
+registrarAsercion("actualizarEstadoMonotonico() rechaza transición ilegal ENTREGADO -> FALLIDO", $cambioIlegal === false);
+
+// ------------------------------------------------------------------------------
+// SECCIÓN 7: Aislamiento Multitenant Estricto
+// ------------------------------------------------------------------------------
+echo "\n--- SECCIÓN 7: Aislamiento Multitenant Estricto ---\n";
+$convRepo = new ComunicacionConversacionRepositorio($pdo);
+$convOrg1 = $convRepo->listarConDetalles($orgId, null, null, 100);
+$convOrgOtra = $convRepo->listarConDetalles(99998, null, null, 100);
+
+$filasOrgOtraEnOrg1 = array_filter($convOrg1, fn($c) => (int)$c['organizacion_id'] !== $orgId);
+registrarAsercion("Bandeja de conversaciones de Org {$orgId} no contiene registros de otras organizaciones", empty($filasOrgOtraEnOrg1));
+registrarAsercion("Bandeja de otra organización no retorna conversaciones de Org {$orgId}", empty($convOrgOtra));
+
+// ------------------------------------------------------------------------------
+// SECCIÓN 8: Salvaguardas de Seguridad y Modo Producción (Fail-Closed)
+// ------------------------------------------------------------------------------
+echo "\n--- SECCIÓN 8: Salvaguarda contra Activación Ilegal de Modo Producción ---\n";
+// 1. Intentar modo PRODUCCION con SIMULADOR_SANDBOX -> debe fallar con 400
+$_POST = [
+    'proveedor_codigo' => 'SIMULADOR_SANDBOX',
+    'modo'             => 'PRODUCCION',
+    'telefono'         => '+51999888777'
+];
+$resCfgInvalido = json_decode($controlador->guardarConfiguracion(), true);
+registrarAsercion("guardarConfiguracion() rechaza PRODUCCION con SIMULADOR_SANDBOX", ($resCfgInvalido['exito'] ?? false) === false);
+
+// 2. Intentar modo PRODUCCION sin flag de activación institucional -> debe fallar con 400
+$_POST = [
+    'proveedor_codigo'       => 'META_CLOUD_API',
+    'modo'                   => 'PRODUCCION',
+    'meta_phone_number_id'   => '10987654321',
+    'token_acceso'           => 'EAAGfakeToken12345',
+    'webhook_secret'         => 'secret_fake_12345',
+    'webhook_verify_token'   => 'token_verify_fake'
+];
+putenv('WHATSAPP_PRODUCCION_HABILITADA=false');
+$resCfgProdBloq = json_decode($controlador->guardarConfiguracion(), true);
+registrarAsercion("guardarConfiguracion() bloquea PRODUCCION si directiva institucional está deshabilitada", ($resCfgProdBloq['exito'] ?? false) === false);
+
+// ------------------------------------------------------------------------------
+// SECCIÓN 9: Auditoría Dual y Límites en Ejecución Manual Outbox
+// ------------------------------------------------------------------------------
+echo "\n--- SECCIÓN 9: Auditoría Dual y Límites en Despacho Outbox ---\n";
+$_POST = ['limite' => 15];
+$resOutboxManual = json_decode($controlador->procesarOutboxManual(), true);
+registrarAsercion("procesarOutboxManual() ejecuta lote con límite custom", ($resOutboxManual['exito'] ?? false) === true);
+
+// Verificar si se registró auditoría
+$stmtAudit = $pdo->prepare("
+    SELECT * FROM auditoria_operaciones 
+    WHERE modulo = 'comunicaciones' AND accion = 'EJECUTAR_OUTBOX_MANUAL' 
+    ORDER BY id DESC LIMIT 1
+");
+$stmtAudit->execute();
+$auditRow = $stmtAudit->fetch(PDO::FETCH_ASSOC);
+registrarAsercion("Ejecución manual de Outbox genera pista inmutable en 'auditoria_operaciones'", $auditRow !== false && (int)$auditRow['organizacion_id'] === $orgId);
+
+// ------------------------------------------------------------------------------
+// SECCIÓN 10: Preservación de Identidad (Orlando ID 24)
+// ------------------------------------------------------------------------------
+echo "\n--- SECCIÓN 10: Preservación de Identidad (Orlando ID 24) ---\n";
 $stmtOrl = $pdo->prepare("SELECT id, nombre_usuario, correo_electronico, contrasena_hash, intentos_fallidos, estado FROM usuarios WHERE id = 24");
 $stmtOrl->execute();
 $orlando = $stmtOrl->fetch(PDO::FETCH_ASSOC);

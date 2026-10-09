@@ -113,7 +113,7 @@ class ComunicacionMensajeRepositorio
         // 1. Obtener IDs candidatos
         $stmtCandidatos = $this->pdo->prepare("
             SELECT id FROM comunicacion_mensajes
-            WHERE estado = 'ENCOLADO'
+            WHERE estado IN ('ENCOLADO', 'REINTENTO_PROGRAMADO')
               AND proximo_intento_en <= NOW()
               AND (bloqueado_hasta IS NULL OR bloqueado_hasta < NOW())
             ORDER BY id ASC
@@ -136,7 +136,7 @@ class ComunicacionMensajeRepositorio
                 intentos_realizados = intentos_realizados + 1,
                 actualizado_en = NOW()
             WHERE id = :id 
-              AND estado = 'ENCOLADO' 
+              AND estado IN ('ENCOLADO', 'REINTENTO_PROGRAMADO') 
               AND (bloqueado_hasta IS NULL OR bloqueado_hasta < NOW())
         ");
 
@@ -226,14 +226,14 @@ class ComunicacionMensajeRepositorio
     {
         $stmt = $this->pdo->prepare("
             UPDATE comunicacion_mensajes SET
-                estado = 'ENCOLADO',
-                peso_estado = 10,
+                estado = 'REINTENTO_PROGRAMADO',
+                peso_estado = 25,
                 proximo_intento_en = DATE_ADD(NOW(), INTERVAL :segundos SECOND),
                 bloqueado_hasta = NULL,
                 actualizado_en = NOW()
             WHERE id = :id 
               AND organizacion_id = :org_id
-              AND estado IN ('EN_PROCESO', 'FALLIDO')
+              AND estado IN ('EN_PROCESO')
         ");
         $stmt->execute(['segundos' => $segundosBackoff, 'id' => $id, 'org_id' => $orgId]);
     }
@@ -249,7 +249,7 @@ class ComunicacionMensajeRepositorio
                 actualizado_en = NOW()
             WHERE id = :id 
               AND organizacion_id = :org_id
-              AND estado IN ('ENCOLADO', 'EN_PROCESO', 'ENVIADO')
+              AND estado IN ('ENCOLADO', 'EN_PROCESO', 'REINTENTO_PROGRAMADO', 'ENVIADO')
         ");
         $stmt->execute(['motivo' => substr($motivo, 0, 100), 'id' => $id, 'org_id' => $orgId]);
     }

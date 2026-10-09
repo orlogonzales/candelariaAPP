@@ -92,7 +92,7 @@
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="tab-plantillas-link" data-bs-toggle="tab" data-bs-target="#tab-plantillas" type="button" role="tab">
-            <i class="fa-solid fa-file-code me-2"></i> Plantillas Oficiales Meta
+            <i class="fa-solid fa-file-code me-2"></i> Plantillas WhatsApp (Sandbox)
         </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -213,8 +213,8 @@
         <div class="card border-0 shadow-sm b-r-12">
             <div class="card-header bg-white border-bottom p-3 d-flex align-items-center justify-content-between">
                 <div>
-                    <h5 class="mb-0 f-w-700 text-dark">Plantillas de WhatsApp Autorizadas</h5>
-                    <span class="f-s-12 text-muted">Aprobadas por Meta para inicio de conversaciones fuera de la ventana de 24 horas.</span>
+                    <h5 class="mb-0 f-w-700 text-dark">Catálogo de Plantillas de WhatsApp (Simulador Sandbox)</h5>
+                    <span class="f-s-12 text-muted">Plantillas preconfiguradas para pruebas locales y apertura de ventana de atención. En entorno de producción se sincronizan con Meta Cloud API.</span>
                 </div>
                 <?php if (!empty($permisos['gestionarPlantillas'])): ?>
                 <button type="button" class="btn btn-sm btn-primary" id="btnAbrirModalNuevaPlantilla">
@@ -230,7 +230,7 @@
                                 <th>Nombre Interno</th>
                                 <th>Idioma</th>
                                 <th>Categoría</th>
-                                <th>Estado Meta</th>
+                                <th>Estado (Simulación)</th>
                                 <th>Cuerpo del Mensaje</th>
                                 <th>Versión</th>
                                 <th class="text-end">Acciones</th>
