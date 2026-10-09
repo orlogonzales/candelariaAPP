@@ -388,6 +388,8 @@ Enrutador::post('/api/v1/operaciones/entregas/{id}/despachar', [\Aplicacion\Cont
 // GESTIÓN FINANCIERA, PAGOS Y PASARELAS (FASE 2.7D)
 // ==============================================================================
 Enrutador::get('/api/v1/pagos', [\Aplicacion\Controladores\PagoControlador::class, 'listar']);
+Enrutador::get('/api/v1/pagos/aux/ventas', [\Aplicacion\Controladores\PagoControlador::class, 'auxVentas']);
+Enrutador::get('/api/v1/pagos/aux/ediciones', [\Aplicacion\Controladores\PagoControlador::class, 'auxEdiciones']);
 Enrutador::get('/api/v1/pagos/{id}', [\Aplicacion\Controladores\PagoControlador::class, 'detalle']);
 Enrutador::post('/api/v1/pagos/manual', [\Aplicacion\Controladores\PagoControlador::class, 'registrarManual']);
 Enrutador::post('/api/v1/pagos/{id}/boucher', [\Aplicacion\Controladores\PagoControlador::class, 'subirBoucher']);

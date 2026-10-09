@@ -28,13 +28,15 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerProveedores = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'proveedores.ver');
     $puedeVerRecursos = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'recursos.ver');
     $puedeVerEntregas = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'entregas.despachar');
+    $puedeVerPagos = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'pagos.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
 $esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes', 'cotizaciones', 'ventas'], true);
 $esCatalogo = in_array($seccionActual, ['catalogo_items', 'catalogo_paquetes', 'catalogo_ofertas'], true);
 $esOperaciones = in_array($seccionActual, ['reservas', 'operaciones', 'recursos', 'entregas'], true);
-$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo && !$esOperaciones;
+$esPagos = in_array($seccionActual, ['pagos', 'pagos_cuentas', 'pagos_pasarelas'], true);
+$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo && !$esOperaciones && !$esPagos;
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
 $orgOperativa = ($contextoBarra !== null && $contextoBarra->organizacionId !== null && $contextoBarra->organizacionId > 0)
@@ -89,7 +91,7 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                 </li>
 
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-target="menuPagos" title="PAGOS Y CAJA" aria-label="Pagos y Caja" data-bs-toggle="tooltip" data-bs-placement="right">
+                    <a href="#" class="nav-link <?= $esPagos ? 'active' : '' ?>" data-target="menuPagos" title="PAGOS Y CAJA" aria-label="Pagos y Caja" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-cash-register" aria-hidden="true"></i>
                     </a>
                 </li>
@@ -292,17 +294,15 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                         </li>
                     </ul>
 
-                    <!-- Menú: Pagos -->
-                    <ul class="main-menu" id="menuPagos" style="display: none;">
-                        <li>
-                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subCaja">
-                                <i class="fa-solid fa-cash-register me-2 text-secondary"></i> Pagos y Caja
+                    <!-- Menú: Pagos (F2.7E) -->
+                    <ul class="main-menu" id="menuPagos" style="<?= $esPagos ? '' : 'display: none;' ?>">
+                        <?php if ($puedeVerPagos): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('pagos') ?>" class="<?= $seccionActual === 'pagos' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-money-bill-wave me-2 text-secondary"></i> Pagos y Cobranzas
                             </a>
-                            <ul class="collapse show" id="subCaja">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Registro de Pagos</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Pasarelas y Comisiones</a></li>
-                            </ul>
                         </li>
+                        <?php endif; ?>
                     </ul>
 
                     <!-- Menú: Postproducción -->

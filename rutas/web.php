@@ -219,3 +219,8 @@ Enrutador::get('/reservas', [\Aplicacion\Controladores\ReservaControlador::class
 Enrutador::get('/operaciones', [\Aplicacion\Controladores\OperacionControlador::class, 'index']);
 Enrutador::get('/operaciones/recursos', [\Aplicacion\Controladores\OperacionControlador::class, 'vistaRecursos']);
 Enrutador::get('/operaciones/entregas', [\Aplicacion\Controladores\OperacionControlador::class, 'vistaEntregas']);
+
+// ==============================================================================
+// GESTIÓN FINANCIERA, PAGOS Y PASARELAS (FASE 2.7E)
+// ==============================================================================
+Enrutador::get('/pagos', [\Aplicacion\Controladores\PagoControlador::class, 'index']);

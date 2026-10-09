@@ -11,7 +11,7 @@ $totalFail = 0;
 $resumen = [];
 
 echo "==============================================================================\n";
-echo "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (HISTÓRICO + F2.7D)\n";
+echo "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (HISTÓRICO + F2.7E)\n";
 echo "==============================================================================\n\n";
 
 foreach ($archivos as $archivo) {
@@ -28,7 +28,7 @@ foreach ($archivos as $archivo) {
     // Patrones comunes en las suites históricas
     if (preg_match('/(\d+)\s+(?:PRUEBAS EXITOSAS|pruebas exitosas)/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
-    } elseif (preg_match('/(?:ÉXITOS|EXITOS|Exitosos|PASS)\s*[:=]?\s*(\d+)/i', $textoSalida, $m)) {
+    } elseif (preg_match('/(?:ÉXITOS|EXITOS|Exitosos|Exitosas|PASS)\s*[:=]?\s*(\d+)/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
     }
 

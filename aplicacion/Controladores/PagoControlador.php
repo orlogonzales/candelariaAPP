@@ -34,6 +34,7 @@ use Nucleo\Excepciones\ConflictoConcurrenciaExcepcion;
 use Nucleo\Http\ContextoOperacion;
 use Nucleo\Http\Middleware\AutenticacionMiddleware;
 use Nucleo\Http\Middleware\AutorizacionMiddleware;
+use Nucleo\Http\Vista;
 use PDO;
 use Throwable;
 
@@ -109,6 +110,51 @@ class PagoControlador
     }
 
     // =========================================================================
+    // 0. VISTA WEB OFICIAL (ALINA UI - F2.7E)
+    // =========================================================================
+
+    /**
+     * GET /pagos
+     * Renderiza la interfaz administrativa oficial de Finanzas, Pagos, Cuentas Bancarias y Pasarelas.
+     */
+    public function index(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            header('Location: ' . url_base('login'));
+            exit;
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('pagos.ver', $contexto, false)) {
+            http_response_code(403);
+            return Vista::renderizar('errores/403', [
+                'titulo'        => 'Acceso Denegado | CandelariaAPP',
+                'subtitulo'     => 'Finanzas y Pagos',
+                'tituloSeccion' => 'Error 403',
+                'mensaje'       => 'No cuenta con los privilegios necesarios (pagos.ver) para consultar el libro de pagos y tesorería.'
+            ], 'principal');
+        }
+
+        $permisos = [
+            'ver'                => true,
+            'registrarManual'    => $this->authzMiddleware->verificarPermiso('pagos.registrar_manual', $contexto, false),
+            'verificar'          => $this->authzMiddleware->verificarPermiso('pagos.verificar', $contexto, false),
+            'reembolsar'         => $this->authzMiddleware->verificarPermiso('pagos.reembolsar', $contexto, false),
+            'gestionarCuentas'   => $this->authzMiddleware->verificarPermiso('cuentas_bancarias.gestionar', $contexto, false),
+            'gestionarPasarelas' => $this->authzMiddleware->verificarPermiso('pasarelas.gestionar', $contexto, false),
+        ];
+
+        return Vista::renderizar('pagos/index', [
+            'titulo'          => 'Finanzas y Pagos | CandelariaAPP',
+            'subtitulo'       => 'Libro Mayor de Cobros, Cuentas Bancarias, Conciliación y Pasarelas',
+            'tituloSeccion'   => 'Finanzas y Pagos',
+            'seccionActiva'   => 'pagos',
+            'permisos'        => $permisos,
+            'scriptAdicional' => url_base('publico/js/pagos.js')
+        ], 'principal');
+    }
+
+    // =========================================================================
     // 1. ENDPOINTS DE PAGOS Y TRANSACCIONES
     // =========================================================================
 
@@ -155,6 +201,7 @@ class PagoControlador
 
             return $this->responderJson(true, 200, 'Pagos recuperados exitosamente.', [
                 'items'         => array_map(fn(Pago $p) => $p->aArreglo(), $resultado['items']),
+                'pagos'         => array_map(fn(Pago $p) => $p->aArreglo(), $resultado['items']),
                 'total'         => $resultado['total'],
                 'pagina'        => $resultado['pagina'],
                 'por_pagina'    => $resultado['por_pagina'],
@@ -754,6 +801,76 @@ class PagoControlador
         }
 
         return $contexto->edicionTrabajoId;
+    }
+
+    // =========================================================================
+    // 6. ENDPOINTS AUXILIARES DE LOOKUP (F2.7E)
+    // =========================================================================
+
+    /**
+     * GET /api/v1/pagos/aux/ventas
+     * Lista ventas de la organización para el selector de cobro manual.
+     */
+    public function auxVentas(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, true);
+        if ($contexto === null || $contexto->organizacionId === null) {
+            return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('pagos.ver', $contexto, false) &&
+            !$this->authzMiddleware->verificarPermiso('pagos.registrar_manual', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con permisos para consultar ventas.');
+        }
+
+        try {
+            $orgId = (int) $contexto->organizacionId;
+            $edicionId = !empty($_GET['edicion_id']) ? (int) $_GET['edicion_id'] : $this->resolverEdicionContextual($contexto);
+
+            $sql = "SELECT v.id, v.correlativo, v.cliente_nombre_completo, v.moneda, v.total,
+                           v.monto_pagado, v.saldo_pendiente, v.estado, v.estado_financiero
+                    FROM ventas v
+                    WHERE v.organizacion_id = :org_id";
+            $params = ['org_id' => $orgId];
+
+            if ($edicionId !== null && $edicionId > 0) {
+                $sql .= " AND v.edicion_id = :edicion_id";
+                $params['edicion_id'] = $edicionId;
+            }
+
+            $sql .= " AND v.estado NOT IN ('CANCELADA', 'ANULADA') ORDER BY v.id DESC LIMIT 100";
+
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($params);
+            $ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->responderJson(true, 200, 'Ventas recuperadas.', $ventas);
+        } catch (Throwable $e) {
+            return $this->responderErrorSeguro($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/pagos/aux/ediciones
+     * Retorna las ediciones disponibles para filtros.
+     */
+    public function auxEdiciones(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, true);
+        if ($contexto === null || $contexto->organizacionId === null) {
+            return $this->responderJson(false, 401, 'Sesión no válida o expirada.');
+        }
+
+        try {
+            $orgId = (int) $contexto->organizacionId;
+            $stmt = $this->pdo->prepare("SELECT id, anio, nombre, estado, es_actual FROM ediciones_candelaria WHERE organizacion_id = :org_id ORDER BY anio DESC");
+            $stmt->execute(['org_id' => $orgId]);
+            $ediciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $this->responderJson(true, 200, 'Ediciones recuperadas.', $ediciones);
+        } catch (Throwable $e) {
+            return $this->responderErrorSeguro($e);
+        }
     }
 
     private function obtenerCuerpo(): array
