@@ -407,3 +407,16 @@ Enrutador::get('/api/v1/pasarelas', [\Aplicacion\Controladores\PagoControlador::
 Enrutador::put('/api/v1/pasarelas/{codigo}', [\Aplicacion\Controladores\PagoControlador::class, 'configurarPasarela']);
 
 Enrutador::post('/api/v1/webhooks/pasarelas/{codigo}', [\Aplicacion\Controladores\PagoControlador::class, 'recibirWebhook']);
+
+// ==============================================================================
+// GESTIÓN DE COMUNICACIONES Y MENSAJERÍA WHATSAPP (FASE 2.8B)
+// ==============================================================================
+Enrutador::get('/api/v1/webhooks/whatsapp', [\Aplicacion\Controladores\ComunicacionControlador::class, 'webhookChallenge']);
+Enrutador::post('/api/v1/webhooks/whatsapp', [\Aplicacion\Controladores\ComunicacionControlador::class, 'webhookPayload']);
+
+Enrutador::get('/api/v1/comunicaciones/mensajes', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarMensajes']);
+Enrutador::post('/api/v1/comunicaciones/mensajes/enviar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'enviarMensajeTransaccional']);
+Enrutador::post('/api/v1/comunicaciones/conversaciones/{id}/responder', [\Aplicacion\Controladores\ComunicacionControlador::class, 'responderConversacion']);
+Enrutador::post('/api/v1/comunicaciones/consentimientos', [\Aplicacion\Controladores\ComunicacionControlador::class, 'gestionarConsentimiento']);
+Enrutador::get('/api/v1/comunicaciones/configuracion', [\Aplicacion\Controladores\ComunicacionControlador::class, 'obtenerConfiguracion']);
+Enrutador::post('/api/v1/comunicaciones/configuracion', [\Aplicacion\Controladores\ComunicacionControlador::class, 'guardarConfiguracion']);

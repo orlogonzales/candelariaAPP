@@ -11,7 +11,7 @@ $totalFail = 0;
 $resumen = [];
 
 echo "==============================================================================\n";
-echo "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (HISTÓRICO + F2.7E)\n";
+echo "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (HISTÓRICO + F2.8B)\n";
 echo "==============================================================================\n\n";
 
 foreach ($archivos as $archivo) {
