@@ -409,14 +409,35 @@ Enrutador::put('/api/v1/pasarelas/{codigo}', [\Aplicacion\Controladores\PagoCont
 Enrutador::post('/api/v1/webhooks/pasarelas/{codigo}', [\Aplicacion\Controladores\PagoControlador::class, 'recibirWebhook']);
 
 // ==============================================================================
-// GESTIÓN DE COMUNICACIONES Y MENSAJERÍA WHATSAPP (FASE 2.8B)
+// GESTIÓN DE COMUNICACIONES Y MENSAJERÍA WHATSAPP (FASE 2.8B / F2.8C)
 // ==============================================================================
 Enrutador::get('/api/v1/webhooks/whatsapp', [\Aplicacion\Controladores\ComunicacionControlador::class, 'webhookChallenge']);
 Enrutador::post('/api/v1/webhooks/whatsapp', [\Aplicacion\Controladores\ComunicacionControlador::class, 'webhookPayload']);
 
+Enrutador::get('/api/v1/comunicaciones/kpis', [\Aplicacion\Controladores\ComunicacionControlador::class, 'obtenerKpis']);
 Enrutador::get('/api/v1/comunicaciones/mensajes', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarMensajes']);
 Enrutador::post('/api/v1/comunicaciones/mensajes/enviar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'enviarMensajeTransaccional']);
+Enrutador::get('/api/v1/comunicaciones/mensajes/{id}/intentos', [\Aplicacion\Controladores\ComunicacionControlador::class, 'obtenerIntentosMensaje']);
+
+Enrutador::get('/api/v1/comunicaciones/conversaciones', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarConversaciones']);
+Enrutador::get('/api/v1/comunicaciones/conversaciones/{id}/mensajes', [\Aplicacion\Controladores\ComunicacionControlador::class, 'obtenerMensajesConversacion']);
 Enrutador::post('/api/v1/comunicaciones/conversaciones/{id}/responder', [\Aplicacion\Controladores\ComunicacionControlador::class, 'responderConversacion']);
+Enrutador::post('/api/v1/comunicaciones/conversaciones/{id}/cerrar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'cerrarConversacion']);
+Enrutador::post('/api/v1/comunicaciones/conversaciones/{id}/asignar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'asignarOperadorConversacion']);
+
+Enrutador::get('/api/v1/comunicaciones/plantillas', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarPlantillas']);
+Enrutador::post('/api/v1/comunicaciones/plantillas', [\Aplicacion\Controladores\ComunicacionControlador::class, 'crearPlantilla']);
+
+Enrutador::get('/api/v1/comunicaciones/consentimientos', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarConsentimientos']);
 Enrutador::post('/api/v1/comunicaciones/consentimientos', [\Aplicacion\Controladores\ComunicacionControlador::class, 'gestionarConsentimiento']);
+
+Enrutador::get('/api/v1/comunicaciones/campanas', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarCampanas']);
+Enrutador::post('/api/v1/comunicaciones/campanas', [\Aplicacion\Controladores\ComunicacionControlador::class, 'crearCampana']);
+Enrutador::post('/api/v1/comunicaciones/campanas/{id}/aprobar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'aprobarCampana']);
+
 Enrutador::get('/api/v1/comunicaciones/configuracion', [\Aplicacion\Controladores\ComunicacionControlador::class, 'obtenerConfiguracion']);
 Enrutador::post('/api/v1/comunicaciones/configuracion', [\Aplicacion\Controladores\ComunicacionControlador::class, 'guardarConfiguracion']);
+
+Enrutador::post('/api/v1/comunicaciones/simulador/recibir', [\Aplicacion\Controladores\ComunicacionControlador::class, 'simularMensajeEntrante']);
+Enrutador::post('/api/v1/comunicaciones/outbox/procesar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'procesarOutboxManual']);
+

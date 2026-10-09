@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Aplicacion\Controladores;
 
+use Aplicacion\Comunicaciones\CategoriaPlantilla;
 use Aplicacion\Comunicaciones\ComunicacionServicio;
 use Aplicacion\Comunicaciones\EstadoConsentimiento;
+use Aplicacion\Comunicaciones\EstadoPlantillaMeta;
 use Aplicacion\Comunicaciones\FinalidadConsentimiento;
 use Aplicacion\Comunicaciones\ModoComunicacion;
+use Aplicacion\Comunicaciones\OutboxWorker;
 use Aplicacion\Comunicaciones\WebhookWhatsAppServicio;
+use Aplicacion\Entidades\ComunicacionPlantilla;
+use Aplicacion\Repositorios\ComunicacionCampanaRepositorio;
 use Aplicacion\Repositorios\ComunicacionConfigRepositorio;
 use Aplicacion\Repositorios\ComunicacionConsentimientoRepositorio;
 use Aplicacion\Repositorios\ComunicacionConversacionRepositorio;
@@ -20,6 +25,7 @@ use Nucleo\Excepciones\AccesoDenegadoExcepcion;
 use Nucleo\Http\ContextoOperacion;
 use Nucleo\Http\Middleware\AutenticacionMiddleware;
 use Nucleo\Http\Middleware\AutorizacionMiddleware;
+use Nucleo\Http\Vista;
 use PDO;
 use Throwable;
 
@@ -34,6 +40,7 @@ class ComunicacionControlador
     private ComunicacionConversacionRepositorio $conversacionRepo;
     private ComunicacionConsentimientoRepositorio $consentimientoRepo;
     private ComunicacionConfigRepositorio $configRepo;
+    private ComunicacionCampanaRepositorio $campanaRepo;
     private PDO $pdo;
 
     public function __construct(
@@ -52,6 +59,7 @@ class ComunicacionControlador
         $this->conversacionRepo = new ComunicacionConversacionRepositorio($this->pdo);
         $this->consentimientoRepo = new ComunicacionConsentimientoRepositorio($this->pdo);
         $this->configRepo = new ComunicacionConfigRepositorio($this->pdo);
+        $this->campanaRepo = new ComunicacionCampanaRepositorio($this->pdo);
 
         $this->comunicacionServicio = $comunicacionServicio ?? new ComunicacionServicio(
             mensajeRepo: $this->mensajeRepo,
@@ -71,6 +79,61 @@ class ComunicacionControlador
         );
     }
 
+    private function setCodigoHttp(int $codigo): void
+    {
+        if (!headers_sent()) {
+            http_response_code($codigo);
+        }
+    }
+
+    // =========================================================================
+    // 0. VISTA WEB OFICIAL (ALINA UI - F2.8C)
+    // =========================================================================
+
+    /**
+     * GET /comunicaciones
+     * Renderiza la interfaz administrativa oficial de Comunicaciones y WhatsApp.
+     */
+    public function index(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            header('Location: ' . url_base('login'));
+            exit;
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('comunicaciones.ver', $contexto, false)) {
+            if (!headers_sent()) {
+                http_response_code(403);
+            }
+            return Vista::renderizar('errores/403', [
+                'titulo'        => 'Acceso Denegado | CandelariaAPP',
+                'subtitulo'     => 'Comunicaciones y WhatsApp',
+                'tituloSeccion' => 'Error 403',
+                'mensaje'       => 'No cuenta con los privilegios necesarios (comunicaciones.ver) para consultar el módulo de mensajería.'
+            ], 'principal');
+        }
+
+        $permisos = [
+            'ver'                     => true,
+            'enviarIndividual'        => $this->authzMiddleware->verificarPermiso('comunicaciones.enviar_individual', $contexto, false),
+            'gestionarCampanas'       => $this->authzMiddleware->verificarPermiso('comunicaciones.gestionar_campanas', $contexto, false),
+            'aprobarCampanas'         => $this->authzMiddleware->verificarPermiso('comunicaciones.aprobar_campanas', $contexto, false),
+            'gestionarPlantillas'     => $this->authzMiddleware->verificarPermiso('comunicaciones.gestionar_plantillas', $contexto, false),
+            'configurarProveedor'     => $this->authzMiddleware->verificarPermiso('comunicaciones.configurar_proveedor', $contexto, false),
+            'gestionarConsentimientos' => $this->authzMiddleware->verificarPermiso('comunicaciones.gestionar_consentimientos', $contexto, false),
+        ];
+
+        return Vista::renderizar('comunicaciones/index', [
+            'titulo'          => 'Comunicaciones & WhatsApp | CandelariaAPP',
+            'subtitulo'       => 'Bandeja Multicanal, Plantillas Meta, Outbox Transaccional y Campañas Seguras',
+            'tituloSeccion'   => 'Comunicaciones & WhatsApp',
+            'seccionActiva'   => 'comunicaciones',
+            'permisos'        => $permisos,
+            'scriptAdicional' => url_base('publico/js/comunicaciones.js')
+        ], 'principal');
+    }
+
     /**
      * Handshake de verificación de Meta: GET /api/v1/webhooks/whatsapp
      */
@@ -83,11 +146,11 @@ class ComunicacionControlador
 
         $res = $this->webhookServicio->procesarChallenge($orgId, (string) $mode, (string) $token, (string) $challenge);
         if ($res !== null) {
-            http_response_code(200);
+            $this->setCodigoHttp(200);
             return $res;
         }
 
-        http_response_code(403);
+        $this->setCodigoHttp(403);
         return 'Acceso denegado: Token de verificación de webhook inválido';
     }
 
@@ -101,7 +164,7 @@ class ComunicacionControlador
 
         $rawBody = file_get_contents('php://input');
         if ($rawBody === false || $rawBody === '') {
-            http_response_code(400);
+            $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => 'Cuerpo de petición vacío']);
         }
 
@@ -109,10 +172,10 @@ class ComunicacionControlador
 
         try {
             $resultado = $this->webhookServicio->procesarPayload($orgId, $rawBody, (string) $firma);
-            http_response_code(200);
+            $this->setCodigoHttp(200);
             return json_encode($resultado);
         } catch (Throwable $e) {
-            http_response_code(401);
+            $this->setCodigoHttp(401);
             return json_encode([
                 'exito' => false,
                 'error' => $e->getMessage()
@@ -184,7 +247,7 @@ class ComunicacionControlador
         $clienteId = !empty($_POST['cliente_id']) ? (int) $_POST['cliente_id'] : null;
 
         if (empty($telefono) || empty($plantilla)) {
-            http_response_code(422);
+            $this->setCodigoHttp(422);
             return json_encode(['exito' => false, 'error' => 'Teléfono y plantilla son obligatorios']);
         }
 
@@ -202,14 +265,14 @@ class ComunicacionControlador
                 contexto: $contexto
             );
 
-            http_response_code(201);
+            $this->setCodigoHttp(201);
             return json_encode([
                 'exito'   => true,
                 'mensaje' => 'Mensaje transaccional encolado exitosamente en Outbox',
                 'datos'   => $mensaje->aArreglo()
             ], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
-            http_response_code(400);
+            $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => $e->getMessage()]);
         }
     }
@@ -226,7 +289,7 @@ class ComunicacionControlador
 
         $texto = trim((string) ($_POST['texto'] ?? ''));
         if ($texto === '') {
-            http_response_code(422);
+            $this->setCodigoHttp(422);
             return json_encode(['exito' => false, 'error' => 'El texto de la respuesta es obligatorio']);
         }
 
@@ -238,14 +301,14 @@ class ComunicacionControlador
                 contexto: $contexto
             );
 
-            http_response_code(201);
+            $this->setCodigoHttp(201);
             return json_encode([
                 'exito'   => true,
                 'mensaje' => 'Respuesta encolada en ventana de atención',
                 'datos'   => $mensaje->aArreglo()
             ], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
-            http_response_code(400);
+            $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => $e->getMessage()]);
         }
     }
@@ -258,7 +321,7 @@ class ComunicacionControlador
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');
         }
-        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+        $contexto = $this->autenticarYAutorizar('comunicaciones.gestionar_consentimientos');
 
         $clienteId = (int) ($_POST['cliente_id'] ?? 0);
         $telefono = trim((string) ($_POST['telefono'] ?? ''));
@@ -268,7 +331,7 @@ class ComunicacionControlador
         $clausula = trim((string) ($_POST['clausula'] ?? 'Aceptación expresa de comunicaciones WhatsApp'));
 
         if ($clienteId <= 0 || empty($telefono)) {
-            http_response_code(422);
+            $this->setCodigoHttp(422);
             return json_encode(['exito' => false, 'error' => 'cliente_id y telefono son obligatorios']);
         }
 
@@ -287,13 +350,13 @@ class ComunicacionControlador
                 contexto: $contexto
             );
 
-            http_response_code(201);
+            $this->setCodigoHttp(201);
             return json_encode([
                 'exito' => true,
                 'datos' => $c->aArreglo()
             ]);
         } catch (Throwable $e) {
-            http_response_code(400);
+            $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => $e->getMessage()]);
         }
     }
@@ -353,7 +416,461 @@ class ComunicacionControlador
 
             return json_encode(['exito' => true, 'datos' => $cfg->aArreglo()]);
         } catch (Throwable $e) {
-            http_response_code(400);
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/conversaciones
+     */
+    public function listarConversaciones(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $estado = !empty($_GET['estado']) ? (string) $_GET['estado'] : null;
+        $busqueda = !empty($_GET['busqueda']) ? (string) $_GET['busqueda'] : null;
+        $limite = max(1, min(100, (int) ($_GET['limite'] ?? 50)));
+
+        $conversaciones = $this->conversacionRepo->listarConDetalles($contexto->organizacionId, $estado, $busqueda, $limite);
+
+        return json_encode([
+            'exito' => true,
+            'datos' => $conversaciones
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/conversaciones/{id}/mensajes
+     */
+    public function obtenerMensajesConversacion(int $conversacionId): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $conversacion = $this->conversacionRepo->buscarPorId($conversacionId, $contexto->organizacionId);
+        if (!$conversacion) {
+            $this->setCodigoHttp(404);
+            return json_encode(['exito' => false, 'error' => 'Conversación no encontrada']);
+        }
+
+        $mensajes = $this->conversacionRepo->buscarMensajesPorConversacion($conversacionId, $contexto->organizacionId);
+
+        return json_encode([
+            'exito' => true,
+            'datos' => [
+                'conversacion' => $conversacion->aArreglo(),
+                'mensajes'     => $mensajes
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/conversaciones/{id}/cerrar
+     */
+    public function cerrarConversacion(int $conversacionId): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.enviar_individual');
+
+        $conversacion = $this->conversacionRepo->buscarPorId($conversacionId, $contexto->organizacionId);
+        if (!$conversacion) {
+            $this->setCodigoHttp(404);
+            return json_encode(['exito' => false, 'error' => 'Conversación no encontrada']);
+        }
+
+        $this->conversacionRepo->cerrar($conversacionId, $contexto->organizacionId);
+
+        return json_encode([
+            'exito'   => true,
+            'mensaje' => 'Conversación cerrada exitosamente'
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/conversaciones/{id}/asignar
+     */
+    public function asignarOperadorConversacion(int $conversacionId): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.enviar_individual');
+
+        $operadorId = isset($_POST['operador_id']) ? (int) $_POST['operador_id'] : ($contexto->usuarioId ?? 1);
+
+        $conversacion = $this->conversacionRepo->buscarPorId($conversacionId, $contexto->organizacionId);
+        if (!$conversacion) {
+            $this->setCodigoHttp(404);
+            return json_encode(['exito' => false, 'error' => 'Conversación no encontrada']);
+        }
+
+        $this->conversacionRepo->asignarOperador($conversacionId, $contexto->organizacionId, $operadorId);
+
+        return json_encode([
+            'exito'   => true,
+            'mensaje' => 'Operador asignado a la conversación'
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/plantillas
+     */
+    public function listarPlantillas(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $plantillas = $this->plantillaRepo->listar($contexto->organizacionId);
+        $datos = array_map(fn($p) => $p->aArreglo(), $plantillas);
+
+        return json_encode([
+            'exito' => true,
+            'datos' => $datos
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/plantillas
+     */
+    public function crearPlantilla(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.gestionar_plantillas');
+
+        $nombre = trim((string) ($_POST['nombre'] ?? ''));
+        $idioma = trim((string) ($_POST['idioma'] ?? 'es_PE'));
+        $categoriaStr = trim((string) ($_POST['categoria'] ?? 'UTILITY'));
+        $cuerpo = trim((string) ($_POST['cuerpo_texto'] ?? ''));
+        $encabezado = trim((string) ($_POST['encabezado_tipo'] ?? 'NINGUNO'));
+        $pie = !empty($_POST['pie_texto']) ? trim((string) $_POST['pie_texto']) : null;
+        $metaId = !empty($_POST['meta_template_id']) ? trim((string) $_POST['meta_template_id']) : null;
+        $parametros = isset($_POST['parametros']) && is_array($_POST['parametros']) ? $_POST['parametros'] : [];
+
+        if (empty($nombre) || empty($cuerpo)) {
+            $this->setCodigoHttp(422);
+            return json_encode(['exito' => false, 'error' => 'Nombre y cuerpo de plantilla son obligatorios']);
+        }
+
+        try {
+            $categoria = CategoriaPlantilla::from($categoriaStr);
+            $plantilla = new ComunicacionPlantilla(
+                id: null,
+                organizacionId: $contexto->organizacionId,
+                nombre: $nombre,
+                idioma: $idioma,
+                categoria: $categoria,
+                cuerpoTexto: $cuerpo,
+                parametrosMapeoJson: $parametros,
+                estadoMeta: EstadoPlantillaMeta::APPROVED,
+                metaTemplateId: $metaId,
+                encabezadoTipo: $encabezado,
+                pieTexto: $pie,
+                versionLocal: 1,
+                activo: true
+            );
+
+            $guardada = $this->plantillaRepo->guardar($plantilla);
+
+            return json_encode([
+                'exito'   => true,
+                'mensaje' => 'Plantilla guardada con éxito',
+                'datos'   => $guardada->aArreglo()
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/consentimientos
+     */
+    public function listarConsentimientos(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $canal = !empty($_GET['canal']) ? (string) $_GET['canal'] : null;
+        $finalidad = !empty($_GET['finalidad']) ? (string) $_GET['finalidad'] : null;
+        $estado = !empty($_GET['estado']) ? (string) $_GET['estado'] : null;
+        $limite = max(1, min(100, (int) ($_GET['limite'] ?? 100)));
+
+        $datos = $this->consentimientoRepo->listarConDetalles(
+            $contexto->organizacionId,
+            $canal,
+            $finalidad,
+            $estado,
+            $limite
+        );
+
+        return json_encode([
+            'exito' => true,
+            'datos' => $datos
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/kpis
+     */
+    public function obtenerKpis(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $kpis = $this->mensajeRepo->obtenerKpis($contexto->organizacionId);
+        $cfg = $this->configRepo->obtenerPorOrganizacion($contexto->organizacionId);
+
+        $kpis['presupuesto_mensual_limite_usd'] = $cfg?->presupuestoMensualLimiteUsd ?? 50.00;
+        $kpis['proveedor_codigo'] = $cfg?->proveedorCodigo ?? 'SIMULADOR_SANDBOX';
+        $kpis['modo'] = $cfg?->modo->value ?? 'SIMULADOR';
+        $kpis['numero_telefono'] = $cfg?->numeroTelefonoIdentificador ?? '+51999888777';
+
+        return json_encode([
+            'exito' => true,
+            'datos' => $kpis
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/mensajes/{id}/intentos
+     */
+    public function obtenerIntentosMensaje(int $mensajeId): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $mensaje = $this->mensajeRepo->buscarPorId($mensajeId, $contexto->organizacionId);
+        if (!$mensaje) {
+            $this->setCodigoHttp(404);
+            return json_encode(['exito' => false, 'error' => 'Mensaje no encontrado']);
+        }
+
+        $intentos = $this->mensajeRepo->obtenerIntentos($mensajeId);
+
+        return json_encode([
+            'exito' => true,
+            'datos' => [
+                'mensaje'  => $mensaje->aArreglo(),
+                'intentos' => $intentos
+            ]
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/simulador/recibir
+     * Simula la recepción de un mensaje entrante de un cliente en Sandbox.
+     */
+    public function simularMensajeEntrante(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.enviar_individual');
+
+        $telefono = trim((string) ($_POST['telefono'] ?? '+51999111222'));
+        $nombre = trim((string) ($_POST['nombre'] ?? 'Cliente Sandbox'));
+        $texto = trim((string) ($_POST['texto'] ?? 'Hola CandelariaAPP, consulta de prueba en sandbox.'));
+        
+        $clienteId = !empty($_POST['cliente_id']) ? (int) $_POST['cliente_id'] : null;
+        if ($clienteId === null) {
+            $stmtCli = $this->pdo->prepare("SELECT id FROM clientes WHERE organizacion_id = :org_id LIMIT 1");
+            $stmtCli->execute(['org_id' => $contexto->organizacionId]);
+            $cliIdDb = $stmtCli->fetchColumn();
+            if ($cliIdDb !== false) {
+                $clienteId = (int) $cliIdDb;
+            } else {
+                $stmtAny = $this->pdo->query("SELECT id, organizacion_id FROM clientes LIMIT 1");
+                $any = $stmtAny ? $stmtAny->fetch(PDO::FETCH_ASSOC) : null;
+                $clienteId = $any ? (int) $any['id'] : 1;
+            }
+        }
+
+        if (empty($telefono) || empty($texto)) {
+            $this->setCodigoHttp(422);
+            return json_encode(['exito' => false, 'error' => 'Teléfono y texto son obligatorios']);
+        }
+
+        try {
+            $timestamp = date('Y-m-d H:i:s');
+            // 1. Obtener o crear conversación abierta
+            $conversacion = $this->conversacionRepo->obtenerOCrear($contexto->organizacionId, $clienteId, $telefono);
+            // 2. Registrar mensaje entrante y abrir ventana 24h
+            $this->conversacionRepo->registrarMensajeEntrante($conversacion->id, $contexto->organizacionId, $timestamp);
+
+            // 3. Crear registro de mensaje entrante en historial
+            $msgEntrante = new \Aplicacion\Entidades\ComunicacionMensaje(
+                id: null,
+                organizacionId: $contexto->organizacionId,
+                tipoMensaje: \Aplicacion\Comunicaciones\TipoMensaje::ENTRANTE_CLIENTE,
+                direccion: 'ENTRANTE',
+                canal: 'WHATSAPP',
+                destinatarioTelefono: $telefono,
+                destinatarioNombre: $nombre,
+                contenidoTexto: $texto,
+                idempotencyKey: 'sim_in_' . bin2hex(random_bytes(8)),
+                correlacionId: 'corr_' . bin2hex(random_bytes(8)),
+                estado: \Aplicacion\Comunicaciones\EstadoMensaje::ENTREGADO,
+                pesoEstado: 40,
+                conversacionId: $conversacion->id,
+                clienteId: $clienteId,
+                costoCalculadoUsd: 0.0000,
+                intentosRealizados: 1
+            );
+            $guardado = $this->mensajeRepo->guardar($msgEntrante);
+
+            return json_encode([
+                'exito'   => true,
+                'mensaje' => 'Mensaje entrante simulado con éxito. Ventana de 24 horas activada.',
+                'datos'   => [
+                    'conversacion_id' => $conversacion->id,
+                    'mensaje'         => $guardado->aArreglo()
+                ]
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/outbox/procesar
+     * Ejecuta una ronda del OutboxWorker desde la UI.
+     */
+    public function procesarOutboxManual(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.configurar_proveedor');
+
+        try {
+            $worker = new OutboxWorker(
+                mensajeRepo: $this->mensajeRepo,
+                consentimientoRepo: $this->consentimientoRepo,
+                plantillaRepo: $this->plantillaRepo,
+                configRepo: $this->configRepo,
+                fabricaProveedores: new \Aplicacion\Comunicaciones\Proveedores\FabricaProveedorWhatsApp()
+            );
+
+            $resultados = $worker->procesarLote(limite: 20);
+            $procesados = count($resultados);
+
+            return json_encode([
+                'exito'      => true,
+                'mensaje'    => "Lote Outbox procesado exitosamente. {$procesados} mensaje(s) despachado(s).",
+                'procesados' => $procesados
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /api/v1/comunicaciones/campanas
+     */
+    public function listarCampanas(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $estado = !empty($_GET['estado']) ? (string) $_GET['estado'] : null;
+        $campanas = $this->campanaRepo->listar($contexto->organizacionId, $estado);
+
+        return json_encode([
+            'exito' => true,
+            'datos' => $campanas
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/campanas
+     */
+    public function crearCampana(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.gestionar_campanas');
+
+        $nombre = trim((string) ($_POST['nombre'] ?? ''));
+        $plantillaId = (int) ($_POST['plantilla_id'] ?? 0);
+        $edicionId = !empty($_POST['edicion_id']) ? (int) $_POST['edicion_id'] : null;
+        $presupuesto = isset($_POST['presupuesto_usd']) ? (float) $_POST['presupuesto_usd'] : 0.00;
+        $programadaPara = !empty($_POST['programada_para']) ? trim((string) $_POST['programada_para']) : null;
+        $criterios = isset($_POST['criterios']) && is_array($_POST['criterios']) ? $_POST['criterios'] : ['optin' => true];
+
+        if (empty($nombre) || $plantillaId <= 0) {
+            $this->setCodigoHttp(422);
+            return json_encode(['exito' => false, 'error' => 'Nombre y plantilla son requeridos para la campaña']);
+        }
+
+        try {
+            $campanaId = $this->campanaRepo->crear(
+                orgId: $contexto->organizacionId,
+                nombre: $nombre,
+                plantillaId: $plantillaId,
+                edicionId: $edicionId,
+                criterios: $criterios,
+                presupuestoUsd: $presupuesto,
+                programadaPara: $programadaPara,
+                creadorId: $contexto->usuarioId ?? 1
+            );
+
+            return json_encode([
+                'exito'   => true,
+                'mensaje' => 'Campaña registrada en estado BORRADOR. Pendiente de aprobación independiente (SoD).',
+                'datos'   => ['id' => $campanaId]
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/campanas/{id}/aprobar
+     */
+    public function aprobarCampana(int $id): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.aprobar_campanas');
+
+        try {
+            $ok = $this->campanaRepo->aprobar($id, $contexto->organizacionId, $contexto->usuarioId ?? 2);
+            if (!$ok) {
+                $this->setCodigoHttp(400);
+                return json_encode(['exito' => false, 'error' => 'No se pudo aprobar la campaña']);
+            }
+
+            return json_encode([
+                'exito'   => true,
+                'mensaje' => "Campaña #{$id} aprobada formalmente bajo cumplimiento SoD."
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => $e->getMessage()]);
         }
     }
@@ -362,17 +879,13 @@ class ComunicacionControlador
     {
         $contexto = $this->authMiddleware->procesar();
         if ($contexto === null) {
-            http_response_code(401);
-            echo json_encode(['exito' => false, 'error' => 'Sesión no autenticada']);
-            exit;
+            if (!headers_sent()) {
+                $this->setCodigoHttp(401);
+            }
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion('Sesión no autenticada');
         }
 
-        $autorizado = $this->authzMiddleware->verificarPermiso($permiso, $contexto, false);
-        if (!$autorizado) {
-            http_response_code(403);
-            echo json_encode(['exito' => false, 'error' => "Permiso denegado: se requiere '{$permiso}'"]);
-            exit;
-        }
+        $this->authzMiddleware->verificarPermiso($permiso, $contexto, true);
 
         return $contexto;
     }

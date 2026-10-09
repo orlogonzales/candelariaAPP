@@ -79,6 +79,21 @@ class OutboxWorker
         }
 
         // Fase 3: Despacho a través del adaptador correspondiente (fuera de transacción BD)
+        // Regla Fail-Closed: en PRODUCCION jamás se permite operar con simulador ni fallback silencioso
+        if ($config->modo === ModoComunicacion::PRODUCCION && $config->proveedorCodigo === 'SIMULADOR_SANDBOX') {
+            $this->mensajeRepo->registrarIntento(
+                mensajeId: $msg->id,
+                intentoNumero: $msg->intentosRealizados,
+                httpStatus: 400,
+                errorCode: 4001,
+                errorSubcode: 0,
+                errorMessage: 'Configuración ilegal: Organización en modo PRODUCCION no puede despachar con SIMULADOR_SANDBOX (Fail-Closed)',
+                latenciaMs: 0
+            );
+            $this->mensajeRepo->marcarFallido($msg->id, $orgId, 'Fallo de configuración: modo PRODUCCION exige proveedor productivo configurado');
+            return false;
+        }
+
         $adaptador = $this->fabricaProveedores->obtenerPorCodigo($config->proveedorCodigo);
         $secretos = $this->configRepo->descifrarSecretos($config);
         $configTenant = array_merge($config->aArreglo(), $secretos);

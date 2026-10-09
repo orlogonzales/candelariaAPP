@@ -224,3 +224,9 @@ Enrutador::get('/operaciones/entregas', [\Aplicacion\Controladores\OperacionCont
 // GESTIÓN FINANCIERA, PAGOS Y PASARELAS (FASE 2.7E)
 // ==============================================================================
 Enrutador::get('/pagos', [\Aplicacion\Controladores\PagoControlador::class, 'index']);
+
+// ==============================================================================
+// GESTIÓN DE COMUNICACIONES Y WHATSAPP (FASE 2.8C)
+// ==============================================================================
+Enrutador::get('/comunicaciones', [\Aplicacion\Controladores\ComunicacionControlador::class, 'index']);
+

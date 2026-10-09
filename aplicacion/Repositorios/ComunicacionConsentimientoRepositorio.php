@@ -82,4 +82,58 @@ class ComunicacionConsentimientoRepositorio
 
         return EstadoConsentimiento::from((string) $estadoStr);
     }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarConDetalles(
+        int $orgId,
+        ?string $canal = null,
+        ?string $finalidad = null,
+        ?string $estado = null,
+        int $limite = 100
+    ): array {
+        $sql = "
+            SELECT cc.*,
+                   COALESCE(
+                       NULLIF(TRIM(CONCAT(p.nombres, ' ', COALESCE(p.apellidos, ''))), ''),
+                       p.razon_social,
+                       CONCAT('Cliente #', cc.cliente_id)
+                   ) AS cliente_nombre,
+                   p.numero_documento AS cliente_documento,
+                   u.nombre_completo AS usuario_nombre
+            FROM comunicacion_consentimientos_canal cc
+            LEFT JOIN clientes cl ON cl.id = cc.cliente_id AND cl.organizacion_id = cc.organizacion_id
+            LEFT JOIN personas p ON p.id = cl.persona_id
+            LEFT JOIN usuarios u ON u.id = cc.usuario_id
+            WHERE cc.organizacion_id = :org_id
+        ";
+        $params = ['org_id' => $orgId];
+
+        if (!empty($canal)) {
+            $sql .= " AND cc.canal = :canal";
+            $params['canal'] = strtoupper($canal);
+        }
+
+        if (!empty($finalidad)) {
+            $sql .= " AND cc.finalidad = :finalidad";
+            $params['finalidad'] = $finalidad;
+        }
+
+        if (!empty($estado)) {
+            $sql .= " AND cc.estado = :estado";
+            $params['estado'] = $estado;
+        }
+
+        $sql .= " ORDER BY cc.id DESC LIMIT :limite";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

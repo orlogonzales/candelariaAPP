@@ -638,6 +638,351 @@ try {
         "Endpoint GET /api/v1/comunicaciones/configuracion retorna configuración segura de la organización"
     );
 
+    // ==============================================================================
+    // SECCIÓN 10.5: HARDENING CONTRACTUAL F2.8B-1 (SEGURIDAD, CONCURRENCIA, ERRORES)
+    // ==============================================================================
+    echo "\n--- SECCIÓN 10.5: Hardening Contractual F2.8B-1 (Seguridad, Concurrencia, Errores) ---\n";
+
+    // Sembrar organizaciones y clientes fixtures para pruebas de aislamiento multitenant y límites
+    $pdo->exec("
+        INSERT INTO organizaciones (id, codigo, razon_social, nombre_comercial, numero_documento, estado)
+        VALUES 
+        (20000, 'tenant_ajeno_28b', 'Tenant Ajeno SAC', 'Tenant Ajeno', '20999888773', 'ACTIVO'),
+        (17000, 'tenant_tope_28b', 'Tenant Tope SAC', 'Tenant Tope', '20999888774', 'ACTIVO'),
+        (18000, 'tenant_prod_28b', 'Tenant Prod SAC', 'Tenant Prod', '20999888775', 'ACTIVO')
+        ON DUPLICATE KEY UPDATE estado = 'ACTIVO'
+    ");
+    $pdo->exec("
+        INSERT INTO personas (id, organizacion_id, tipo_persona, tipo_documento_id, numero_documento, nombres, apellidos, correo_electronico)
+        VALUES 
+        (9870, 18000, 'NATURAL', 1, '98700001', 'Cliente', 'Prod', 'prod@test.pe'),
+        (9871, 17000, 'NATURAL', 1, '98710001', 'Cliente', 'Tope', 'tope@test.pe'),
+        (9872, 20000, 'NATURAL', 1, '98720001', 'Cliente', 'Ajeno', 'ajeno@test.pe')
+        ON DUPLICATE KEY UPDATE nombres = VALUES(nombres)
+    ");
+    $pdo->exec("
+        INSERT INTO clientes (id, organizacion_id, persona_id, estado_comercial)
+        VALUES 
+        (9870, 18000, 9870, 'CLIENTE'),
+        (9871, 17000, 9871, 'CLIENTE'),
+        (9872, 20000, 9872, 'CLIENTE')
+        ON DUPLICATE KEY UPDATE estado_comercial = 'CLIENTE'
+    ");
+
+    // 1. Webhook con firma HMAC-SHA256 manipulada / inválida
+    $firmaInvalidaRechazada = false;
+    try {
+        $webhookServicio->procesarPayload(
+            $orgId,
+            '{"entry":[{"changes":[{"value":{"statuses":[]}}]}]}',
+            'sha256=firma_falsificada_deadbeef1234567890'
+        );
+    } catch (RuntimeException $e) {
+        $firmaInvalidaRechazada = str_contains($e->getMessage(), 'HMAC-SHA256 no coincide');
+    }
+    assertPrueba($firmaInvalidaRechazada, "Webhook con firma HMAC inválida es rechazado inmediatamente con excepción");
+
+    // 2. Replay de webhook cross-tenant (aislamiento multitenant)
+    $payloadCross = json_encode([
+        'entry' => [[
+            'id' => 'cross_tenant_acc',
+            'changes' => [[
+                'value' => [
+                    'messaging_product' => 'whatsapp',
+                    'metadata' => ['display_phone_number' => '+51999888777', 'phone_number_id' => '100200300'],
+                    'statuses' => [[
+                        'id' => 'wamid.simulado_cross_tenant_99',
+                        'status' => 'delivered',
+                        'timestamp' => (string) time(),
+                        'recipient_id' => '51999112233'
+                    ]]
+                ],
+                'field' => 'messages'
+            ]]
+        ]]
+    ]);
+    // Configurar tenant ajeno en base de datos
+    $orgIdAjena = 20000;
+    $configRepo->guardar(
+        orgId: $orgIdAjena,
+        proveedorCodigo: 'SIMULADOR_SANDBOX',
+        modo: ModoComunicacion::SIMULADOR,
+        numeroTelefonoIdentificador: '+51999000111',
+        webhookVerifyToken: 'token_ajeno',
+        metaPhoneNumberId: '999888111',
+        metaWabaId: 'WABA_AJENA',
+        metaAppId: 'APP_AJENA',
+        tokenAccesoPlano: 'token_ajeno_secret',
+        webhookSecretPlano: 'webhook_secret_ajeno',
+        presupuestoMensualLimite: 100.00
+    );
+
+    $firmaAjena = 'sha256=' . hash_hmac('sha256', $payloadCross, 'webhook_secret_ajeno');
+    $resCross = $webhookServicio->procesarPayload($orgIdAjena, $payloadCross, $firmaAjena);
+    assertPrueba(
+        $resCross['exito'] && $resCross['eventos_procesados'] === 1,
+        "Evento cross-tenant se procesa con su propio secret y preserva aislamiento multitenant"
+    );
+
+    // 3. Máquina de estados: Intento de degradación de LEIDO a FALLIDO es bloqueado
+    $msgLeido = $mensajeRepo->buscarPorId($msgEncolado->id, $orgId);
+    assertPrueba($msgLeido->estado === EstadoMensaje::LEIDO, "Mensaje de prueba se encuentra en estado terminal exitoso LEIDO");
+    
+    $cambioIlegal1 = $mensajeRepo->actualizarEstadoMonotonico($msgEncolado->id, $orgId, EstadoMensaje::FALLIDO, 'wamid.tardio', 0.00);
+    assertPrueba(!$cambioIlegal1, "Máquina de estados impide actualizar mensaje LEIDO a FALLIDO via actualizarEstadoMonotonico");
+    
+    $msgRepoMarcarFallido = $mensajeRepo->marcarFallido($msgEncolado->id, $orgId, 'Error tardío de proveedor');
+    $msgLeidoPost = $mensajeRepo->buscarPorId($msgEncolado->id, $orgId);
+    assertPrueba($msgLeidoPost->estado === EstadoMensaje::LEIDO, "marcarFallido respeta máquina de estados y preserva mensaje en LEIDO");
+
+    // Re-habilitar consentimiento transaccional para siguientes pruebas en orgId
+    $comServicio->gestionarConsentimiento(
+        orgId: $orgId,
+        clienteId: $clienteIdTest,
+        telefonoDestino: '+51999112233',
+        finalidad: FinalidadConsentimiento::TRANSACCIONAL_OPERATIVO,
+        estado: EstadoConsentimiento::CONCEDIDO,
+        origenEvidencia: 'PANEL_REHABILITADO',
+        textoClausula: 'Rehabilitacion operativa para pruebas'
+    );
+
+    // 4. Máquina de estados: Intento de degradación de ENTREGADO a FALLIDO es bloqueado
+    $msgEntregado = $comServicio->encolarMensajeTransaccional(
+        orgId: $orgId,
+        telefonoDestino: '+51999112233',
+        nombreDestinatario: 'Cliente Entregado Test',
+        nombrePlantilla: 'confirmacion_reserva_candelaria',
+        idioma: 'es_PE',
+        parametros: ['Orlando', 'RES-ENTR-01'],
+        eventoOrigen: 'TEST_ENTREGADO',
+        entidadOrigenId: '301',
+        clienteId: $clienteIdTest,
+        contexto: $ctxOp
+    );
+    $worker->procesarLote(1);
+    $mensajeRepo->actualizarEstadoMonotonico($msgEntregado->id, $orgId, EstadoMensaje::ENTREGADO);
+    $msgEntregadoVerif = $mensajeRepo->buscarPorId($msgEntregado->id, $orgId);
+    assertPrueba($msgEntregadoVerif->estado === EstadoMensaje::ENTREGADO, "Mensaje posicionado en estado ENTREGADO");
+
+    $cambioIlegal2 = $mensajeRepo->actualizarEstadoMonotonico($msgEntregado->id, $orgId, EstadoMensaje::FALLIDO);
+    assertPrueba(!$cambioIlegal2, "Máquina de estados impide actualizar mensaje ENTREGADO a FALLIDO");
+    $mensajeRepo->marcarFallido($msgEntregado->id, $orgId, 'Fallo tardio');
+    $msgEntregadoPost = $mensajeRepo->buscarPorId($msgEntregado->id, $orgId);
+    assertPrueba($msgEntregadoPost->estado === EstadoMensaje::ENTREGADO, "Mensaje ENTREGADO es inmutable ante fallos tardíos");
+
+    // 5. Worker Outbox: Recuperación de mensajes huérfanos con locks expirados
+    $msgHuerfano = $comServicio->encolarMensajeTransaccional(
+        orgId: $orgId,
+        telefonoDestino: '+51999112233',
+        nombreDestinatario: 'Cliente Huerfano Test',
+        nombrePlantilla: 'confirmacion_reserva_candelaria',
+        idioma: 'es_PE',
+        parametros: ['Orlando', 'RES-HUERF-01'],
+        eventoOrigen: 'TEST_HUERFANO',
+        entidadOrigenId: '302',
+        clienteId: $clienteIdTest,
+        contexto: $ctxOp
+    );
+    // Simular que quedó bloqueado hace 10 minutos en EN_PROCESO
+    $stmtLockOld = $pdo->prepare("
+        UPDATE comunicacion_mensajes 
+        SET estado = 'EN_PROCESO', peso_estado = 20, bloqueado_hasta = DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+        WHERE id = :id AND organizacion_id = :org_id
+    ");
+    $stmtLockOld->execute(['id' => $msgHuerfano->id, 'org_id' => $orgId]);
+
+    $recuperados = $worker->recuperarHuerfanos();
+    assertPrueba($recuperados >= 1, "Worker recuperó exitosamente bloqueo huérfano expirado");
+    $msgRecuperado = $mensajeRepo->buscarPorId($msgHuerfano->id, $orgId);
+    assertPrueba(
+        $msgRecuperado->estado === EstadoMensaje::ENCOLADO && $msgRecuperado->bloqueadoHasta === null,
+        "Mensaje huérfano liberado y restaurado a estado ENCOLADO con lock atómico limpio"
+    );
+
+    // 6. Control concurrente de presupuesto mensual (Fail-Closed)
+    $orgIdTope = 17000;
+    $configRepo->guardar(
+        orgId: $orgIdTope,
+        proveedorCodigo: 'SIMULADOR_SANDBOX',
+        modo: ModoComunicacion::SIMULADOR,
+        numeroTelefonoIdentificador: '+51999555444',
+        webhookVerifyToken: 'token_tope',
+        metaPhoneNumberId: '999888222',
+        metaWabaId: 'WABA_TOPE',
+        metaAppId: 'APP_TOPE',
+        tokenAccesoPlano: 'token_tope_sec',
+        webhookSecretPlano: 'wh_tope_sec',
+        presupuestoMensualLimite: 0.05
+    );
+    $configRepo->incrementarGasto($orgIdTope, 0.05);
+
+    $plantillaRepo->guardar(new ComunicacionPlantilla(
+        id: null,
+        organizacionId: $orgIdTope,
+        nombre: 'confirmacion_reserva_candelaria',
+        idioma: 'es_PE',
+        categoria: CategoriaPlantilla::UTILITY,
+        cuerpoTexto: 'Hola {{1}}, reserva {{2}}.',
+        parametrosMapeoJson: ['1', '2'],
+        estadoMeta: EstadoPlantillaMeta::APPROVED,
+        metaTemplateId: 'meta_tope_11'
+    ));
+
+    $consentimientoRepo->guardar(new \Aplicacion\Entidades\ComunicacionConsentimiento(
+        id: null,
+        organizacionId: $orgIdTope,
+        clienteId: 9871,
+        canal: 'WHATSAPP',
+        telefonoDestino: '+51999555444',
+        finalidad: FinalidadConsentimiento::TRANSACCIONAL_OPERATIVO,
+        estado: EstadoConsentimiento::CONCEDIDO,
+        origenEvidencia: 'TEST',
+        textoClausulaAceptada: 'Clausula Tope',
+        direccionIpRegistro: '127.0.0.1',
+        actorTipo: 'HUMANO',
+        usuarioId: 9861,
+        correlacionId: 'corr-tope-01'
+    ));
+
+    $presupuestoBloqueado = false;
+    try {
+        $comServicio->encolarMensajeTransaccional(
+            orgId: $orgIdTope,
+            telefonoDestino: '+51999555444',
+            nombreDestinatario: 'Cliente Tope Test',
+            nombrePlantilla: 'confirmacion_reserva_candelaria',
+            idioma: 'es_PE',
+            parametros: ['Tope', 'RES-TOPE-01'],
+            eventoOrigen: 'TEST_TOPE',
+            entidadOrigenId: '303',
+            clienteId: 9871,
+            contexto: $ctxOp
+        );
+    } catch (RuntimeException $e) {
+        $presupuestoBloqueado = str_contains($e->getMessage(), 'presupuesto mensual') || str_contains($e->getMessage(), 'superado');
+    }
+    assertPrueba($presupuestoBloqueado, "Encolado de mensaje es bloqueado de inmediato ante presupuesto mensual excedido");
+
+    // 7. Fail-Closed en modo PRODUCCIÓN: Prohibido operar con SIMULADOR_SANDBOX
+    $orgIdProd = 18000;
+    $configRepo->guardar(
+        orgId: $orgIdProd,
+        proveedorCodigo: 'SIMULADOR_SANDBOX',
+        modo: ModoComunicacion::PRODUCCION, // Inconsistencia deliberada
+        numeroTelefonoIdentificador: '+51999333222',
+        webhookVerifyToken: 'token_prod',
+        metaPhoneNumberId: '999888333',
+        metaWabaId: 'WABA_PROD',
+        metaAppId: 'APP_PROD',
+        tokenAccesoPlano: 'token_prod_sec',
+        webhookSecretPlano: 'wh_prod_sec',
+        presupuestoMensualLimite: 100.00
+    );
+
+    $plantillaRepo->guardar(new ComunicacionPlantilla(
+        id: null,
+        organizacionId: $orgIdProd,
+        nombre: 'confirmacion_reserva_candelaria',
+        idioma: 'es_PE',
+        categoria: CategoriaPlantilla::UTILITY,
+        cuerpoTexto: 'Hola {{1}}, reserva {{2}}.',
+        parametrosMapeoJson: ['1', '2'],
+        estadoMeta: EstadoPlantillaMeta::APPROVED,
+        metaTemplateId: 'meta_prod_11'
+    ));
+
+    // Consentimiento para tenant prod
+    $consentimientoRepo->guardar(new \Aplicacion\Entidades\ComunicacionConsentimiento(
+        id: null,
+        organizacionId: $orgIdProd,
+        clienteId: 9870,
+        canal: 'WHATSAPP',
+        telefonoDestino: '+51999333222',
+        finalidad: FinalidadConsentimiento::TRANSACCIONAL_OPERATIVO,
+        estado: EstadoConsentimiento::CONCEDIDO,
+        origenEvidencia: 'TEST',
+        textoClausulaAceptada: 'Clausula Prod',
+        direccionIpRegistro: '127.0.0.1',
+        actorTipo: 'HUMANO',
+        usuarioId: 9861,
+        correlacionId: 'corr-prod-01'
+    ));
+
+    $msgProd = $comServicio->encolarMensajeTransaccional(
+        orgId: $orgIdProd,
+        telefonoDestino: '+51999333222',
+        nombreDestinatario: 'Cliente Prod Test',
+        nombrePlantilla: 'confirmacion_reserva_candelaria',
+        idioma: 'es_PE',
+        parametros: ['Prod', 'RES-PROD-01'],
+        eventoOrigen: 'TEST_PROD',
+        entidadOrigenId: '304',
+        clienteId: 9870,
+        contexto: $ctxOp
+    );
+
+    $despachoProd = $worker->procesarLote(10);
+    assertPrueba(isset($despachoProd[$msgProd->id]) && $despachoProd[$msgProd->id] === false, "Worker rechaza despacho si modo PRODUCCION intenta usar SIMULADOR_SANDBOX (Fail-Closed)");
+    $msgProdPost = $mensajeRepo->buscarPorId($msgProd->id, $orgIdProd);
+    assertPrueba($msgProdPost->estado === EstadoMensaje::FALLIDO, "Mensaje marcado como FALLIDO y sin simulación ficticia");
+
+    // 8. RBAC de Consentimientos: Denegación de escritura a quien solo tiene permiso de lectura
+    $authzSoloLectura = new class extends AutorizacionMiddleware {
+        public function verificarPermiso(string $permiso, ?ContextoOperacion $contexto = null, bool $lanzarExcepcion = true): bool {
+            if ($permiso === 'comunicaciones.ver') {
+                return true;
+            }
+            if ($lanzarExcepcion) {
+                throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Permiso denegado: se requiere {$permiso}");
+            }
+            return false;
+        }
+    };
+
+    $controladorSoloLectura = new ComunicacionControlador(
+        authMiddleware: $authMock,
+        authzMiddleware: $authzSoloLectura,
+        comunicacionServicio: $comServicio,
+        webhookServicio: $webhookServicio,
+        pdo: $pdo
+    );
+
+    $_POST['cliente_id'] = $clienteIdTest;
+    $_POST['telefono'] = '+51999112233';
+    $_POST['finalidad'] = 'PROMOCIONAL_MARKETING';
+    $_POST['estado'] = 'CONCEDIDO';
+    $_POST['origen'] = 'PANEL_ADMIN';
+
+    $permisoLecturaBloqueado = false;
+    try {
+        $controladorSoloLectura->gestionarConsentimiento();
+    } catch (\Aplicacion\Excepciones\AccesoDenegadoExcepcion $e) {
+        $permisoLecturaBloqueado = str_contains($e->getMessage(), 'comunicaciones.gestionar_consentimientos');
+    }
+    assertPrueba($permisoLecturaBloqueado, "POST /api/v1/comunicaciones/consentimientos deniega acceso a usuarios con solo permiso de lectura");
+
+    // 9. RBAC de Consentimientos: Éxito con permiso de escritura comunicaciones.gestionar_consentimientos
+    $authzEscritura = new class extends AutorizacionMiddleware {
+        public function verificarPermiso(string $permiso, ?ContextoOperacion $contexto = null, bool $lanzarExcepcion = true): bool {
+            return $permiso === 'comunicaciones.gestionar_consentimientos' || $permiso === 'comunicaciones.ver';
+        }
+    };
+
+    $controladorEscritura = new ComunicacionControlador(
+        authMiddleware: $authMock,
+        authzMiddleware: $authzEscritura,
+        comunicacionServicio: $comServicio,
+        webhookServicio: $webhookServicio,
+        pdo: $pdo
+    );
+
+    $jsonConsent = $controladorEscritura->gestionarConsentimiento();
+    $resConsent = json_decode($jsonConsent, true);
+    assertPrueba(
+        $resConsent['exito'] && $resConsent['datos']['estado'] === 'CONCEDIDO',
+        "Operador con permiso 'comunicaciones.gestionar_consentimientos' registra opt-in con trazabilidad legal"
+    );
+
 } finally {
     // Reversión de la transacción para dejar la base de datos limpia
     $pdo->rollBack();

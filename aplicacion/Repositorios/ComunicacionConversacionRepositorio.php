@@ -107,6 +107,86 @@ class ComunicacionConversacionRepositorio
         $stmt->execute(['id' => $conversacionId, 'org_id' => $orgId]);
     }
 
+    public function asignarOperador(int $conversacionId, int $orgId, int $operadorUsuarioId): void
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE comunicacion_conversaciones SET
+                operador_usuario_id = :operador_id,
+                estado = CASE WHEN estado = 'ABIERTA' THEN 'EN_ATENCION' ELSE estado END,
+                actualizado_en = NOW()
+            WHERE id = :id AND organizacion_id = :org_id
+        ");
+        $stmt->execute([
+            'operador_id' => $operadorUsuarioId,
+            'id'          => $conversacionId,
+            'org_id'      => $orgId
+        ]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarConDetalles(int $orgId, ?string $estado = null, ?string $busqueda = null, int $limite = 50): array
+    {
+        $sql = "
+            SELECT c.*,
+                   COALESCE(
+                       NULLIF(TRIM(CONCAT(p.nombres, ' ', COALESCE(p.apellidos, ''))), ''),
+                       p.razon_social,
+                       c.telefono_cliente
+                   ) AS cliente_nombre,
+                   p.numero_documento AS cliente_documento,
+                   u.nombre_completo AS operador_nombre
+            FROM comunicacion_conversaciones c
+            LEFT JOIN clientes cl ON cl.id = c.cliente_id AND cl.organizacion_id = c.organizacion_id
+            LEFT JOIN personas p ON p.id = cl.persona_id
+            LEFT JOIN usuarios u ON u.id = c.operador_usuario_id
+            WHERE c.organizacion_id = :org_id
+        ";
+        $params = ['org_id' => $orgId];
+
+        if (!empty($estado)) {
+            $sql .= " AND c.estado = :estado";
+            $params['estado'] = $estado;
+        }
+
+        if (!empty($busqueda)) {
+            $sql .= " AND (c.telefono_cliente LIKE :busq OR p.nombres LIKE :busq OR p.apellidos LIKE :busq OR p.razon_social LIKE :busq)";
+            $params['busq'] = '%' . $busqueda . '%';
+        }
+
+        $sql .= " ORDER BY COALESCE(c.ultimo_mensaje_cliente_en, c.creado_en) DESC LIMIT :limite";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function buscarMensajesPorConversacion(int $conversacionId, int $orgId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT m.*, p.nombre AS plantilla_nombre
+            FROM comunicacion_mensajes m
+            LEFT JOIN comunicacion_plantillas p ON p.id = m.plantilla_id
+            WHERE m.conversacion_id = :conv_id AND m.organizacion_id = :org_id
+            ORDER BY m.id ASC
+        ");
+        $stmt->execute([
+            'conv_id' => $conversacionId,
+            'org_id'  => $orgId
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     private function hidratar(array $f): ComunicacionConversacion
     {
         return new ComunicacionConversacion(

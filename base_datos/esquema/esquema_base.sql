@@ -2094,12 +2094,13 @@ INSERT INTO `permisos` (`id`, `modulo_id`, `codigo`, `nombre`, `descripcion`) VA
     (80, 12, 'comunicaciones.gestionar_campanas', 'Crear y Segmentar Campañas', 'Creación y configuración de campañas promocionales para clientes con opt-in'),
     (81, 12, 'comunicaciones.aprobar_campanas', 'Aprobar Campañas Masivas', 'Autorización formal y liberación de presupuesto para ejecución de campañas'),
     (82, 12, 'comunicaciones.gestionar_plantillas', 'Gestionar Plantillas de WhatsApp', 'Creación y versionado de plantillas oficiales asociadas a Meta'),
-    (83, 12, 'comunicaciones.configurar_proveedor', 'Configurar Proveedor WhatsApp', 'Administración de credenciales de Meta, webhooks, presupuestos y modo')
+    (83, 12, 'comunicaciones.configurar_proveedor', 'Configurar Proveedor WhatsApp', 'Administración de credenciales de Meta, webhooks, presupuestos y modo'),
+    (84, 12, 'comunicaciones.gestionar_consentimientos', 'Gestionar Consentimientos de Canal', 'Registro formal, evidencia legal y revocación de opt-in/opt-out por canal')
 ON DUPLICATE KEY UPDATE `codigo` = VALUES(`codigo`), `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
 
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`) VALUES
-    (1, 78), (1, 79), (1, 80), (1, 81), (1, 82), (1, 83),
-    (2, 78), (2, 79), (2, 80), (2, 81), (2, 82), (2, 83),
+    (1, 78), (1, 79), (1, 80), (1, 81), (1, 82), (1, 83), (1, 84),
+    (2, 78), (2, 79), (2, 80), (2, 81), (2, 82), (2, 83), (2, 84),
     (3, 78), (3, 79);
 
 INSERT INTO `migraciones_control` (`migracion`, `lote`)

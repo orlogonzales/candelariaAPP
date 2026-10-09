@@ -166,7 +166,9 @@ class ComunicacionMensajeRepositorio
                 costo_calculado_usd = GREATEST(costo_calculado_usd, :costo),
                 bloqueado_hasta = NULL,
                 actualizado_en = NOW()
-            WHERE id = :id AND organizacion_id = :org_id
+            WHERE id = :id 
+              AND organizacion_id = :org_id 
+              AND estado IN ('ENCOLADO', 'EN_PROCESO')
         ");
         $stmt->execute([
             'wamid'  => $wamid,
@@ -177,8 +179,9 @@ class ComunicacionMensajeRepositorio
     }
 
     /**
-     * Transición monotónica garantizada:
-     * El estado solo avanza si el peso del nuevo estado es estrictamente superior al actual.
+     * Transición de máquina de estados estricta y segura:
+     * El estado solo avanza si el estado actual es un origen contractualmente permitido.
+     * Un mensaje ENTREGADO o LEIDO jamás puede ser revertido a FALLIDO ni degradado.
      */
     public function actualizarEstadoMonotonico(
         int $id,
@@ -187,29 +190,34 @@ class ComunicacionMensajeRepositorio
         ?string $wamid = null,
         float $costoCalculado = 0.00
     ): bool {
+        $estadosOrigen = EstadoMensaje::estadosOrigenValidosPara($nuevoEstado);
+        if (empty($estadosOrigen)) {
+            return false;
+        }
+
+        $inPlaceholders = implode(',', array_fill(0, count($estadosOrigen), '?'));
         $nuevoPeso = $nuevoEstado->peso();
-        $stmt = $this->pdo->prepare("
+
+        $sql = "
             UPDATE comunicacion_mensajes SET
-                estado = :nuevo_est,
-                peso_estado = :nuevo_peso,
-                wamid = COALESCE(:wamid, wamid),
-                costo_calculado_usd = GREATEST(costo_calculado_usd, :costo),
+                estado = ?,
+                peso_estado = ?,
+                wamid = COALESCE(?, wamid),
+                costo_calculado_usd = GREATEST(costo_calculado_usd, ?),
                 bloqueado_hasta = NULL,
                 actualizado_en = NOW()
-            WHERE id = :id 
-              AND organizacion_id = :org_id 
-              AND peso_estado < :nuevo_peso_cond
-        ");
+            WHERE id = ? 
+              AND organizacion_id = ? 
+              AND estado IN ({$inPlaceholders})
+        ";
 
-        $stmt->execute([
-            'nuevo_est'        => $nuevoEstado->value,
-            'nuevo_peso'       => $nuevoPeso,
-            'wamid'            => $wamid,
-            'costo'            => $costoCalculado,
-            'id'               => $id,
-            'org_id'           => $orgId,
-            'nuevo_peso_cond'  => $nuevoPeso
-        ]);
+        $params = array_merge(
+            [$nuevoEstado->value, $nuevoPeso, $wamid, $costoCalculado, $id, $orgId],
+            $estadosOrigen
+        );
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
 
         return $stmt->rowCount() > 0;
     }
@@ -223,7 +231,9 @@ class ComunicacionMensajeRepositorio
                 proximo_intento_en = DATE_ADD(NOW(), INTERVAL :segundos SECOND),
                 bloqueado_hasta = NULL,
                 actualizado_en = NOW()
-            WHERE id = :id AND organizacion_id = :org_id
+            WHERE id = :id 
+              AND organizacion_id = :org_id
+              AND estado IN ('EN_PROCESO', 'FALLIDO')
         ");
         $stmt->execute(['segundos' => $segundosBackoff, 'id' => $id, 'org_id' => $orgId]);
     }
@@ -237,7 +247,9 @@ class ComunicacionMensajeRepositorio
                 contenido_texto = CONCAT('[FALLIDO: ', :motivo, '] ', contenido_texto),
                 bloqueado_hasta = NULL,
                 actualizado_en = NOW()
-            WHERE id = :id AND organizacion_id = :org_id
+            WHERE id = :id 
+              AND organizacion_id = :org_id
+              AND estado IN ('ENCOLADO', 'EN_PROCESO', 'ENVIADO')
         ");
         $stmt->execute(['motivo' => substr($motivo, 0, 100), 'id' => $id, 'org_id' => $orgId]);
     }
@@ -251,7 +263,9 @@ class ComunicacionMensajeRepositorio
                 contenido_texto = CONCAT('[CANCELADO: ', :motivo, '] ', contenido_texto),
                 bloqueado_hasta = NULL,
                 actualizado_en = NOW()
-            WHERE id = :id AND organizacion_id = :org_id
+            WHERE id = :id 
+              AND organizacion_id = :org_id
+              AND estado IN ('ENCOLADO', 'EN_PROCESO')
         ");
         $stmt->execute(['motivo' => substr($motivo, 0, 100), 'id' => $id, 'org_id' => $orgId]);
     }
@@ -298,6 +312,98 @@ class ComunicacionMensajeRepositorio
         ");
         $stmt->execute();
         return $stmt->rowCount();
+    }
+
+    /**
+     * Retorna indicadores clave de rendimiento (KPIs) para el dashboard Alina.
+     * @return array<string, mixed>
+     */
+    public function obtenerKpis(int $orgId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT
+                COUNT(*) AS total_mensajes,
+                SUM(CASE WHEN creado_en >= CURDATE() THEN 1 ELSE 0 END) AS mensajes_hoy,
+                SUM(CASE WHEN estado = 'ENVIADO' THEN 1 ELSE 0 END) AS enviados,
+                SUM(CASE WHEN estado = 'ENTREGADO' THEN 1 ELSE 0 END) AS entregados,
+                SUM(CASE WHEN estado = 'LEIDO' THEN 1 ELSE 0 END) AS leidos,
+                SUM(CASE WHEN estado = 'FALLIDO' THEN 1 ELSE 0 END) AS fallidos,
+                SUM(CASE WHEN estado IN ('CREADO', 'ENCOLADO', 'EN_PROCESO') THEN 1 ELSE 0 END) AS en_cola,
+                COALESCE(SUM(costo_calculado_usd), 0.00) AS gasto_total_usd
+            FROM comunicacion_mensajes
+            WHERE organizacion_id = :org_id
+        ");
+        $stmt->execute(['org_id' => $orgId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $totalEnviados = (int) ($row['enviados'] ?? 0) + (int) ($row['entregados'] ?? 0) + (int) ($row['leidos'] ?? 0);
+        $totalEntregados = (int) ($row['entregados'] ?? 0) + (int) ($row['leidos'] ?? 0);
+        $totalLeidos = (int) ($row['leidos'] ?? 0);
+
+        $tasaEntrega = $totalEnviados > 0 ? round(($totalEntregados / $totalEnviados) * 100, 1) : 100.0;
+        $tasaLectura = $totalEntregados > 0 ? round(($totalLeidos / $totalEntregados) * 100, 1) : 0.0;
+
+        return [
+            'total_mensajes'   => (int) ($row['total_mensajes'] ?? 0),
+            'mensajes_hoy'     => (int) ($row['mensajes_hoy'] ?? 0),
+            'enviados'         => (int) ($row['enviados'] ?? 0),
+            'entregados'       => (int) ($row['entregados'] ?? 0),
+            'leidos'           => (int) ($row['leidos'] ?? 0),
+            'fallidos'         => (int) ($row['fallidos'] ?? 0),
+            'en_cola'          => (int) ($row['en_cola'] ?? 0),
+            'gasto_total_usd'  => (float) ($row['gasto_total_usd'] ?? 0.00),
+            'tasa_entrega_pct' => $tasaEntrega,
+            'tasa_lectura_pct' => $tasaLectura
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listarParaDataTables(int $orgId, ?string $estado = null, ?string $tipo = null, int $limite = 100): array
+    {
+        $sql = "
+            SELECT m.*, p.nombre AS plantilla_nombre
+            FROM comunicacion_mensajes m
+            LEFT JOIN comunicacion_plantillas p ON p.id = m.plantilla_id
+            WHERE m.organizacion_id = :org_id
+        ";
+        $params = ['org_id' => $orgId];
+
+        if (!empty($estado)) {
+            $sql .= " AND m.estado = :estado";
+            $params['estado'] = $estado;
+        }
+
+        if (!empty($tipo)) {
+            $sql .= " AND m.tipo_mensaje = :tipo";
+            $params['tipo'] = $tipo;
+        }
+
+        $sql .= " ORDER BY m.id DESC LIMIT :limite";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function obtenerIntentos(int $mensajeId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM comunicacion_intentos_envio 
+            WHERE mensaje_id = :id 
+            ORDER BY intento_numero ASC
+        ");
+        $stmt->execute(['id' => $mensajeId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     private function hidratar(array $f): ComunicacionMensaje

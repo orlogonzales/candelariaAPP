@@ -29,6 +29,7 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerRecursos = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'recursos.ver');
     $puedeVerEntregas = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'entregas.despachar');
     $puedeVerPagos = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'pagos.ver');
+    $puedeVerComunicaciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'comunicaciones.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
@@ -36,7 +37,8 @@ $esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm
 $esCatalogo = in_array($seccionActual, ['catalogo_items', 'catalogo_paquetes', 'catalogo_ofertas'], true);
 $esOperaciones = in_array($seccionActual, ['reservas', 'operaciones', 'recursos', 'entregas'], true);
 $esPagos = in_array($seccionActual, ['pagos', 'pagos_cuentas', 'pagos_pasarelas'], true);
-$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo && !$esOperaciones && !$esPagos;
+$esComunicaciones = in_array($seccionActual, ['comunicaciones'], true);
+$esPrincipal = !$esConfig && !$esClientesCrm && !$esCatalogo && !$esOperaciones && !$esPagos && !$esComunicaciones;
 
 $repoOrgBarra = new \Aplicacion\Repositorios\OrganizacionRepositorio();
 $orgOperativa = ($contextoBarra !== null && $contextoBarra->organizacionId !== null && $contextoBarra->organizacionId > 0)
@@ -93,6 +95,12 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                 <li class="nav-item">
                     <a href="#" class="nav-link <?= $esPagos ? 'active' : '' ?>" data-target="menuPagos" title="PAGOS Y CAJA" aria-label="Pagos y Caja" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-cash-register" aria-hidden="true"></i>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="#" class="nav-link <?= $esComunicaciones ? 'active' : '' ?>" data-target="menuComunicaciones" title="COMUNICACIONES Y WHATSAPP" aria-label="Comunicaciones y WhatsApp" data-bs-toggle="tooltip" data-bs-placement="right">
+                        <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
                     </a>
                 </li>
 
@@ -300,6 +308,17 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                         <li class="no-sub">
                             <a href="<?= url_base('pagos') ?>" class="<?= $seccionActual === 'pagos' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-money-bill-wave me-2 text-secondary"></i> Pagos y Cobranzas
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                    </ul>
+
+                    <!-- Menú: Comunicaciones y WhatsApp (F2.8C) -->
+                    <ul class="main-menu" id="menuComunicaciones" style="<?= $esComunicaciones ? '' : 'display: none;' ?>">
+                        <?php if ($puedeVerComunicaciones): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('comunicaciones') ?>" class="<?= $seccionActual === 'comunicaciones' ? 'active' : '' ?>">
+                                <i class="fa-brands fa-whatsapp me-2 text-success"></i> WhatsApp y Mensajes
                             </a>
                         </li>
                         <?php endif; ?>
