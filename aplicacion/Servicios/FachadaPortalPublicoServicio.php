@@ -69,6 +69,76 @@ class FachadaPortalPublicoServicio
     }
 
     /**
+     * Factoría estática para instanciar la fachada con todas sus dependencias predeterminadas.
+     */
+    public static function crearPorDefecto(?PDO $pdo = null): self
+    {
+        $pdo = $pdo ?? Conexion::obtenerInstancia();
+
+        $bloqueoRepo = new \Aplicacion\Repositorios\ReservaBloqueoTemporalRepositorio($pdo);
+        $sesionRepo = new \Aplicacion\Repositorios\ClienteSesionRepositorio($pdo);
+        $codigoRepo = new \Aplicacion\Repositorios\ClienteCodigoAccesoRepositorio($pdo);
+        $clienteRepo = new \Aplicacion\Repositorios\ClienteRepositorio($pdo);
+        $personaRepo = new \Aplicacion\Repositorios\PersonaRepositorio($pdo);
+        $edicionRepo = new \Aplicacion\Repositorios\EdicionRepositorio($pdo);
+        $paqueteRepo = new \Aplicacion\Repositorios\PaqueteRepositorio($pdo);
+        $itemRepo = new \Aplicacion\Repositorios\ItemComercialRepositorio($pdo);
+        $reservaRepo = new \Aplicacion\Repositorios\ReservaRepositorio($pdo);
+        $ventaRepo = new \Aplicacion\Repositorios\VentaRepositorio($pdo);
+        $pagoRepo = new \Aplicacion\Repositorios\PagoRepositorio($pdo);
+        $reembolsoRepo = new \Aplicacion\Repositorios\PagoReembolsoRepositorio($pdo);
+        $cuentaRepo = new \Aplicacion\Repositorios\CuentaBancariaRepositorio($pdo);
+        $pasarelaRepo = new \Aplicacion\Repositorios\PasarelaRepositorio($pdo);
+        $configRepo = new \Aplicacion\Repositorios\ConfiguracionRepositorio($pdo);
+        $cotizacionRepo = new \Aplicacion\Repositorios\CotizacionRepositorio($pdo);
+        $oportunidadRepo = new \Aplicacion\Repositorios\OportunidadRepositorio($pdo);
+        $ofertaItemRepo = new \Aplicacion\Repositorios\OfertaItemEdicionRepositorio($pdo);
+        $ofertaPaqueteRepo = new \Aplicacion\Repositorios\OfertaPaqueteEdicionRepositorio($pdo);
+        $tarifaItemRepo = new \Aplicacion\Repositorios\TarifaItemEdicionRepositorio($pdo);
+        $tarifaPaqueteRepo = new \Aplicacion\Repositorios\TarifaPaqueteEdicionRepositorio($pdo);
+        $entregaRepo = new \Aplicacion\Repositorios\EntregaProductoRepositorio($pdo);
+        $itemCfgRepo = new \Aplicacion\Repositorios\ItemConfiguracionOperativaRepositorio($pdo);
+        $auditoriaRepo = new \Aplicacion\Repositorios\AuditoriaRepositorio($pdo);
+
+        $configServicio = new \Aplicacion\Configuracion\ConfiguracionServicio(configRepo: $configRepo, pdo: $pdo);
+        $authzServicio = new \Aplicacion\Autorizacion\AutorizacionServicio(null, null, null, null, $pdo);
+
+        $cotizacionServicio = new \Aplicacion\Cotizaciones\CotizacionServicio(
+            $cotizacionRepo, $clienteRepo, $edicionRepo, $oportunidadRepo,
+            $itemRepo, $paqueteRepo, $ofertaItemRepo, $ofertaPaqueteRepo,
+            $tarifaItemRepo, $tarifaPaqueteRepo, $configServicio,
+            $authzServicio, $auditoriaRepo, null, $pdo
+        );
+
+        $ventaServicio = new \Aplicacion\Ventas\VentaServicio(
+            $ventaRepo, $cotizacionRepo, $clienteRepo, $personaRepo,
+            $edicionRepo, $configServicio, $authzServicio, $auditoriaRepo,
+            null, $pdo
+        );
+
+        $reservaServicio = new \Aplicacion\Reservas\ReservaServicio(
+            $reservaRepo, $entregaRepo, $itemCfgRepo, $ventaRepo,
+            $edicionRepo, $itemRepo, $authzServicio, $auditoriaRepo, $pdo
+        );
+
+        $pagoServicio = new \Aplicacion\Finanzas\PagoServicio(
+            $pagoRepo, $reembolsoRepo, $cuentaRepo, $pasarelaRepo,
+            $ventaRepo, $edicionRepo, $configRepo, $authzServicio, $auditoriaRepo, $pdo
+        );
+
+        $motorDisp = new MotorDisponibilidadServicio($bloqueoRepo, $pdo);
+        $authClienteSvc = new AutenticacionClienteServicio($sesionRepo, $codigoRepo, $clienteRepo, $personaRepo);
+
+        return new self(
+            $motorDisp, $authClienteSvc, $cotizacionServicio, $ventaServicio,
+            $reservaServicio, $pagoServicio, $edicionRepo, $paqueteRepo,
+            $itemRepo, $clienteRepo, $personaRepo, $reservaRepo,
+            $ventaRepo, $pagoRepo, $bloqueoRepo, $pdo
+        );
+    }
+
+
+    /**
      * Retorna la información de la edición actual y metadatos públicos de la organización.
      */
     public function obtenerEdicionActual(int $organizacionId): ?array

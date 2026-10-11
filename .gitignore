@@ -18,6 +18,8 @@
 !/almacenamiento/temporales/.gitkeep
 /almacenamiento/archivos/*
 !/almacenamiento/archivos/.gitkeep
+/almacenamiento/privado/*
+!/almacenamiento/privado/.gitkeep
 
 # Base de datos: respaldos con información sensible
 /base_datos/respaldos/*

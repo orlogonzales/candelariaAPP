@@ -455,4 +455,15 @@ Enrutador::post('/api/v1/publico/portal/solicitar-acceso', [\Aplicacion\Controla
 Enrutador::post('/api/v1/publico/portal/verificar-acceso', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'verificarAcceso']);
 Enrutador::get('/api/v1/publico/portal/mis-reservas', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'misReservas']);
 Enrutador::get('/api/v1/publico/portal/reserva/{id}/boleto-qr', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'boletoQr']);
+Enrutador::get('/api/v1/publico/portal/reserva/{id}/boleto-pdf', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarBoletoPdf']);
+Enrutador::get('/api/v1/publico/portal/venta/{id}/contrato-pdf', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarContratoPdf']);
 Enrutador::post('/api/v1/publico/portal/cerrar-sesion', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'cerrarSesion']);
+
+// ==============================================================================
+// MOTOR DOCUMENTAL Y DESCARGA DE PDFS CON CONTROL RBAC (FASE 2.10)
+// ==============================================================================
+Enrutador::get('/api/v1/documentos/cotizacion/{id}/pdf', [\Aplicacion\Controladores\DocumentoControlador::class, 'descargarCotizacionPdf']);
+Enrutador::get('/api/v1/documentos/contrato/{id}/pdf', [\Aplicacion\Controladores\DocumentoControlador::class, 'descargarContratoPdf']);
+Enrutador::get('/api/v1/documentos/recibo/{id}/pdf', [\Aplicacion\Controladores\DocumentoControlador::class, 'descargarReciboPdf']);
+Enrutador::get('/api/v1/documentos/boleto/{reservaId}/pdf', [\Aplicacion\Controladores\DocumentoControlador::class, 'descargarBoletoPdf']);
+

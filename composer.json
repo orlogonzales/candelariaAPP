@@ -10,9 +10,10 @@
         }
     ],
     "require": {
-        "php": ">=8.3.0"
+        "php": ">=8.3.0",
+        "chillerlan/php-qrcode": "^6.0",
+        "dompdf/dompdf": "^3.1"
     },
-    "require-dev": {},
     "autoload": {
         "psr-4": {
             "Aplicacion\\": "aplicacion/",

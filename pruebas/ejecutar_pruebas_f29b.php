@@ -649,6 +649,9 @@ registrarAsercion("8.3 Usuario B adquiere el cupo tras la liberación de Usuario
 $motorDisp->consumirBloqueo((string)$bloqueoUserBReintento['token_bloqueo']);
 
 // Limpieza formal de fixtures efímeros para mantener la base de datos limpia
+$pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+$pdo->exec("DELETE FROM recibos_caja WHERE organizacion_id = {$orgId}");
+$pdo->exec("DELETE FROM documentos_emitidos WHERE organizacion_id = {$orgId}");
 $pdo->exec("DELETE FROM reserva_bloqueos_temporales WHERE organizacion_id = {$orgId}");
 $pdo->exec("DELETE FROM cliente_sesiones WHERE organizacion_id = {$orgId}");
 $pdo->exec("DELETE FROM cliente_codigos_acceso WHERE organizacion_id = {$orgId}");
@@ -667,6 +670,7 @@ $pdo->exec("DELETE FROM item_configuracion_operativa WHERE item_comercial_id = {
 $pdo->exec("DELETE FROM items_comerciales WHERE id = {$itemCriticoId}");
 $pdo->exec("DELETE FROM ediciones_candelaria WHERE id = {$edicionId} AND codigo = 'edicion-2098-test'");
 $pdo->exec("DELETE FROM organizaciones WHERE codigo = 'org_inactiva_test'");
+$pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
 
 echo "\n==============================================================================\n";
 echo "RESUMEN DE PRUEBAS SUITE F2.9B:\n";

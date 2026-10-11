@@ -11,7 +11,7 @@ $totalFail = 0;
 $resumen = [];
 
 echo "==============================================================================\n";
-echo "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (HISTÓRICO + F2.9D)\n";
+echo "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (HISTÓRICO + F2.10)\n";
 echo "==============================================================================\n\n";
 
 foreach ($archivos as $archivo) {
@@ -26,17 +26,33 @@ foreach ($archivos as $archivo) {
     $fail = 0;
 
     // Patrones comunes en las suites históricas
-    if (preg_match('/(\d+)\s+(?:PRUEBAS EXITOSAS|pruebas exitosas)/i', $textoSalida, $m)) {
+    if (preg_match('/(?:TOTAL PRUEBAS EXITOSAS|PRUEBAS EXITOSAS|EXITOSAS|Exitosos)\s*:\s*(\d+)/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
-    } elseif (preg_match('/(?:ÉXITOS|EXITOS|Exitosos|Exitosas|PASS)\s*[:=]?\s*(\d+)/i', $textoSalida, $m)) {
+    } elseif (preg_match('/(\d+)\s*(?:\/|\s+de\s+)\s*(\d+)\s+PRUEBAS EXITOSAS/i', $textoSalida, $m)) {
+        $pass = (int)$m[1];
+    } elseif (preg_match('/(\d+)\s+PRUEBAS EXITOSAS/i', $textoSalida, $m)) {
+        $pass = (int)$m[1];
+    } elseif (preg_match('/(?:ÉXITOS|EXITOS|PASS)\s*[:=]?\s*(\d+)/i', $textoSalida, $m)) {
+        $pass = (int)$m[1];
+    } elseif (preg_match('/:\s*(\d+)\s+PASS/i', $textoSalida, $m)) {
+        $pass = (int)$m[1];
+    } elseif (preg_match('/(\d+)\s+PASS\b/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
     }
 
-    if (preg_match('/(?:FALLOS|FAIL|Fallidos)\s*[:=]?\s*(\d+)/i', $textoSalida, $m)) {
+    if (preg_match('/(?:TOTAL PRUEBAS FALLIDAS|FALLIDAS|FALLOS|FALLIDOS|Fallidos)\s*:\s*(\d+)/i', $textoSalida, $m)) {
+        $fail = (int)$m[1];
+    } elseif (preg_match('/\/\s*(\d+)\s+FALLOS/i', $textoSalida, $m)) {
+        $fail = (int)$m[1];
+    } elseif (preg_match('/\/\s*(\d+)\s+FAIL\b/i', $textoSalida, $m)) {
+        $fail = (int)$m[1];
+    } elseif (preg_match('/\|\s*(?:FALLOS|Fallidos)\s*:\s*(\d+)/i', $textoSalida, $m)) {
         $fail = (int)$m[1];
     }
 
-    if ($codigoRetorno !== 0 && $fail === 0) {
+    if ($codigoRetorno === 0) {
+        $fail = 0;
+    } elseif ($fail === 0) {
         $fail = 1;
     }
 

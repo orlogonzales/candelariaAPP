@@ -431,6 +431,105 @@ class PortalPublicoControlador
     }
 
     /**
+     * GET /api/v1/publico/portal/reserva/{id}/boleto-pdf
+     * Descarga segura de boleto imprimible (A4 o Ticket 80mm) para el titular autenticado.
+     */
+    public function descargarBoletoPdf(array $params = []): void
+
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->authClienteMiddleware->procesar($_SERVER, $_COOKIE, true);
+            $reservaId = (int) ($params['id'] ?? $_GET['id'] ?? 0);
+
+            $formato = strtoupper((string) ($_GET['formato'] ?? 'A4'));
+            if (!in_array($formato, ['A4', 'TICKET_80MM'], true)) {
+                $formato = 'A4';
+            }
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $motorPdf = new \Aplicacion\Documentos\MotorPdfServicio();
+            $boletoSvc = new \Aplicacion\Documentos\BoletoImpresionServicio($motorPdf, $this->fachada, $pdo);
+
+            $res = $boletoSvc->generarBoleto(
+                $tenant['organizacion_id'],
+                $reservaId,
+                $formato,
+                (int) $sesion->clienteId
+            );
+
+            $disposition = !empty($_GET['descargar']) ? 'attachment' : 'inline';
+            $nombreArchivo = sprintf('Boleto-%s-%s.pdf', $formato, $res['correlativo']);
+
+            if (ob_get_level() > 0) {
+                ob_clean();
+            }
+
+            header('Content-Type: application/pdf');
+            header(sprintf('Content-Disposition: %s; filename="%s"', $disposition, $nombreArchivo));
+            header('Content-Length: ' . strlen($res['binario_pdf']));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+
+            echo $res['binario_pdf'];
+            exit;
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/publico/portal/venta/{id}/contrato-pdf
+     * Descarga de contrato oficial para el titular cliente.
+     */
+    public function descargarContratoPdf(array $params = []): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->authClienteMiddleware->procesar($_SERVER, $_COOKIE, true);
+            $ventaId = (int) ($params['id'] ?? $_GET['id'] ?? 0);
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+
+            // Anti-IDOR: Validar que la venta pertenezca estrictamente al cliente de la sesión
+            $stmtVta = $pdo->prepare("
+                SELECT id, cliente_id, correlativo FROM `ventas`
+                WHERE id = :id AND organizacion_id = :org_id
+            ");
+            $stmtVta->execute(['id' => $ventaId, 'org_id' => $tenant['organizacion_id']]);
+            $venta = $stmtVta->fetch(PDO::FETCH_ASSOC);
+
+            if (!$venta || (int) $venta['cliente_id'] !== (int) $sesion->clienteId) {
+                throw new AccesoDenegadoExcepcion("Acceso denegado: El contrato no pertenece a su cuenta.");
+            }
+
+            $motorPdf = new \Aplicacion\Documentos\MotorPdfServicio();
+            $contratoSvc = new \Aplicacion\Documentos\ContratoDocumentoServicio($motorPdf, $pdo);
+
+            $res = $contratoSvc->generarPdf($tenant['organizacion_id'], $ventaId);
+
+            $disposition = !empty($_GET['descargar']) ? 'attachment' : 'inline';
+            $nombreArchivo = sprintf('Contrato-%s.pdf', $res['correlativo']);
+
+            if (ob_get_level() > 0) {
+                ob_clean();
+            }
+
+            header('Content-Type: application/pdf');
+            header(sprintf('Content-Disposition: %s; filename="%s"', $disposition, $nombreArchivo));
+            header('Content-Length: ' . strlen($res['binario_pdf']));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+
+            echo $res['binario_pdf'];
+            exit;
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+
+    /**
      * POST /api/v1/publico/portal/cerrar-sesion
      */
     public function cerrarSesion(): void
