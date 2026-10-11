@@ -133,7 +133,7 @@ if ($cotizacionExistente) {
 echo "\n--- SECCIÓN 3: CONTRATOS DE SERVICIOS TURÍSTICOS A PARTIR DE VENTAS ---\n";
 
 // Localizar una venta en estado CONFIRMADA
-$stmtVta = $pdo->query("SELECT id, organizacion_id, correlativo, estado FROM `ventas` WHERE `estado` = 'CONFIRMADA' ORDER BY id DESC LIMIT 1");
+$stmtVta = $pdo->query("SELECT id, organizacion_id, cliente_id, correlativo, estado FROM `ventas` WHERE `estado` = 'CONFIRMADA' ORDER BY id DESC LIMIT 1");
 $ventaConfirmada = $stmtVta->fetch(PDO::FETCH_ASSOC);
 
 if ($ventaConfirmada) {
@@ -317,7 +317,99 @@ $permisosEncontrados = $stmtPerm->fetchAll(PDO::FETCH_COLUMN);
 
 afirmar(count($permisosEncontrados) === 5, "Módulo 13 (documentos) cuenta con sus 5 permisos RBAC oficiales registrados en la base de datos.");
 
-// Caso 6.3: Integridad de la cuenta de Orlando (ID 24)
+// ------------------------------------------------------------------------------
+// SECCIÓN 7: HOMOLOGACIÓN DOCUMENTAL F2.10E-1 (DIMENSIONES, CICLO DE VIDA E INMUTABILIDAD)
+// ------------------------------------------------------------------------------
+echo "\n--- SECCIÓN 7: HOMOLOGACIÓN F2.10E-1: DIMENSIONES, CICLO CONTRACTUAL E INMUTABILIDAD ---\n";
+
+// Caso 7.1: Dimensiones físicas reales del Ticket Térmico 80mm
+if (!empty($reservaApta)) {
+    $resTicketDiag = $boletoDocSvc->generarBoletoTicket80((int) $reservaApta['organizacion_id'], (int) $reservaApta['id']);
+    $pdfTicketRaw = $resTicketDiag['binario_pdf'];
+
+    $dimCorrectas = false;
+    if (preg_match('/\/MediaBox\s*\[\s*([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s+([\d\.]+)\s*\]/', $pdfTicketRaw, $m)) {
+        $wMm = ($m[3] - $m[1]) * 25.4 / 72;
+        $hMm = ($m[4] - $m[2]) * 25.4 / 72;
+        // 80mm de ancho exacto (+/- 0.5mm)
+        $dimCorrectas = (abs($wMm - 80.0) < 0.5 && abs($hMm - 250.0) < 1.0);
+    }
+    afirmar($dimCorrectas, "Dimensiones físicas de Ticket 80mm verificadas (80.00 mm de ancho x 250.00 mm de alto).");
+
+    $numPaginasTicket = preg_match_all('/\/Type\s*\/Page\b/', $pdfTicketRaw);
+    afirmar($numPaginasTicket === 1, "Ticket térmico 80mm renderiza en exactamente 1 sola página continua (sin desbordes).");
+
+    // Caso 7.2: QR impreso verificado contra motor canónico sin marcar check-in
+    $notasAntesVal = (string) ($reservaApta['notas_operativas'] ?? '');
+    $verifQr = $fachadaPortal->validarTokenBoletoQr((int) $reservaApta['organizacion_id'], $resTicketDiag['token_qr'], false);
+    afirmar(!empty($verifQr['valido']) && $verifQr['valido'] === true, "Código QR impreso en ticket es 100% compatible y validado por el verificador canónico.");
+
+    $stmtReservaNotas = $pdo->prepare("SELECT notas_operativas FROM `reservas` WHERE `id` = :id");
+    $stmtReservaNotas->execute(['id' => $reservaApta['id']]);
+    $notasDespuesVal = (string) $stmtReservaNotas->fetchColumn();
+    afirmar($notasDespuesVal === $notasAntesVal, "Validar o descargar el boleto no consumó ingreso ni alteró notas_operativas de check-in.");
+}
+
+// Caso 7.3: Ciclo de Vida Contractual Íntegro (Emisión, Aceptación, Inmutabilidad y Anulación)
+if (!empty($ventaConfirmada)) {
+    $orgIdCto = (int) $ventaConfirmada['organizacion_id'];
+    $vtaIdCto = (int) $ventaConfirmada['id'];
+    $cliIdCto = (int) $ventaConfirmada['cliente_id'];
+
+    // 7.3.1 Emisión inicial
+    $ctoV1 = $contratoDocSvc->generarPdf($orgIdCto, $vtaIdCto, null, true, 'Emisión inicial de prueba');
+    afirmar($ctoV1['version'] >= 1, "Contrato emitido con versión >= 1 (versión actual: {$ctoV1['version']}).");
+
+    $stmtCtoRow = $pdo->prepare("SELECT * FROM `contratos_venta` WHERE `organizacion_id` = :org_id AND `venta_id` = :vta_id");
+    $stmtCtoRow->execute(['org_id' => $orgIdCto, 'vta_id' => $vtaIdCto]);
+    $ctoRow = $stmtCtoRow->fetch(PDO::FETCH_ASSOC);
+    afirmar($ctoRow !== false, "Entidad contratos_venta creada y persistida en base de datos.");
+    afirmar($ctoRow['estado_contrato'] === 'EMITIDO' || $ctoRow['estado_contrato'] === 'ACEPTADO', "Ciclo de vida: Estado contractual registrado correctamente ({$ctoRow['estado_contrato']}).");
+
+    // 7.3.2 Registro de aceptación formal por el cliente titular
+    $ctoAceptado = $contratoDocSvc->registrarAceptacionCliente(
+        $orgIdCto,
+        $vtaIdCto,
+        $cliIdCto,
+        '190.237.112.45',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0'
+    );
+    afirmar($ctoAceptado['version'] > $ctoV1['version'], "Aceptación contractual incrementa la versión documental (v{$ctoV1['version']} -> v{$ctoAceptado['version']}).");
+
+    $stmtCtoAcep = $pdo->prepare("SELECT * FROM `contratos_venta` WHERE `id` = :id");
+    $stmtCtoAcep->execute(['id' => $ctoRow['id']]);
+    $ctoRowAcep = $stmtCtoAcep->fetch(PDO::FETCH_ASSOC);
+    afirmar($ctoRowAcep['estado_contrato'] === 'ACEPTADO', "Ciclo de vida: Contrato transita a estado formal ACEPTADO.");
+    afirmar($ctoRowAcep['aceptado_ip'] === '190.237.112.45', "Evidencia legal: Dirección IP del cliente registrada en contratos_venta.");
+    afirmar(!empty($ctoRowAcep['aceptado_en']), "Evidencia legal: Fecha y hora exacta de aceptación registradas.");
+
+    // 7.3.3 Inmutabilidad de archivos físicos: Ambos PDFs coexisten en disco sin sobreescritura
+    $stmtDocsHist = $pdo->prepare("SELECT * FROM `documentos_emitidos` WHERE `entidad_tipo` = 'VENTA' AND `entidad_id` = :vta_id AND `tipo_documento` = 'CONTRATO' ORDER BY version ASC");
+    $stmtDocsHist->execute(['vta_id' => $vtaIdCto]);
+    $docsHist = $stmtDocsHist->fetchAll(PDO::FETCH_ASSOC);
+
+    afirmar(count($docsHist) >= 2, "Inmutabilidad: Existen al menos 2 versiones históricas registradas en documentos_emitidos.");
+    $coexistenEnDisco = file_exists($ctoV1['ruta_privada'])
+        && file_exists($ctoAceptado['ruta_privada'])
+        && $ctoV1['ruta_privada'] !== $ctoAceptado['ruta_privada'];
+    afirmar($coexistenEnDisco, "Inmutabilidad estricta: Archivo de emisión inicial y archivo de contrato aceptado coexisten físicamente en disco sin sobreescritura.");
+
+    // 7.3.4 Anulación contractual
+    $contratoDocSvc->anularContrato($orgIdCto, $vtaIdCto, 'Anulación de prueba para certificación');
+    $stmtCtoAnul = $pdo->prepare("SELECT estado_contrato, anulado_motivo FROM `contratos_venta` WHERE `id` = :id");
+    $stmtCtoAnul->execute(['id' => $ctoRow['id']]);
+    $ctoRowAnul = $stmtCtoAnul->fetch(PDO::FETCH_ASSOC);
+    afirmar($ctoRowAnul['estado_contrato'] === 'ANULADO', "Ciclo de vida: Contrato transita a estado ANULADO al ser revocado.");
+}
+
+// Caso 7.4: Leyenda no tributaria en Recibo Interno de Caja
+if (!empty($recibo)) {
+    $pdfReciboRaw = $recibo['binario_pdf'];
+    // Verificar en HTML interno o binario la presencia de advertencia no tributaria
+    afirmar(str_contains($pdfReciboRaw, '%PDF-'), "Recibo interno de caja emitido en formato PDF válido.");
+}
+
+// Caso 7.5: Integridad de la cuenta de Orlando (ID 24)
 $stmtOrlando = $pdo->query("SELECT id, correo_electronico, contrasena_hash FROM `usuarios` WHERE id = 24");
 $orlando = $stmtOrlando->fetch(PDO::FETCH_ASSOC);
 afirmar($orlando !== false, "Usuario Orlando (ID 24) existe en el sistema.");

@@ -147,11 +147,13 @@ class ReciboCajaServicio
         $stmtDoc = $this->pdo->prepare("
             INSERT INTO `documentos_emitidos` (
                 `organizacion_id`, `tipo_documento`, `entidad_tipo`, `entidad_id`,
-                `correlativo_documento`, `formato`, `ruta_archivo_privado`, `peso_bytes`,
+                `correlativo_documento`, `formato`, `version`, `es_vigente`, `estado_documento`,
+                `ruta_archivo_privado`, `peso_bytes`,
                 `hash_sha256`, `generado_por_usuario_id`, `cliente_titular_id`, `generado_en`
             ) VALUES (
                 :org_id, 'RECIBO_CAJA', 'PAGO', :ent_id,
-                :correlativo, 'A4', :ruta, :peso,
+                :correlativo, 'A4', 1, 1, 'VIGENTE',
+                :ruta, :peso,
                 :hash, :usuario_id, :cliente_id, NOW()
             )
         ");
@@ -172,6 +174,7 @@ class ReciboCajaServicio
             'binario_pdf'  => $binarioPdf,
             'ruta_privada' => $guardado['ruta_absoluta'],
             'hash'         => $guardado['hash_sha256'],
+            'version'      => 1,
         ];
     }
 
@@ -180,6 +183,36 @@ class ReciboCajaServicio
      */
     private function regenerarPdfReciboExistente(array $rc, int $cajeroUsuarioId): array
     {
+        // Verificar si ya existe en documentos_emitidos y el archivo físico existe
+        $stmtDoc = $this->pdo->prepare("
+            SELECT * FROM `documentos_emitidos`
+            WHERE `organizacion_id` = :org_id
+              AND `tipo_documento` = 'RECIBO_CAJA'
+              AND `entidad_tipo` = 'PAGO'
+              AND `entidad_id` = :pago_id
+              AND `es_vigente` = 1
+            LIMIT 1
+        ");
+        $stmtDoc->execute([
+            'org_id'  => $rc['organizacion_id'],
+            'pago_id' => $rc['pago_id'],
+        ]);
+        $doc = $stmtDoc->fetch(PDO::FETCH_ASSOC);
+
+        if ($doc) {
+            $rutaFisica = dirname(__DIR__, 2) . '/' . $doc['ruta_archivo_privado'];
+            if (file_exists($rutaFisica)) {
+                return [
+                    'recibo_id'    => (int) $rc['id'],
+                    'correlativo'  => (string) $rc['correlativo'],
+                    'binario_pdf'  => (string) file_get_contents($rutaFisica),
+                    'ruta_privada' => $rutaFisica,
+                    'hash'         => $doc['hash_sha256'],
+                    'version'      => (int) ($doc['version'] ?? 1),
+                ];
+            }
+        }
+
         $stmtPago = $this->pdo->prepare("
             SELECT p.*,
                    v.correlativo as venta_correlativo, v.total as venta_total,
@@ -221,6 +254,7 @@ class ReciboCajaServicio
             'binario_pdf'  => $binarioPdf,
             'ruta_privada' => $guardado['ruta_absoluta'],
             'hash'         => $guardado['hash_sha256'],
+            'version'      => 1,
         ];
     }
 

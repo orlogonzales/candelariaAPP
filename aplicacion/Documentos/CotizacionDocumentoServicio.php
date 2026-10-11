@@ -102,11 +102,13 @@ class CotizacionDocumentoServicio
         $stmtReg = $this->pdo->prepare("
             INSERT INTO `documentos_emitidos` (
                 `organizacion_id`, `tipo_documento`, `entidad_tipo`, `entidad_id`,
-                `correlativo_documento`, `formato`, `ruta_archivo_privado`, `peso_bytes`,
+                `correlativo_documento`, `formato`, `version`, `es_vigente`, `estado_documento`,
+                `ruta_archivo_privado`, `peso_bytes`,
                 `hash_sha256`, `generado_por_usuario_id`, `cliente_titular_id`, `generado_en`
             ) VALUES (
                 :org_id, 'COTIZACION', 'COTIZACION', :ent_id,
-                :correlativo, 'A4', :ruta, :peso,
+                :correlativo, 'A4', 1, 1, 'VIGENTE',
+                :ruta, :peso,
                 :hash, :usuario_id, :cliente_id, NOW()
             )
         ");
@@ -126,6 +128,7 @@ class CotizacionDocumentoServicio
             'ruta_privada' => $guardado['ruta_absoluta'],
             'correlativo'  => (string) $cotizacion['correlativo'],
             'hash'         => $guardado['hash_sha256'],
+            'version'      => 1,
         ];
     }
 

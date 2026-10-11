@@ -467,3 +467,23 @@ Enrutador::get('/api/v1/documentos/contrato/{id}/pdf', [\Aplicacion\Controladore
 Enrutador::get('/api/v1/documentos/recibo/{id}/pdf', [\Aplicacion\Controladores\DocumentoControlador::class, 'descargarReciboPdf']);
 Enrutador::get('/api/v1/documentos/boleto/{reservaId}/pdf', [\Aplicacion\Controladores\DocumentoControlador::class, 'descargarBoletoPdf']);
 
+// ==============================================================================
+// POSTPRODUCCIÓN Y GALERÍAS MULTIMEDIA (FASE 2.11)
+// ==============================================================================
+// Backoffice Administrativo (Módulo 24 RBAC)
+Enrutador::get('/api/v1/postproduccion/recursos-formulario', [\Aplicacion\Controladores\PostproduccionControlador::class, 'recursosFormulario']);
+Enrutador::get('/api/v1/postproduccion/proyectos', [\Aplicacion\Controladores\PostproduccionControlador::class, 'listarProyectos']);
+Enrutador::get('/api/v1/postproduccion/proyectos/{id}', [\Aplicacion\Controladores\PostproduccionControlador::class, 'verProyecto']);
+Enrutador::post('/api/v1/postproduccion/proyectos', [\Aplicacion\Controladores\PostproduccionControlador::class, 'crearProyecto']);
+Enrutador::post('/api/v1/postproduccion/proyectos/{id}/galerias', [\Aplicacion\Controladores\PostproduccionControlador::class, 'crearGaleria']);
+Enrutador::post('/api/v1/postproduccion/proyectos/{id}/galerias/{galeriaId}/archivos', [\Aplicacion\Controladores\PostproduccionControlador::class, 'subirArchivo']);
+Enrutador::post('/api/v1/postproduccion/proyectos/{id}/entregas', [\Aplicacion\Controladores\PostproduccionControlador::class, 'crearEntrega']);
+Enrutador::get('/api/v1/postproduccion/archivos/{id}/descargar', [\Aplicacion\Controladores\PostproduccionControlador::class, 'descargarArchivo']);
+
+// Portal Público del Cliente (Acceso Titular a Galerías y Recuerdos)
+Enrutador::get('/api/v1/publico/portal/mis-galerias', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'listarMisGalerias']);
+Enrutador::get('/api/v1/publico/portal/mis-galerias/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'verMiGaleriaDetalle']);
+Enrutador::get('/api/v1/publico/portal/descargar-multimedia/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarMiArchivoMultimedia']);
+Enrutador::post('/api/v1/publico/portal/entregas/{id}/responder', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'responderEntregaMultimedia']);
+
+

@@ -2234,6 +2234,10 @@ CREATE TABLE `documentos_emitidos` (
     `entidad_id` BIGINT UNSIGNED NOT NULL,
     `correlativo_documento` VARCHAR(60) NOT NULL,
     `formato` ENUM('A4', 'TICKET_80MM') NOT NULL DEFAULT 'A4',
+    `version` INT UNSIGNED NOT NULL DEFAULT 1,
+    `es_vigente` TINYINT(1) NOT NULL DEFAULT 1,
+    `estado_documento` ENUM('VIGENTE', 'SUPERSEDIDO', 'ANULADO') NOT NULL DEFAULT 'VIGENTE',
+    `motivo_reemision` VARCHAR(255) DEFAULT NULL,
     `ruta_archivo_privado` VARCHAR(255) NOT NULL,
     `peso_bytes` INT UNSIGNED NOT NULL DEFAULT 0,
     `hash_sha256` CHAR(64) NOT NULL,
@@ -2242,12 +2246,203 @@ CREATE TABLE `documentos_emitidos` (
     `generado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY `idx_doc_entidad` (`organizacion_id`, `entidad_tipo`, `entidad_id`),
     KEY `idx_doc_tipo` (`organizacion_id`, `tipo_documento`),
+    KEY `idx_doc_vigente` (`organizacion_id`, `es_vigente`),
     CONSTRAINT `fk_docs_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
     CONSTRAINT `fk_docs_usuario` FOREIGN KEY (`generado_por_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_docs_cliente` FOREIGN KEY (`cliente_titular_id`) REFERENCES `clientes` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Registro y trazabilidad de documentos PDF generados';
 
--- Registro de Módulo 13 y Permisos en esquema consolidado
+-- ------------------------------------------------------------------------------
+-- 77. TABLA `contratos_venta` (CICLO DE VIDA Y CONSENTIMIENTO LEGAL DE CONTRATOS)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `contratos_venta`;
+CREATE TABLE `contratos_venta` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `venta_id` BIGINT UNSIGNED NOT NULL,
+    `cliente_id` INT UNSIGNED NOT NULL,
+    `codigo_contrato` VARCHAR(40) NOT NULL COMMENT 'Formato CON-YYYY-NNNNNN',
+    `version_clausulas` VARCHAR(20) NOT NULL DEFAULT 'v1.0-2026',
+    `clausulas_hash` CHAR(64) NOT NULL COMMENT 'Hash SHA-256 del pliego de cláusulas normativas Ley 29571',
+    `estado_contrato` ENUM('BORRADOR', 'EMITIDO', 'ACEPTADO', 'ANULADO') NOT NULL DEFAULT 'EMITIDO',
+    `canal_emision` VARCHAR(30) NOT NULL DEFAULT 'BACKOFFICE',
+    `emitido_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `emitido_por_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `aceptado_en` DATETIME DEFAULT NULL,
+    `aceptado_ip` VARCHAR(45) DEFAULT NULL,
+    `aceptado_user_agent` VARCHAR(255) DEFAULT NULL,
+    `aceptado_por_cliente_id` INT UNSIGNED DEFAULT NULL,
+    `consentimiento_texto` TEXT DEFAULT NULL,
+    `anulado_en` DATETIME DEFAULT NULL,
+    `anulado_motivo` VARCHAR(255) DEFAULT NULL,
+    `anulado_por_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_contrato_org_codigo` (`organizacion_id`, `codigo_contrato`),
+    KEY `idx_contrato_venta` (`venta_id`),
+    KEY `idx_contrato_cliente` (`cliente_id`),
+    KEY `idx_contrato_estado` (`organizacion_id`, `estado_contrato`),
+    CONSTRAINT `fk_contratos_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_contratos_venta` FOREIGN KEY (`venta_id`) REFERENCES `ventas` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_contratos_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_contratos_usr_emisor` FOREIGN KEY (`emitido_por_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_contratos_usr_anula` FOREIGN KEY (`anulado_por_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Ciclo de vida y consentimiento legal de Contratos Turísticos';
+
+-- ------------------------------------------------------------------------------
+-- 78. TABLA `postproduccion_proyectos` (PROYECTOS AUDIOVISUALES MULTIMEDIA)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_proyectos`;
+CREATE TABLE `postproduccion_proyectos` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `reserva_id` BIGINT UNSIGNED DEFAULT NULL,
+    `prestacion_id` BIGINT UNSIGNED DEFAULT NULL,
+    `cliente_id` INT UNSIGNED NOT NULL,
+    `codigo_proyecto` VARCHAR(50) NOT NULL COMMENT 'Formato PRY-POST-YYYY-NNNN',
+    `titulo` VARCHAR(150) NOT NULL,
+    `descripcion` TEXT DEFAULT NULL,
+    `estado` ENUM('PLANIFICACION', 'EN_EDICION', 'EN_REVISION', 'APROBADO', 'LISTO_ENTREGA', 'ENTREGADO', 'ARCHIVADO') NOT NULL DEFAULT 'EN_EDICION',
+    `fotografo_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `editor_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `fecha_inicio_edicion` DATE DEFAULT NULL,
+    `fecha_limite_entrega` DATE DEFAULT NULL,
+    `total_archivos` INT UNSIGNED NOT NULL DEFAULT 0,
+    `peso_total_bytes` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_post_pry_org_codigo` (`organizacion_id`, `codigo_proyecto`),
+    KEY `idx_post_pry_reserva` (`reserva_id`),
+    KEY `idx_post_pry_prestacion` (`prestacion_id`),
+    KEY `idx_post_pry_cliente` (`cliente_id`),
+    KEY `idx_post_pry_edicion` (`edicion_id`),
+    KEY `idx_post_pry_estado` (`organizacion_id`, `estado`),
+    CONSTRAINT `fk_post_pry_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_post_pry_edicion` FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_post_pry_reserva` FOREIGN KEY (`reserva_id`) REFERENCES `reservas` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_post_pry_prestacion` FOREIGN KEY (`prestacion_id`) REFERENCES `reserva_prestaciones` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_post_pry_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_post_pry_fotografo` FOREIGN KEY (`fotografo_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_post_pry_editor` FOREIGN KEY (`editor_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Proyectos de postproducción audiovisual vinculados a reservas';
+
+-- ------------------------------------------------------------------------------
+-- 79. TABLA `postproduccion_galerias` (ÁLBUMES Y GALERÍAS TEMÁTICAS)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_galerias`;
+CREATE TABLE `postproduccion_galerias` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `proyecto_id` BIGINT UNSIGNED NOT NULL,
+    `titulo` VARCHAR(120) NOT NULL,
+    `slug` VARCHAR(140) NOT NULL,
+    `descripcion` VARCHAR(255) DEFAULT NULL,
+    `tipo_galeria` ENUM('FOTOGRAFIA', 'VIDEO', 'MIXTO') NOT NULL DEFAULT 'FOTOGRAFIA',
+    `portada_archivo_id` BIGINT UNSIGNED DEFAULT NULL,
+    `es_publica_cliente` TINYINT(1) NOT NULL DEFAULT 1,
+    `orden` INT UNSIGNED NOT NULL DEFAULT 1,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY `idx_galeria_proyecto` (`proyecto_id`),
+    CONSTRAINT `fk_galeria_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_galeria_proyecto` FOREIGN KEY (`proyecto_id`) REFERENCES `postproduccion_proyectos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Álbumes y galerías temáticas de un proyecto';
+
+-- ------------------------------------------------------------------------------
+-- 80. TABLA `postproduccion_archivos` (ARCHIVOS FOTOGRÁFICOS Y DE VIDEO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_archivos`;
+CREATE TABLE `postproduccion_archivos` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `proyecto_id` BIGINT UNSIGNED NOT NULL,
+    `galeria_id` BIGINT UNSIGNED NOT NULL,
+    `nombre_original` VARCHAR(255) NOT NULL,
+    `nombre_almacenamiento` VARCHAR(255) NOT NULL,
+    `driver_almacenamiento` ENUM('LOCAL', 'S3') NOT NULL DEFAULT 'LOCAL',
+    `ruta_privada` VARCHAR(255) NOT NULL,
+    `tipo_archivo` ENUM('FOTO', 'VIDEO', 'DOCUMENTO') NOT NULL,
+    `mime_type` VARCHAR(100) NOT NULL,
+    `peso_bytes` BIGINT UNSIGNED NOT NULL,
+    `checksum_sha256` CHAR(64) NOT NULL,
+    `ancho_px` INT UNSIGNED DEFAULT NULL,
+    `alto_px` INT UNSIGNED DEFAULT NULL,
+    `duracion_segundos` INT UNSIGNED DEFAULT NULL,
+    `version` INT UNSIGNED NOT NULL DEFAULT 1,
+    `estado` ENUM('SUBIDO', 'EN_PROCESO', 'LISTO', 'RECHAZADO') NOT NULL DEFAULT 'LISTO',
+    `es_destacado` TINYINT(1) NOT NULL DEFAULT 0,
+    `subido_por_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_archivo_galeria` (`galeria_id`),
+    KEY `idx_archivo_proyecto` (`proyecto_id`),
+    CONSTRAINT `fk_arch_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_arch_proyecto` FOREIGN KEY (`proyecto_id`) REFERENCES `postproduccion_proyectos` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_arch_galeria` FOREIGN KEY (`galeria_id`) REFERENCES `postproduccion_galerias` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_arch_subido_usr` FOREIGN KEY (`subido_por_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Archivos fotográficos y audiovisuales de alta resolución';
+
+-- ------------------------------------------------------------------------------
+-- 81. TABLA `postproduccion_entregas` (HITOS DE ENTREGAS A CLIENTES)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_entregas`;
+CREATE TABLE `postproduccion_entregas` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `proyecto_id` BIGINT UNSIGNED NOT NULL,
+    `numero_entrega` INT UNSIGNED NOT NULL DEFAULT 1,
+    `titulo` VARCHAR(150) NOT NULL,
+    `tipo_entrega` ENUM('PARCIAL', 'FINAL', 'REVISION') NOT NULL DEFAULT 'PARCIAL',
+    `estado_entrega` ENUM('PREPARADA', 'PUBLICADA', 'APROBADA_CLIENTE', 'OBSERVADA_CLIENTE') NOT NULL DEFAULT 'PUBLICADA',
+    `notas_entrega` TEXT DEFAULT NULL,
+    `entregado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `fecha_caducidad_enlace` DATETIME DEFAULT NULL,
+    `creado_por_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `aprobado_por_cliente_en` DATETIME DEFAULT NULL,
+    `observaciones_cliente` TEXT DEFAULT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY `idx_entrega_proyecto` (`proyecto_id`),
+    CONSTRAINT `fk_entrega_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_entrega_proyecto` FOREIGN KEY (`proyecto_id`) REFERENCES `postproduccion_proyectos` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_entrega_usr` FOREIGN KEY (`creado_por_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Hitos y paquetes de entregas parciales y finales al cliente';
+
+-- ------------------------------------------------------------------------------
+-- 82. TABLA `postproduccion_entrega_archivos` (PIVOTE ENTREGA - ARCHIVO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_entrega_archivos`;
+CREATE TABLE `postproduccion_entrega_archivos` (
+    `entrega_id` BIGINT UNSIGNED NOT NULL,
+    `archivo_id` BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (`entrega_id`, `archivo_id`),
+    CONSTRAINT `fk_ent_arch_entrega` FOREIGN KEY (`entrega_id`) REFERENCES `postproduccion_entregas` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_ent_arch_archivo` FOREIGN KEY (`archivo_id`) REFERENCES `postproduccion_archivos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Relación entre entregas y archivos asociados';
+
+-- ------------------------------------------------------------------------------
+-- 83. TABLA `postproduccion_descargas_log` (AUDITORÍA DE DESCARGAS Y STREAMING)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_descargas_log`;
+CREATE TABLE `postproduccion_descargas_log` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `archivo_id` BIGINT UNSIGNED NOT NULL,
+    `cliente_id` INT UNSIGNED DEFAULT NULL,
+    `usuario_id` INT UNSIGNED DEFAULT NULL,
+    `ip` VARCHAR(45) NOT NULL,
+    `user_agent` VARCHAR(255) DEFAULT NULL,
+    `bytes_transferidos` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    `descargado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY `idx_descarga_archivo` (`archivo_id`),
+    KEY `idx_descarga_cliente` (`cliente_id`),
+    CONSTRAINT `fk_descarga_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_descarga_archivo` FOREIGN KEY (`archivo_id`) REFERENCES `postproduccion_archivos` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_descarga_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_descarga_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Auditoría de streaming y descargas de material multimedia';
+
+-- Registro de Módulos 13 y 24 y Permisos en esquema consolidado
 INSERT INTO `modulos` (`id`, `codigo`, `nombre`, `descripcion`, `icono_fontawesome`, `orden`, `es_nucleo`, `estado`)
 VALUES (13, 'documentos', 'Documentos e Impresión Oficial', 'Generación de cotizaciones, contratos, recibos de caja y boletos imprimibles', 'fa-solid fa-file-pdf', 13, 0, 'ACTIVO')
 ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`), `estado` = VALUES(`estado`);
@@ -2261,16 +2456,35 @@ VALUES
 (13, 'documentos.boletos.descargar', 'Descargar Boleto Imprimible', 'Permite generar y descargar boletos QR en A4 o ticket 80mm')
 ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
 
+INSERT INTO `modulos` (`id`, `codigo`, `nombre`, `descripcion`, `icono_fontawesome`, `orden`, `es_nucleo`, `estado`)
+VALUES (24, 'postproduccion', 'Postproducción y Galerías Multimedia', 'Gestión de proyectos audiovisuales, álbumes de fotos y video, entregas a clientes y descargas seguras', 'fa-solid fa-photo-film', 24, 0, 'ACTIVO')
+ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`), `estado` = VALUES(`estado`);
+
+INSERT INTO `permisos` (`modulo_id`, `codigo`, `nombre`, `descripcion`)
+VALUES
+(24, 'postproduccion.proyectos.ver', 'Ver Proyectos de Postproducción', 'Permite consultar y listar los proyectos y galerías multimedia'),
+(24, 'postproduccion.proyectos.crear', 'Crear Proyecto de Postproducción', 'Permite registrar nuevos proyectos asociados a ediciones y prestaciones'),
+(24, 'postproduccion.proyectos.editar', 'Editar Proyecto de Postproducción', 'Permite modificar metadatos y estados de proyectos audiovisuales'),
+(24, 'postproduccion.archivos.subir', 'Subir Archivos Multimedia', 'Permite cargar fotografías y videos de alta resolución a las galerías'),
+(24, 'postproduccion.archivos.descargar', 'Descargar Material Original', 'Permite descargar archivos audiovisuales maestros en alta calidad'),
+(24, 'postproduccion.entregas.gestionar', 'Gestionar Entregas a Clientes', 'Permite crear entregas parciales/finales y publicarlas al cliente')
+ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
+
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
-WHERE r.codigo = 'ADMINISTRADOR' AND p.modulo_id = 13;
+WHERE r.codigo = 'ADMINISTRADOR' AND p.modulo_id IN (13, 24);
 
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
 WHERE r.codigo IN ('VENTAS', 'CAJERO', 'COORDINADOR_VENTAS') AND p.modulo_id = 13;
 
+INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
+SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
+WHERE r.codigo IN ('COORDINADOR') AND p.modulo_id = 24;
+
 INSERT INTO `migraciones_control` (`migracion`, `lote`)
-VALUES ('2026_10_11_000019_crear_modulo_documentos_pdf_y_recibos_caja.sql', 17)
+VALUES ('2026_10_11_000019_crear_modulo_documentos_pdf_y_recibos_caja.sql', 17),
+       ('2026_10_11_000020_crear_modulo_postproduccion_y_evolucion_contratos.sql', 18)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 SET FOREIGN_KEY_CHECKS = 1;

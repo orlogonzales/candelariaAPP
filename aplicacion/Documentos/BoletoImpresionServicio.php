@@ -31,9 +31,15 @@ class BoletoImpresionServicio
      *
      * @return array{binario_pdf: string, ruta_privada: string, correlativo: string, hash: string, token_qr: string}
      */
-    public function generarBoletoA4(int $organizacionId, int $reservaId, ?int $clienteId = null, ?int $usuarioEmisorId = null): array
-    {
-        return $this->generarBoleto($organizacionId, $reservaId, 'A4', $clienteId, $usuarioEmisorId);
+    public function generarBoletoA4(
+        int $organizacionId,
+        int $reservaId,
+        ?int $clienteId = null,
+        ?int $usuarioEmisorId = null,
+        bool $forzarReemision = false,
+        ?string $motivoReemision = null
+    ): array {
+        return $this->generarBoleto($organizacionId, $reservaId, 'A4', $clienteId, $usuarioEmisorId, $forzarReemision, $motivoReemision);
     }
 
     /**
@@ -41,9 +47,15 @@ class BoletoImpresionServicio
      *
      * @return array{binario_pdf: string, ruta_privada: string, correlativo: string, hash: string, token_qr: string}
      */
-    public function generarBoletoTicket80(int $organizacionId, int $reservaId, ?int $clienteId = null, ?int $usuarioEmisorId = null): array
-    {
-        return $this->generarBoleto($organizacionId, $reservaId, 'TICKET_80MM', $clienteId, $usuarioEmisorId);
+    public function generarBoletoTicket80(
+        int $organizacionId,
+        int $reservaId,
+        ?int $clienteId = null,
+        ?int $usuarioEmisorId = null,
+        bool $forzarReemision = false,
+        ?string $motivoReemision = null
+    ): array {
+        return $this->generarBoleto($organizacionId, $reservaId, 'TICKET_80MM', $clienteId, $usuarioEmisorId, $forzarReemision, $motivoReemision);
     }
 
     /**
@@ -56,7 +68,9 @@ class BoletoImpresionServicio
         int $reservaId,
         string $formato = 'A4',
         ?int $clienteId = null,
-        ?int $usuarioEmisorId = null
+        ?int $usuarioEmisorId = null,
+        bool $forzarReemision = false,
+        ?string $motivoReemision = null
     ): array {
         // 1. Obtener datos de la reserva y validar tenencia
         $stmtRes = $this->pdo->prepare("
@@ -108,20 +122,55 @@ class BoletoImpresionServicio
         $stmtPrest->execute(['reserva_id' => $reservaId]);
         $prestaciones = $stmtPrest->fetchAll(PDO::FETCH_ASSOC);
 
-        // 5. Construir HTML según formato
+        // 5. Verificar idempotencia documental e histórico en `documentos_emitidos`
         $esTicket = ($formato === 'TICKET_80MM');
+        $tipoDocEnum = $esTicket ? 'BOLETO_TICKET_80MM' : 'BOLETO_A4';
+        $prefijoArchivo = $esTicket ? 'BOL-TKT' : 'BOL-A4';
+
+        $stmtDocExistente = $this->pdo->prepare("
+            SELECT * FROM `documentos_emitidos`
+            WHERE `organizacion_id` = :org_id
+              AND `tipo_documento` = :tipo_doc
+              AND `entidad_tipo` = 'RESERVA'
+              AND `entidad_id` = :res_id
+              AND `es_vigente` = 1
+            ORDER BY `version` DESC
+            LIMIT 1
+        ");
+        $stmtDocExistente->execute([
+            'org_id'   => $organizacionId,
+            'tipo_doc' => $tipoDocEnum,
+            'res_id'   => $reservaId,
+        ]);
+        $docVigente = $stmtDocExistente->fetch(PDO::FETCH_ASSOC);
+
+        if ($docVigente && !$forzarReemision) {
+            $rutaFisica = dirname(__DIR__, 2) . '/' . $docVigente['ruta_archivo_privado'];
+            if (file_exists($rutaFisica)) {
+                $contenido = (string) file_get_contents($rutaFisica);
+                return [
+                    'binario_pdf'  => $contenido,
+                    'ruta_privada' => $rutaFisica,
+                    'correlativo'  => (string) $reserva['correlativo'],
+                    'hash'         => $docVigente['hash_sha256'],
+                    'token_qr'     => $tokenQr,
+                    'version'      => (int) $docVigente['version'],
+                ];
+            }
+        }
+
+        // 6. Construir HTML según formato
+        $nuevaVersion = $docVigente ? (int) $docVigente['version'] + 1 : 1;
         $html = $esTicket
             ? $this->construirHtmlTicket80($reserva, $prestaciones, $qrPngBase64, $tokenQr)
             : $this->construirHtmlA4($reserva, $prestaciones, $qrPngBase64, $tokenQr);
 
-        // 6. Renderizar binario PDF
+        // 7. Renderizar binario PDF
         $formatoMotor = $esTicket ? MotorPdfServicio::FORMATO_TICKET_80MM : MotorPdfServicio::FORMATO_A4;
         $binarioPdf = $this->motorPdf->renderizar($html, $formatoMotor, MotorPdfServicio::ORIENTACION_VERTICAL);
 
-        // 7. Guardar en almacenamiento privado
-        $tipoDocEnum = $esTicket ? 'BOLETO_TICKET_80MM' : 'BOLETO_A4';
-        $prefijoArchivo = $esTicket ? 'BOL-TKT' : 'BOL-A4';
-        $nombreArchivo = sprintf('%s-%s-%s.pdf', $prefijoArchivo, $reserva['correlativo'], date('Ymd_His'));
+        // 8. Guardar en almacenamiento privado (versionado, nunca sobrescribe originales)
+        $nombreArchivo = sprintf('%s-%s_v%d_%s.pdf', $prefijoArchivo, $reserva['correlativo'], $nuevaVersion, date('Ymd_His'));
         $guardado = $this->motorPdf->guardarEnAlmacenamientoPrivado(
             $binarioPdf,
             $organizacionId,
@@ -129,7 +178,17 @@ class BoletoImpresionServicio
             $nombreArchivo
         );
 
-        // 8. Registrar en bitácora documentos_emitidos
+        // 9. Marcar versión anterior como SUPERSEDIDA si existe
+        if ($docVigente) {
+            $stmtSup = $this->pdo->prepare("
+                UPDATE `documentos_emitidos`
+                SET `es_vigente` = 0, `estado_documento` = 'SUPERSEDIDO'
+                WHERE `id` = :id
+            ");
+            $stmtSup->execute(['id' => $docVigente['id']]);
+        }
+
+        // 10. Registrar en bitácora documentos_emitidos
         $usuarioEmisorValido = null;
         if ($usuarioEmisorId !== null && $usuarioEmisorId > 0) {
             $stmtUsr = $this->pdo->prepare("SELECT id FROM `usuarios` WHERE id = :id");
@@ -142,11 +201,13 @@ class BoletoImpresionServicio
         $stmtDoc = $this->pdo->prepare("
             INSERT INTO `documentos_emitidos` (
                 `organizacion_id`, `tipo_documento`, `entidad_tipo`, `entidad_id`,
-                `correlativo_documento`, `formato`, `ruta_archivo_privado`, `peso_bytes`,
+                `correlativo_documento`, `formato`, `version`, `es_vigente`, `estado_documento`,
+                `motivo_reemision`, `ruta_archivo_privado`, `peso_bytes`,
                 `hash_sha256`, `generado_por_usuario_id`, `cliente_titular_id`, `generado_en`
             ) VALUES (
                 :org_id, :tipo_doc, 'RESERVA', :ent_id,
-                :correlativo, :formato_str, :ruta, :peso,
+                :correlativo, :formato_str, :version, 1, 'VIGENTE',
+                :motivo, :ruta, :peso,
                 :hash, :usuario_id, :cliente_id, NOW()
             )
         ");
@@ -156,6 +217,8 @@ class BoletoImpresionServicio
             'ent_id'       => $reservaId,
             'correlativo'  => (string) $reserva['correlativo'],
             'formato_str'  => $esTicket ? 'TICKET_80MM' : 'A4',
+            'version'      => $nuevaVersion,
+            'motivo'       => $motivoReemision,
             'ruta'         => $guardado['ruta_relativa'],
             'peso'         => $guardado['peso_bytes'],
             'hash'         => $guardado['hash_sha256'],
@@ -169,6 +232,7 @@ class BoletoImpresionServicio
             'correlativo'  => (string) $reserva['correlativo'],
             'hash'         => $guardado['hash_sha256'],
             'token_qr'     => $tokenQr,
+            'version'      => $nuevaVersion,
         ];
     }
 

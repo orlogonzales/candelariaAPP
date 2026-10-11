@@ -528,6 +528,132 @@ class PortalPublicoControlador
         }
     }
 
+    /**
+     * GET /api/v1/publico/portal/mis-galerias
+     */
+    public function listarMisGalerias(): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $proyectos = $postSvc->listarProyectosCliente($tenant['organizacion_id'], $sesion->clienteId);
+
+            $this->responderJson([
+                'exito' => true,
+                'datos' => $proyectos,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/publico/portal/mis-galerias/{id}
+     */
+    public function verMiGaleriaDetalle(mixed $id = null): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $proyectoId = (int) ($id ?? ($_GET['id'] ?? 0));
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $detalle = $postSvc->obtenerDetalleProyectoCliente($tenant['organizacion_id'], $proyectoId, $sesion->clienteId);
+            if (!$detalle) {
+                throw new AccesoDenegadoExcepcion("Proyecto multimedia no encontrado o acceso denegado.");
+            }
+
+            $this->responderJson([
+                'exito' => true,
+                'datos' => $detalle,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/publico/portal/descargar-multimedia/{id}
+     */
+    public function descargarMiArchivoMultimedia(mixed $id = null): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $archivoId = (int) ($id ?? ($_GET['id'] ?? 0));
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $res = $postSvc->obtenerStreamDescarga(
+                $tenant['organizacion_id'],
+                $archivoId,
+                $sesion->clienteId,
+                null,
+                $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+
+            $archivo = $res['archivo'];
+            $stream = $res['stream'];
+
+            if (ob_get_level() > 0) {
+                ob_clean();
+            }
+
+            header('Content-Type: ' . $archivo['mime_type']);
+            header('Content-Disposition: attachment; filename="' . basename($archivo['nombre_original']) . '"');
+            header('Content-Length: ' . $archivo['peso_bytes']);
+            header('Cache-Control: private, no-transform, no-store, must-revalidate');
+
+            fpassthru($stream);
+            fclose($stream);
+            exit(0);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * POST /api/v1/publico/portal/entregas/{id}/responder
+     */
+    public function responderEntregaMultimedia(mixed $id = null): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $entregaId = (int) ($id ?? ($_GET['id'] ?? 0));
+            $body = $this->obtenerCuerpoJson();
+
+            $aprobada = !empty($body['aprobada']);
+            $observaciones = isset($body['observaciones']) ? (string) $body['observaciones'] : null;
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $entregaActualizada = $postSvc->responderEntregaCliente(
+                $tenant['organizacion_id'],
+                $entregaId,
+                $sesion->clienteId,
+                $aprobada,
+                $observaciones
+            );
+
+            $this->responderJson([
+                'exito'   => true,
+                'mensaje' => $aprobada ? 'Entrega aprobada satisfactoriamente.' : 'Observaciones registradas para el equipo de edición.',
+                'datos'   => $entregaActualizada,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
 
     /**
      * POST /api/v1/publico/portal/cerrar-sesion
@@ -544,6 +670,28 @@ class PortalPublicoControlador
             'exito'   => true,
             'mensaje' => 'Sesión cerrada correctamente.',
         ]);
+    }
+
+    private function resolverSesionCliente(): object
+    {
+        $sesion = $this->authClienteMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($sesion !== null && !empty($sesion->clienteId)) {
+            return $sesion;
+        }
+
+        // Si no vino por header/cookie, verificar query param token (e.g. descargas directas)
+        $tokenParam = $_GET['token'] ?? null;
+        if (!empty($tokenParam)) {
+            $sesionData = $this->authClienteSvc->obtenerSesion((string) $tokenParam);
+            if ($sesionData !== null && !empty($sesionData['cliente_id'])) {
+                return (object) [
+                    'clienteId' => (int) $sesionData['cliente_id'],
+                    'organizacionId' => (int) ($sesionData['organizacion_id'] ?? 0),
+                ];
+            }
+        }
+
+        throw new AccesoDenegadoExcepcion("Acceso denegado: Sesión de cliente no iniciada o inválida.");
     }
 
     private function obtenerCuerpoJson(): array

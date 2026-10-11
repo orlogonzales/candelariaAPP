@@ -231,6 +231,11 @@ Enrutador::get('/pagos', [\Aplicacion\Controladores\PagoControlador::class, 'ind
 Enrutador::get('/comunicaciones', [\Aplicacion\Controladores\ComunicacionControlador::class, 'index']);
 
 // ==============================================================================
+// POSTPRODUCCIÓN Y GALERÍAS MULTIMEDIA (FASE 2.11)
+// ==============================================================================
+Enrutador::get('/postproduccion', [\Aplicacion\Controladores\PostproduccionControlador::class, 'index']);
+
+// ==============================================================================
 // PORTAL PÚBLICO, CATÁLOGO, CHECKOUT Y ESPACIO CLIENTE (FASE 2.9C)
 // ==============================================================================
 Enrutador::get('/p/{slug}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaCatalogo']);
