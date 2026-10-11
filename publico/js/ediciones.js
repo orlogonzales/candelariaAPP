@@ -131,6 +131,17 @@ class ModuloEdiciones {
             formReap.addEventListener('submit', (e) => this.confirmarReapertura(e));
         }
 
+        const btnVerificar = document.getElementById('btnVerificarIntegridadCierre');
+        if (btnVerificar) {
+            btnVerificar.addEventListener('click', () => {
+                const modalEl = document.getElementById('modalActaCierre');
+                const id = modalEl?.dataset?.edicionId;
+                if (id) {
+                    this.verificarIntegridad(parseInt(id, 10));
+                }
+            });
+        }
+
         // Escuchar evento global de cambio de edición en pestaña
         document.addEventListener('candelaria:edicion-cambiada', (e) => {
             this.actualizarKpiPestana(e.detail?.nombre || 'Ninguna');
@@ -993,6 +1004,7 @@ class ModuloEdiciones {
         const id = modalEl?.dataset?.edicionId;
         const motivo = document.getElementById('reaperturaMotivo')?.value || '';
         const autorizadorId = document.getElementById('reaperturaAutorizador')?.value || '';
+        const claveAutorizador = document.getElementById('reaperturaClaveAutorizador')?.value || '';
         const btn = document.getElementById('btnConfirmarReapertura');
 
         if (motivo.trim().length < 20) {
@@ -1002,6 +1014,11 @@ class ModuloEdiciones {
 
         if (!autorizadorId) {
             CandelariaUI.notificarError('Debe seleccionar el usuario que autoriza formalmente la reapertura.');
+            return;
+        }
+
+        if (!claveAutorizador) {
+            CandelariaUI.notificarError('Debe ingresar la contraseña del usuario autorizador para la firma de cuatro ojos.');
             return;
         }
 
@@ -1019,6 +1036,7 @@ class ModuloEdiciones {
             const payload = {
                 motivo_excepcional: motivo.trim(),
                 autorizado_por_usuario_id: parseInt(autorizadorId, 10),
+                clave_confirmacion_autorizador: claveAutorizador,
                 nuevo_estado: 'POSTPRODUCCION_ENTREGA'
             };
 
@@ -1035,6 +1053,56 @@ class ModuloEdiciones {
             CandelariaUI.notificarError(err.message || 'No fue posible ejecutar la reapertura.');
         } finally {
             CandelariaUI.restaurarBoton(btn);
+        }
+    }
+
+    async verificarIntegridad(id) {
+        try {
+            CandelariaUI.mostrarCargando('Auditando sellado criptográfico HMAC del cierre...');
+            const resp = await window.CandelariaApi.get(`ediciones/${id}/cierre/verificar-integridad`);
+            CandelariaUI.cerrarCargando();
+
+            const datos = resp?.datos || {};
+            if (datos.es_integro) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Sellado Criptográfico Íntegro',
+                    html: `
+                        <div class="text-start f-s-13">
+                            <p class="mb-2 text-success f-w-600"><i class="fa-solid fa-circle-check me-1"></i> El acta y las cifras congeladas no han sufrido alteración alguna.</p>
+                            <div class="p-2 bg-light rounded font-monospace f-s-11 mb-2 text-break">
+                                <strong>Hash HMAC Verificado:</strong><br>${this.escapar(datos.hash_calculado)}
+                            </div>
+                            <div class="f-s-12 text-muted">
+                                <strong>Tipo de Sellado:</strong> ${this.escapar(datos.tipo_sellado)}<br>
+                                <strong>Fecha de Auditoría:</strong> ${this.escapar(datos.verificado_en)}
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonText: 'Aceptar',
+                    confirmButtonColor: '#0d6efd'
+                });
+            } else {
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Alerta de Inconsistencia',
+                    html: `
+                        <div class="text-start f-s-13">
+                            <p class="mb-2 text-danger f-w-600"><i class="fa-solid fa-triangle-exclamation me-1"></i> Se detectó discrepancia entre el hash almacenado y el recálculo formal.</p>
+                            <div class="p-2 bg-danger-subtle text-danger rounded font-monospace f-s-11 mb-2 text-break">
+                                <strong>Hash Almacenado:</strong> ${this.escapar(datos.hash_almacenado)}<br>
+                                <strong>Hash Calculado:</strong> ${this.escapar(datos.hash_calculado)}
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonText: 'Entendido',
+                    confirmButtonColor: '#dc3545'
+                });
+            }
+        } catch (err) {
+            CandelariaUI.cerrarCargando();
+            console.error('[ModuloEdiciones] Error al verificar integridad:', err);
+            CandelariaUI.notificarError(err.message || 'No fue posible auditar el sellado criptográfico.');
         }
     }
 

@@ -7,6 +7,8 @@ namespace Aplicacion\Ediciones;
 use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
 use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use Aplicacion\Repositorios\AuditoriaRepositorio;
+use Aplicacion\Repositorios\PermisoRepositorio;
+use Aplicacion\Repositorios\RolRepositorio;
 use InvalidArgumentException;
 use Nucleo\BaseDatos\Conexion;
 use Nucleo\Http\ContextoOperacion;
@@ -259,7 +261,70 @@ class CierreEdicionServicio
     }
 
     /**
-     * Ejecuta formalmente el cierre administrativo y financiero de la edición.
+     * Calcula el hash criptográfico inmutable sellado con HMAC del servidor.
+     */
+    public function calcularHashSellado(
+        array|string $snapshot,
+        string $fechaCierre,
+        int $edicionId,
+        int $organizacionId
+    ): string {
+        $data = is_array($snapshot) ? $snapshot : (json_decode((string)$snapshot, true) ?: []);
+        $this->ordenarArregloRecursivo($data);
+        $canonicalJson = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $claveSecreta = (string) (getenv('APP_CLAVE') ?: 'local_dev_secret_key_candelaria_2026_f01');
+        return hash_hmac('sha256', $canonicalJson . '|' . $fechaCierre . '|' . $edicionId . '|' . $organizacionId, $claveSecreta);
+    }
+
+    private function ordenarArregloRecursivo(array &$arr): void
+    {
+        ksort($arr);
+        foreach ($arr as &$val) {
+            if (is_array($val)) {
+                $this->ordenarArregloRecursivo($val);
+            }
+        }
+    }
+
+    /**
+     * Verifica la integridad histórica del acta y snapshot de un cierre contrastando su sellado criptográfico.
+     */
+    public function verificarIntegridadCierre(int $organizacionId, int $cierreId): array
+    {
+        $cierre = $this->obtenerCierrePorId($organizacionId, $cierreId);
+        if (!$cierre) {
+            throw new InvalidArgumentException("El cierre #{$cierreId} no existe en su organización.");
+        }
+
+        $snapshot = $cierre['resumen_financiero'] ?? $cierre['resumen_financiero_json'];
+        $fechaCierre = (string) $cierre['fecha_cierre'];
+        $edicionId = (int) $cierre['edicion_id'];
+        $hashAlmacenado = (string) $cierre['hash_integridad_cierre'];
+
+        $hashCalculado = $this->calcularHashSellado($snapshot, $fechaCierre, $edicionId, $organizacionId);
+        $rawJson = is_string($snapshot) ? $snapshot : json_encode($snapshot);
+        $hashPlanoLegacy = hash('sha256', (string)$rawJson . $fechaCierre . (string)$edicionId . (string)$organizacionId);
+
+        $esIntegro = hash_equals($hashAlmacenado, $hashCalculado) || hash_equals($hashAlmacenado, $hashPlanoLegacy);
+
+        if (!$esIntegro) {
+            error_log(sprintf('[ALERTA_INTEGRIDAD_CIERRE] Posible adulteración detectada en Cierre #%d Org #%d', $cierreId, $organizacionId));
+        }
+
+        return [
+            'cierre_id'       => $cierreId,
+            'organizacion_id' => $organizacionId,
+            'edicion_id'      => $edicionId,
+            'es_integro'      => $esIntegro,
+            'hash_almacenado' => $hashAlmacenado,
+            'hash_calculado'  => $hashCalculado,
+            'tipo_sellado'    => hash_equals($hashAlmacenado, $hashCalculado) ? 'HMAC_SHA256' : (hash_equals($hashAlmacenado, $hashPlanoLegacy) ? 'SHA256_LEGACY' : 'ALTERADO'),
+            'verificado_en'   => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * Ejecuta formalmente el cierre administrativo y financiero de la edición de forma atómica y consistente.
      */
     public function ejecutarCierre(
         int $organizacionId,
@@ -276,32 +341,6 @@ class CierreEdicionServicio
             throw new InvalidArgumentException("Tipo de cierre inválido: '{$tipoCierre}'. Debe ser DEFINITIVO o CONDICIONADO.");
         }
 
-        $edicion = $this->obtenerEdicion($organizacionId, $edicionId);
-        if (!$edicion) {
-            throw new InvalidArgumentException("La edición #{$edicionId} no existe en la organización.");
-        }
-
-        if ($edicion['estado'] === 'CERRADA') {
-            throw new InvalidArgumentException("La edición #{$edicionId} ya se encuentra formalmente CERRADA.");
-        }
-
-        // Diagnóstico previo estricto
-        $diag = $this->generarDiagnostico($organizacionId, $edicionId);
-
-        if (!empty($diag['bloqueantes'])) {
-            $motivos = array_column($diag['bloqueantes'], 'mensaje');
-            throw new InvalidArgumentException(
-                "No es posible asentar el cierre. Existen incidencias bloqueantes críticas:\n- " . implode("\n- ", $motivos)
-            );
-        }
-
-        if ($tipoCierre === 'DEFINITIVO' && !empty($diag['observaciones'])) {
-            throw new InvalidArgumentException(
-                "No es posible asentar Cierre DEFINITIVO existiendo observaciones de cobranzas o postproducción pendientes. " .
-                "Debe seleccionar Cierre CONDICIONADO registrando justificación formal y usuario autorizador."
-            );
-        }
-
         if ($tipoCierre === 'CONDICIONADO') {
             $justificacionLimpia = trim((string) $justificacion);
             if (strlen($justificacionLimpia) < 15) {
@@ -310,26 +349,30 @@ class CierreEdicionServicio
             if ($autorizadorId === null || $autorizadorId <= 0) {
                 throw new InvalidArgumentException("El cierre condicionado requiere obligatoriamente designar un usuario autorizador con facultades superiores.");
             }
-            // Comprobar que el usuario autorizador existe
-            $stmtAut = $this->pdo->prepare("SELECT id FROM `usuarios` WHERE id = :id AND organizacion_id = :org_id");
+            // P0: Principio de segregación de funciones (cuatro ojos)
+            if ($usuarioId === $autorizadorId) {
+                throw new InvalidArgumentException("En Cierre Condicionado, el usuario ejecutor y el autorizador formal deben ser identidades distintas (principio de cuatro ojos).");
+            }
+            // Comprobar que el usuario autorizador existe, pertenece al tenant y tiene RBAC
+            $stmtAut = $this->pdo->prepare("SELECT id, estado, es_superadmin_plataforma FROM `usuarios` WHERE id = :id AND organizacion_id = :org_id");
             $stmtAut->execute(['id' => $autorizadorId, 'org_id' => $organizacionId]);
-            if (!$stmtAut->fetchColumn()) {
-                throw new InvalidArgumentException("El usuario autorizador #{$autorizadorId} no existe o no pertenece a la organización.");
+            $autRow = $stmtAut->fetch(PDO::FETCH_ASSOC);
+            if (!$autRow || $autRow['estado'] !== 'ACTIVO') {
+                throw new InvalidArgumentException("El usuario autorizador #{$autorizadorId} no existe, está inactivo o no pertenece a la organización.");
+            }
+            $rolRepo = new RolRepositorio($this->pdo);
+            $permisoRepo = new PermisoRepositorio($this->pdo);
+            $esSuperAut = (bool) ($autRow['es_superadmin_plataforma'] ?? false);
+            $tieneFacultad = $esSuperAut
+                || $rolRepo->usuarioTieneRol($autorizadorId, 'admin_organizacion')
+                || $rolRepo->usuarioTieneRol($autorizadorId, 'superadmin_plataforma')
+                || $permisoRepo->usuarioTienePermiso($autorizadorId, 'ediciones.cerrar');
+            if (!$tieneFacultad) {
+                throw new AccesoDenegadoExcepcion("El usuario autorizador #{$autorizadorId} carece de facultades RBAC para autorizar cierres condicionados.");
             }
         }
 
-        // Control de concurrencia optimista sobre cierres vigentes
-        $cierreExistente = $this->obtenerCierreVigente($organizacionId, $edicionId);
-        if ($cierreExistente !== null) {
-            throw new ConflictoConcurrenciaExcepcion("La edición ya cuenta con un cierre vigente registrado concurrentemente.");
-        }
-
-        // Generar hash de integridad inmutable
-        $snapshotJson = json_encode($diag['resumen_financiero'], JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
-        $incidenciasJson = json_encode(array_merge($diag['bloqueantes'], $diag['observaciones']), JSON_UNESCAPED_UNICODE);
-        $fechaCierre = date('Y-m-d H:i:s');
-        $hashIntegridad = hash('sha256', $snapshotJson . $fechaCierre . (string)$edicionId . (string)$organizacionId);
-
+        // P0: Transaccionalidad estricta y Bloqueo Pesimista (FOR UPDATE)
         $transaccionPropia = false;
         if (!$this->pdo->inTransaction()) {
             $this->pdo->beginTransaction();
@@ -337,6 +380,58 @@ class CierreEdicionServicio
         }
 
         try {
+            // Bloqueo pesimista inmediato de la fila de la edición
+            $stmtLock = $this->pdo->prepare("
+                SELECT id, estado 
+                FROM `ediciones_candelaria` 
+                WHERE id = :id AND organizacion_id = :org_id 
+                FOR UPDATE
+            ");
+            $stmtLock->execute(['id' => $edicionId, 'org_id' => $organizacionId]);
+            $edicionBloqueada = $stmtLock->fetch(PDO::FETCH_ASSOC);
+
+            if (!$edicionBloqueada) {
+                throw new InvalidArgumentException("La edición #{$edicionId} no existe en la organización.");
+            }
+
+            if ($edicionBloqueada['estado'] === 'CERRADA') {
+                throw new ConflictoConcurrenciaExcepcion("La edición #{$edicionId} ya se encuentra formalmente CERRADA.");
+            }
+
+            // Control de concurrencia sobre cierre vigente bajo el lock pesimista
+            $stmtCierreVig = $this->pdo->prepare("
+                SELECT id FROM `edicion_cierres` 
+                WHERE organizacion_id = :org_id AND edicion_id = :ed_id AND estado = 'VIGENTE' 
+                LIMIT 1 FOR UPDATE
+            ");
+            $stmtCierreVig->execute(['org_id' => $organizacionId, 'ed_id' => $edicionId]);
+            if ($stmtCierreVig->fetchColumn()) {
+                throw new ConflictoConcurrenciaExcepcion("La edición ya cuenta con un cierre vigente registrado concurrentemente.");
+            }
+
+            // Diagnóstico y balance consistentes calculados dentro de la transacción
+            $diag = $this->generarDiagnostico($organizacionId, $edicionId);
+
+            if (!empty($diag['bloqueantes'])) {
+                $motivos = array_column($diag['bloqueantes'], 'mensaje');
+                throw new InvalidArgumentException(
+                    "No es posible asentar el cierre. Existen incidencias bloqueantes críticas:\n- " . implode("\n- ", $motivos)
+                );
+            }
+
+            if ($tipoCierre === 'DEFINITIVO' && !empty($diag['observaciones'])) {
+                throw new InvalidArgumentException(
+                    "No es posible asentar Cierre DEFINITIVO existiendo observaciones de cobranzas o postproducción pendientes. " .
+                    "Debe seleccionar Cierre CONDICIONADO registrando justificación formal y usuario autorizador."
+                );
+            }
+
+            // Generar hash de integridad sellado criptográficamente con HMAC del servidor
+            $fechaCierre = date('Y-m-d H:i:s');
+            $hashIntegridad = $this->calcularHashSellado($diag['resumen_financiero'], $fechaCierre, $edicionId, $organizacionId);
+            $snapshotJson = json_encode($diag['resumen_financiero'], JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+            $incidenciasJson = json_encode(array_merge($diag['bloqueantes'], $diag['observaciones']), JSON_UNESCAPED_UNICODE);
+
             // 1. Asentar registro en edicion_cierres
             $stmtIns = $this->pdo->prepare("
                 INSERT INTO `edicion_cierres` (
@@ -366,7 +461,7 @@ class CierreEdicionServicio
 
             $cierreId = (int) $this->pdo->lastInsertId();
 
-            // 2. Transicionar la edición a CERRADA
+            // 2. Transicionar la edición a CERRADA con incremento de version_bloqueo
             $stmtEd = $this->pdo->prepare("
                 UPDATE `ediciones_candelaria`
                 SET `estado` = 'CERRADA',
@@ -383,7 +478,7 @@ class CierreEdicionServicio
                     accion: 'CIERRE_EDICION_ADMINISTRATIVO_FINANCIERO',
                     entidadTipo: 'EDICION_CIERRE',
                     entidadId: (string) $cierreId,
-                    datosPrevios: ['estado_edicion' => $edicion['estado']],
+                    datosPrevios: ['estado_edicion' => $edicionBloqueada['estado']],
                     datosNuevos: [
                         'cierre_id'       => $cierreId,
                         'tipo_cierre'     => $tipoCierre,
@@ -408,6 +503,7 @@ class CierreEdicionServicio
 
     /**
      * Procedimiento excepcional de reversibilidad / reapertura auditada de una edición cerrada.
+     * Aplica validación de RBAC real del autorizador, segregación de funciones y aprobación verificada.
      */
     public function reabrirEdicionExcepcional(
         int $organizacionId,
@@ -415,6 +511,7 @@ class CierreEdicionServicio
         int $usuarioSolicitanteId,
         int $usuarioAutorizadorId,
         string $motivoExcepcional,
+        ?string $claveConfirmacionAutorizador = null,
         string $nuevoEstado = 'POSTPRODUCCION_ENTREGA',
         ?ContextoOperacion $contexto = null
     ): array {
@@ -423,16 +520,50 @@ class CierreEdicionServicio
             throw new InvalidArgumentException("La reapertura excepcional requiere un motivo debidamente fundamentado (mínimo 20 caracteres).");
         }
 
+        // P0: Regla de Cuatro Ojos — Solicitante y Autorizador deben ser identidades distintas
+        if ($usuarioSolicitanteId === $usuarioAutorizadorId) {
+            throw new InvalidArgumentException("El usuario solicitante y el usuario autorizador deben ser identidades distintas (principio de segregación de funciones).");
+        }
+
+        // P0: Validar que el solicitante existe, está activo y pertenece a la organización
+        $stmtSol = $this->pdo->prepare("SELECT id, estado FROM `usuarios` WHERE id = :id AND organizacion_id = :org_id");
+        $stmtSol->execute(['id' => $usuarioSolicitanteId, 'org_id' => $organizacionId]);
+        $solicitante = $stmtSol->fetch(PDO::FETCH_ASSOC);
+        if (!$solicitante || $solicitante['estado'] !== 'ACTIVO') {
+            throw new InvalidArgumentException("El usuario solicitante #{$usuarioSolicitanteId} no existe, está inactivo o no pertenece a la organización.");
+        }
+
+        // P0: Validar que el autorizador existe, está activo y pertenece a la organización
+        $stmtAut = $this->pdo->prepare("SELECT id, contrasena_hash, estado, es_superadmin_plataforma FROM `usuarios` WHERE id = :id AND organizacion_id = :org_id");
+        $stmtAut->execute(['id' => $usuarioAutorizadorId, 'org_id' => $organizacionId]);
+        $autorizador = $stmtAut->fetch(PDO::FETCH_ASSOC);
+        if (!$autorizador || $autorizador['estado'] !== 'ACTIVO') {
+            throw new InvalidArgumentException("El usuario autorizador de reapertura #{$usuarioAutorizadorId} no existe, está inactivo o no pertenece a la organización.");
+        }
+
+        // P0: Validar facultades efectivas de RBAC real (ediciones.reabrir_excepcional o rol administrador)
+        $permisoRepo = new PermisoRepositorio($this->pdo);
+        $rolRepo = new RolRepositorio($this->pdo);
+        $esSuper = (bool) ($autorizador['es_superadmin_plataforma'] ?? false);
+        $tienePermiso = $esSuper 
+            || $rolRepo->usuarioTieneRol($usuarioAutorizadorId, 'admin_organizacion')
+            || $rolRepo->usuarioTieneRol($usuarioAutorizadorId, 'superadmin_plataforma')
+            || $permisoRepo->usuarioTienePermiso($usuarioAutorizadorId, 'ediciones.reabrir_excepcional');
+
+        if (!$tienePermiso) {
+            throw new AccesoDenegadoExcepcion("El usuario autorizador #{$usuarioAutorizadorId} carece de facultades RBAC para autorizar reaperturas (requiere permiso ediciones.reabrir_excepcional o rol administrador).");
+        }
+
+        // P0: Aprobación expresa — Si se proporciona clave de confirmación, verificar criptográficamente
+        if ($claveConfirmacionAutorizador !== null && $claveConfirmacionAutorizador !== '') {
+            if (!password_verify($claveConfirmacionAutorizador, (string)$autorizador['contrasena_hash'])) {
+                throw new AccesoDenegadoExcepcion("Clave de confirmación incorrecta para el usuario autorizador #{$usuarioAutorizadorId}.");
+            }
+        }
+
         $cierreVigente = $this->obtenerCierreVigente($organizacionId, $edicionId);
         if ($cierreVigente === null) {
             throw new InvalidArgumentException("La edición #{$edicionId} no cuenta con un cierre vigente para reapertura.");
-        }
-
-        // Validar que el autorizador existe y pertenece a la organización
-        $stmtAut = $this->pdo->prepare("SELECT id FROM `usuarios` WHERE id = :id AND organizacion_id = :org_id");
-        $stmtAut->execute(['id' => $usuarioAutorizadorId, 'org_id' => $organizacionId]);
-        if (!$stmtAut->fetchColumn()) {
-            throw new InvalidArgumentException("El usuario autorizador de reapertura #{$usuarioAutorizadorId} no es válido.");
         }
 
         $nuevoEstado = in_array($nuevoEstado, ['OPERACION', 'POSTPRODUCCION_ENTREGA'], true) ? $nuevoEstado : 'POSTPRODUCCION_ENTREGA';
@@ -508,7 +639,8 @@ class CierreEdicionServicio
                     datosNuevos: [
                         'reapertura_id' => $reaperturaId,
                         'nuevo_estado'  => $nuevoEstado,
-                        'motivo'        => $motivoLimpio
+                        'motivo'        => $motivoLimpio,
+                        'autorizado_por'=> $usuarioAutorizadorId
                     ]
                 );
             }
@@ -523,6 +655,7 @@ class CierreEdicionServicio
                 'edicion_id'    => $edicionId,
                 'nuevo_estado'  => $nuevoEstado,
                 'fecha'         => date('Y-m-d H:i:s'),
+                'mensaje'       => 'Festividad reabierta formalmente para regularizaciones autorizadas.',
             ];
         } catch (\Throwable $e) {
             if ($transaccionPropia && $this->pdo->inTransaction()) {

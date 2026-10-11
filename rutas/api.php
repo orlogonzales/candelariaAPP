@@ -217,6 +217,7 @@ Enrutador::get('/api/v1/ediciones/{id}/diagnostico-cierre', [\Aplicacion\Control
 Enrutador::post('/api/v1/ediciones/{id}/cerrar', [\Aplicacion\Controladores\EdicionControlador::class, 'ejecutarCierre']);
 Enrutador::post('/api/v1/ediciones/{id}/reabrir', [\Aplicacion\Controladores\EdicionControlador::class, 'reabrirExcepcional']);
 Enrutador::get('/api/v1/ediciones/{id}/cierre', [\Aplicacion\Controladores\EdicionControlador::class, 'consultarCierre']);
+Enrutador::get('/api/v1/ediciones/{id}/cierre/verificar-integridad', [\Aplicacion\Controladores\EdicionControlador::class, 'verificarIntegridad']);
 Enrutador::get('/api/v1/contexto/edicion', [\Aplicacion\Controladores\EdicionControlador::class, 'contextoActual']);
 
 // ==============================================================================

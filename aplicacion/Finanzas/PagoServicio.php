@@ -80,6 +80,24 @@ class PagoServicio
             throw new InvalidArgumentException("La venta ya se encuentra formalmente LIQUIDADA. No admite nuevos pagos.");
         }
 
+        // Guardián operativo: Comprobar estado de festividad vs regularización legítima de Cierre Condicionado
+        $stmtEd = $this->pdo->prepare("SELECT estado FROM `ediciones_candelaria` WHERE id = :id AND organizacion_id = :org_id");
+        $stmtEd->execute(['id' => $edicionId, 'org_id' => $organizacionId]);
+        $estadoEdicion = $stmtEd->fetchColumn();
+
+        if ($estadoEdicion === 'CERRADA') {
+            $stmtCierre = $this->pdo->prepare("SELECT tipo_cierre FROM `edicion_cierres` WHERE edicion_id = :ed_id AND organizacion_id = :org_id AND estado = 'VIGENTE' LIMIT 1");
+            $stmtCierre->execute(['ed_id' => $edicionId, 'org_id' => $organizacionId]);
+            $tipoCierre = $stmtCierre->fetchColumn();
+
+            $saldoActual = (float) ($venta->saldoPendiente ?? $venta->total);
+            if ($tipoCierre !== 'CONDICIONADO' || $saldoActual <= 0.01) {
+                throw new InvalidArgumentException(
+                    "La festividad #{$edicionId} se encuentra formalmente CERRADA en modo DEFINITIVO o sin saldos pendientes. No admite nuevos pagos."
+                );
+            }
+        }
+
         // 3. Validar método de pago
         $metodoRaw = strtoupper((string) ($datos['metodo_pago'] ?? ''));
         $metodo = MetodoPago::tryFrom($metodoRaw);

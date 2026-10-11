@@ -61,6 +61,9 @@ foreach ($archivos as $archivo) {
     $totalFail += $fail;
 
     $resumen[] = sprintf("%-30s : %-4s (%3d pass, %2d fail)", $nombre, $estado, $pass, $fail);
+    if ($estado === 'FAIL') {
+        $resumen[] = "  --> DETALLE: " . substr(trim($textoSalida), 0, 300);
+    }
 }
 
 echo implode("\n", $resumen) . "\n";

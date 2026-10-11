@@ -239,7 +239,7 @@ class MotorDisponibilidadServicio
         }
 
         try {
-            // 1. Exclusión mutua pesimista (FOR UPDATE) para serializar solicitudes concurrentes sobre el último cupo
+            // 1. Exclusión mutua pesimista (FOR UPDATE) como primera sentencia para serializar solicitudes concurrentes sobre el último cupo
             if ($salidaId !== null) {
                 $stmtLock = $this->pdo->prepare("
                     SELECT `id` FROM `operacion_salidas`
@@ -260,6 +260,22 @@ class MotorDisponibilidadServicio
                     'edicion_id' => $edicionId,
                     'item_id'    => $itemComercialId,
                 ]);
+            }
+
+            // Guardián operativo: Comprobar que la edición no esté formalmente CERRADA
+            $stmtEd = $this->pdo->prepare("SELECT estado FROM `ediciones_candelaria` WHERE id = :ed_id AND organizacion_id = :org_id");
+            $stmtEd->execute(['ed_id' => $edicionId, 'org_id' => $organizacionId]);
+            $estadoEd = $stmtEd->fetchColumn();
+            if ($estadoEd === 'CERRADA') {
+                if ($transaccionIniciada) {
+                    $this->pdo->rollBack();
+                }
+                return [
+                    'exito'          => false,
+                    'token_bloqueo'  => null,
+                    'expira_en'      => null,
+                    'mensaje'        => 'La festividad seleccionada ya se encuentra formalmente CERRADA para nuevas compras.',
+                ];
             }
 
             // 2. Comprobar aforo disponible

@@ -429,6 +429,12 @@
                     <div class="f-s-11 text-muted font-monospace text-break">
                         <strong>Hash de Integridad (SHA-256):</strong> <span id="actaHash" class="text-primary">-</span>
                     </div>
+                    <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
+                        <span class="f-s-12 text-muted"><i class="fa-solid fa-shield-halved me-1 text-primary"></i> Certificación Criptográfica HMAC</span>
+                        <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2 f-s-12" id="btnVerificarIntegridadCierre">
+                            <i class="fa-solid fa-check-double me-1"></i> Auditar Sellado
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Snapshot financiero resumido -->
@@ -465,6 +471,13 @@
                             <select class="form-select" id="reaperturaAutorizador" required>
                                 <option value="">Seleccione autorizador...</option>
                             </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reaperturaClaveAutorizador" class="form-label f-w-600 f-s-12 text-dark">
+                                Contraseña del Autorizador (Firma de Cuatro Ojos) <span class="text-danger">*</span>
+                            </label>
+                            <input type="password" class="form-control" id="reaperturaClaveAutorizador" required placeholder="Contraseña de confirmación del usuario autorizador...">
+                            <div class="form-text f-s-11 text-muted">Acredita la aprobación expresa y voluntaria del usuario autorizador.</div>
                         </div>
                         <div class="d-flex justify-content-end gap-2">
                             <button type="button" class="btn btn-light btn-sm" id="btnCancelarReapertura">Cancelar</button>

@@ -78,6 +78,10 @@ class OperacionServicio
         if ($edicion === null) {
             throw new InvalidArgumentException("La edición #{$edicionId} no existe en su organización.");
         }
+        $estadoEd = is_object($edicion->estado) ? $edicion->estado->value : (string) $edicion->estado;
+        if ($estadoEd === 'CERRADA') {
+            throw new InvalidArgumentException("No se pueden programar nuevas salidas operativas en una festividad formalmente CERRADA.");
+        }
 
         $item = $this->itemRepo->buscarPorId($itemComercialId, $organizacionId);
         if ($item === null) {

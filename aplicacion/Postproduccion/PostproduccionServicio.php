@@ -63,6 +63,9 @@ class PostproduccionServicio
         if (!$edicion) {
             throw new InvalidArgumentException("La edición #{$edicionId} no pertenece a su organización.");
         }
+        if ($edicion['estado'] === 'CERRADA') {
+            throw new InvalidArgumentException("No se pueden aperturar nuevos proyectos audiovisuales en una festividad formalmente CERRADA.");
+        }
 
         // Validar titular cliente
         $stmtCli = $this->pdo->prepare("SELECT id FROM `clientes` WHERE id = :id AND organizacion_id = :org_id");

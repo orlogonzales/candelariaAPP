@@ -465,6 +465,7 @@ class EdicionControlador
 
             $motivo = (string) ($datos['motivo_excepcional'] ?? '');
             $autorizadorId = (int) ($datos['autorizado_por_usuario_id'] ?? 0);
+            $claveConfirmacion = !empty($datos['clave_confirmacion_autorizador']) ? (string)$datos['clave_confirmacion_autorizador'] : null;
             $nuevoEstado = (string) ($datos['nuevo_estado'] ?? 'POSTPRODUCCION_ENTREGA');
 
             $resultado = $this->cierreServicio->reabrirEdicionExcepcional(
@@ -473,6 +474,7 @@ class EdicionControlador
                 usuarioSolicitanteId: (int) $contexto->usuarioId,
                 usuarioAutorizadorId: $autorizadorId,
                 motivoExcepcional: $motivo,
+                claveConfirmacionAutorizador: $claveConfirmacion,
                 nuevoEstado: $nuevoEstado,
                 contexto: $contexto
             );
@@ -515,6 +517,36 @@ class EdicionControlador
             return $this->responderError($e->getMessage(), 403);
         } catch (Throwable $e) {
             return $this->responderError('Error al consultar el cierre de la edición.', 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/cierre/verificar-integridad
+     * Audita el sellado HMAC del acta y snapshot de cierre contrastándolo con la clave del sistema.
+     */
+    public function verificarIntegridad(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $cierre = $this->cierreServicio->obtenerCierreVigente($contexto->organizacionId, $id);
+            if (!$cierre) {
+                return $this->responderError('La edición no cuenta con un cierre vigente para verificar.', 404);
+            }
+
+            $resultado = $this->cierreServicio->verificarIntegridadCierre($contexto->organizacionId, (int)$cierre['id']);
+
+            return $this->responderExito(
+                $resultado,
+                $resultado['es_integro'] ? 'Integridad histórica y sellado criptográfico 100% íntegro.' : 'Alerta: El acta de cierre presenta inconsistencias de hash.'
+            );
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al auditar la integridad del cierre: ' . $e->getMessage(), 500);
         }
     }
 
