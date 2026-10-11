@@ -632,6 +632,7 @@ class PortalPublicoControlador
 
             $aprobada = !empty($body['aprobada']);
             $observaciones = isset($body['observaciones']) ? (string) $body['observaciones'] : null;
+            $versionBloqueo = isset($body['version_bloqueo']) ? (int) $body['version_bloqueo'] : null;
 
             $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
             $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
@@ -641,7 +642,8 @@ class PortalPublicoControlador
                 $entregaId,
                 $sesion->clienteId,
                 $aprobada,
-                $observaciones
+                $observaciones,
+                $versionBloqueo
             );
 
             $this->responderJson([
@@ -720,6 +722,8 @@ class PortalPublicoControlador
             $codigo = 400;
         } elseif ($e instanceof AccesoDenegadoExcepcion) {
             $codigo = 403;
+        } elseif ($e instanceof \Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion) {
+            $codigo = 409;
         }
 
         $this->responderJson([

@@ -2369,8 +2369,9 @@ CREATE TABLE `postproduccion_archivos` (
     `ancho_px` INT UNSIGNED DEFAULT NULL,
     `alto_px` INT UNSIGNED DEFAULT NULL,
     `duracion_segundos` INT UNSIGNED DEFAULT NULL,
+    `fecha_retencion_hasta` DATE DEFAULT NULL,
     `version` INT UNSIGNED NOT NULL DEFAULT 1,
-    `estado` ENUM('SUBIDO', 'EN_PROCESO', 'LISTO', 'RECHAZADO') NOT NULL DEFAULT 'LISTO',
+    `estado` ENUM('ACTIVO', 'ARCHIVADO', 'REVOCADO', 'ELIMINADO_SOLICITUD') NOT NULL DEFAULT 'ACTIVO',
     `es_destacado` TINYINT(1) NOT NULL DEFAULT 0,
     `subido_por_usuario_id` INT UNSIGNED DEFAULT NULL,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2400,6 +2401,7 @@ CREATE TABLE `postproduccion_entregas` (
     `creado_por_usuario_id` INT UNSIGNED DEFAULT NULL,
     `aprobado_por_cliente_en` DATETIME DEFAULT NULL,
     `observaciones_cliente` TEXT DEFAULT NULL,
+    `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY `idx_entrega_proyecto` (`proyecto_id`),
@@ -2441,6 +2443,33 @@ CREATE TABLE `postproduccion_descargas_log` (
     CONSTRAINT `fk_descarga_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE SET NULL,
     CONSTRAINT `fk_descarga_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Auditoría de streaming y descargas de material multimedia';
+
+-- ------------------------------------------------------------------------------
+-- 84. TABLA `postproduccion_solicitudes_supresion` (TRAZABILIDAD LEY 29733 HABEAS DATA)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_solicitudes_supresion`;
+CREATE TABLE `postproduccion_solicitudes_supresion` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `archivo_id` BIGINT UNSIGNED NOT NULL,
+    `solicitante_tipo` ENUM('CLIENTE', 'USUARIO') NOT NULL,
+    `solicitante_id` INT UNSIGNED NOT NULL,
+    `motivo` TEXT NOT NULL,
+    `estado` ENUM('PENDIENTE', 'APROBADA_EJECUTADA', 'RECHAZADA') NOT NULL DEFAULT 'PENDIENTE',
+    `autorizado_por_usuario_id` INT UNSIGNED DEFAULT NULL,
+    `fecha_solicitud` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `fecha_ejecucion` DATETIME DEFAULT NULL,
+    `checksum_sha256_purgado` CHAR(64) DEFAULT NULL,
+    `ip_solicitud` VARCHAR(45) NOT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY `idx_supresion_org` (`organizacion_id`),
+    KEY `idx_supresion_archivo` (`archivo_id`),
+    KEY `idx_supresion_estado` (`organizacion_id`, `estado`),
+    CONSTRAINT `fk_supresion_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_supresion_archivo` FOREIGN KEY (`archivo_id`) REFERENCES `postproduccion_archivos` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_supresion_autorizador` FOREIGN KEY (`autorizado_por_usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Trazabilidad probatoria de solicitudes de eliminación y supresión de datos Ley 29733';
 
 -- Registro de Módulos 13 y 24 y Permisos en esquema consolidado
 INSERT INTO `modulos` (`id`, `codigo`, `nombre`, `descripcion`, `icono_fontawesome`, `orden`, `es_nucleo`, `estado`)
@@ -2484,7 +2513,8 @@ WHERE r.codigo IN ('COORDINADOR') AND p.modulo_id = 24;
 
 INSERT INTO `migraciones_control` (`migracion`, `lote`)
 VALUES ('2026_10_11_000019_crear_modulo_documentos_pdf_y_recibos_caja.sql', 17),
-       ('2026_10_11_000020_crear_modulo_postproduccion_y_evolucion_contratos.sql', 18)
+       ('2026_10_11_000020_crear_modulo_postproduccion_y_evolucion_contratos.sql', 18),
+       ('2026_10_11_000021_hardening_postproduccion_f211d.sql', 19)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 SET FOREIGN_KEY_CHECKS = 1;

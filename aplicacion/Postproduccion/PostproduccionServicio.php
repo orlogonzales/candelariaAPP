@@ -6,6 +6,7 @@ namespace Aplicacion\Postproduccion;
 
 use Aplicacion\Postproduccion\Almacenamiento\AlmacenamientoLocalDriver;
 use Aplicacion\Postproduccion\Almacenamiento\AlmacenamientoMultimediaInterface;
+use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use InvalidArgumentException;
 use PDO;
 use RuntimeException;
@@ -13,10 +14,14 @@ use RuntimeException;
 /**
  * Servicio Central de Dominio de Postproducción y Galería Multimedia.
  * Gobierna el flujo audiovisual: Proyectos -> Galerías -> Archivos (Fotos/Videos) -> Entregas Parciales -> Descargas.
- * Garantiza aislamiento multitenant estricto, protección anti-IDOR y preservación de acceso histórico en ediciones cerradas.
+ * Garantiza aislamiento multitenant estricto, protección anti-IDOR, cuotas de almacenamiento,
+ * políticas de retención, supresión autorizada conforme a la Ley 29733 y preservación de acceso histórico en ediciones cerradas.
  */
 class PostproduccionServicio
 {
+    public const CUOTA_DEFECTO_ORG_BYTES = 10737418240; // 10 GB
+    public const RETENCION_DEFECTO_DIAS = 730; // 2 años tras la edición
+
     private const TIPOS_MIME_PERMITIDOS = [
         'image/jpeg'        => 'FOTO',
         'image/png'         => 'FOTO',
@@ -116,7 +121,7 @@ class PostproduccionServicio
     }
 
     /**
-     * Crea un álbum o galería temática dentro de un proyecto.
+     * Crea una nueva galería o álbum temático dentro de un proyecto.
      */
     public function crearGaleria(
         int $organizacionId,
@@ -161,6 +166,7 @@ class PostproduccionServicio
 
     /**
      * Sube un archivo fotográfico o de video procesándolo directamente por streams sin cargarlo en memoria.
+     * Verifica cuota de almacenamiento, tamaño máximo y fecha de retención legal.
      *
      * @param resource $streamOrigen Flujo de datos abierto para lectura.
      */
@@ -182,36 +188,59 @@ class PostproduccionServicio
             throw new InvalidArgumentException("La galería #{$galeriaId} no pertenece al proyecto #{$proyectoId}.");
         }
 
-        // 2. Validación estricta de Whitelist MIME
+        // 2. Control de Cuota de Almacenamiento por Organización
+        $stmtUso = $this->pdo->prepare("SELECT COALESCE(SUM(`peso_total_bytes`), 0) FROM `postproduccion_proyectos` WHERE `organizacion_id` = :org_id");
+        $stmtUso->execute(['org_id' => $organizacionId]);
+        $usoActual = (int) $stmtUso->fetchColumn();
+
+        $cuotaMax = self::CUOTA_DEFECTO_ORG_BYTES;
+        $stmtCfg = $this->pdo->prepare("SELECT `valor` FROM `parametros_configuracion` WHERE `organizacion_id` = :org_id AND `codigo` = 'postproduccion.cuota_almacenamiento_mb' AND `estado` = 'ACTIVO'");
+        $stmtCfg->execute(['org_id' => $organizacionId]);
+        $cfgMb = $stmtCfg->fetchColumn();
+        if ($cfgMb !== false && is_numeric($cfgMb)) {
+            $cuotaMax = (int) $cfgMb * 1024 * 1024;
+        }
+
+        if ($usoActual >= $cuotaMax) {
+            throw new InvalidArgumentException("Cuota de almacenamiento excedida para la organización (límite: " . round($cuotaMax / (1024 * 1024)) . " MB).");
+        }
+
+        // 3. Validación estricta de Whitelist MIME
         $mimeNormalizado = strtolower(trim($mimeType));
         if (!isset(self::TIPOS_MIME_PERMITIDOS[$mimeNormalizado])) {
             throw new InvalidArgumentException("Tipo MIME no permitido para material multimedia: {$mimeNormalizado}. Solo se admiten formatos JPG, PNG, WEBP, TIFF, MP4, MOV, MKV o PDF.");
         }
         $tipoArchivoEnum = self::TIPOS_MIME_PERMITIDOS[$mimeNormalizado];
 
-        // 3. Generar ruta privada unívoca por tenant
+        // 4. Calcular política de retención
+        $stmtDias = $this->pdo->prepare("SELECT `valor` FROM `parametros_configuracion` WHERE `organizacion_id` = :org_id AND `codigo` = 'postproduccion.periodo_retencion_dias' AND `estado` = 'ACTIVO'");
+        $stmtDias->execute(['org_id' => $organizacionId]);
+        $diasRetencion = (int) ($stmtDias->fetchColumn() ?: self::RETENCION_DEFECTO_DIAS);
+        $fechaRetencion = date('Y-m-d', strtotime("+{$diasRetencion} days"));
+
+        // 5. Generar ruta privada unívoca por tenant
         $extension = pathinfo($nombreOriginal, PATHINFO_EXTENSION) ?: ($tipoArchivoEnum === 'FOTO' ? 'jpg' : 'mp4');
         $nombreLimpio = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', pathinfo($nombreOriginal, PATHINFO_FILENAME));
         $nombreAlmacenamiento = sprintf('%s_%s_%s.%s', strtolower($tipoArchivoEnum), uniqid(), $nombreLimpio, $extension);
         $rutaRelativa = sprintf('%d/proyectos/%d/galerias/%d/%s', $organizacionId, $proyectoId, $galeriaId, $nombreAlmacenamiento);
 
-        // 4. Procesar y almacenar mediante stream en el driver desacoplado
+        // 6. Procesar y almacenar mediante stream en el driver desacoplado (con verificación Magic Bytes interna)
         $guardado = $this->almacenamiento->guardarStream($streamOrigen, $rutaRelativa);
 
-        // 5. Registrar en postproduccion_archivos
+        // 7. Registrar en postproduccion_archivos
         $stmtIns = $this->pdo->prepare("
             INSERT INTO `postproduccion_archivos` (
                 `organizacion_id`, `proyecto_id`, `galeria_id`, `nombre_original`,
                 `nombre_almacenamiento`, `driver_almacenamiento`, `ruta_privada`,
                 `tipo_archivo`, `mime_type`, `peso_bytes`, `checksum_sha256`,
-                `ancho_px`, `alto_px`, `duracion_segundos`, `version`, `estado`,
-                `subido_por_usuario_id`
+                `ancho_px`, `alto_px`, `duracion_segundos`, `fecha_retencion_hasta`,
+                `version`, `estado`, `subido_por_usuario_id`
             ) VALUES (
                 :org_id, :pry_id, :gal_id, :nom_orig,
                 :nom_alm, 'LOCAL', :ruta,
                 :tipo_arch, :mime, :peso, :hash,
-                :ancho, :alto, :duracion, 1, 'LISTO',
-                :usr_id
+                :ancho, :alto, :duracion, :retencion,
+                1, 'ACTIVO', :usr_id
             )
         ");
         $stmtIns->execute([
@@ -228,12 +257,13 @@ class PostproduccionServicio
             'ancho'      => $anchoPx,
             'alto'       => $altoPx,
             'duracion'   => $duracionSegundos,
+            'retencion'  => $fechaRetencion,
             'usr_id'     => $subidoPorUsuarioId,
         ]);
 
         $archivoId = (int) $this->pdo->lastInsertId();
 
-        // 6. Actualizar contadores del proyecto
+        // 8. Actualizar contadores del proyecto
         $this->pdo->prepare("
             UPDATE `postproduccion_proyectos`
             SET `total_archivos` = `total_archivos` + 1,
@@ -279,11 +309,11 @@ class PostproduccionServicio
             INSERT INTO `postproduccion_entregas` (
                 `organizacion_id`, `proyecto_id`, `numero_entrega`, `titulo`,
                 `tipo_entrega`, `estado_entrega`, `notas_entrega`,
-                `fecha_caducidad_enlace`, `creado_por_usuario_id`
+                `fecha_caducidad_enlace`, `creado_por_usuario_id`, `version_bloqueo`
             ) VALUES (
                 :org_id, :pry_id, :num, :titulo,
                 :tipo, 'PUBLICADA', :notas,
-                :caducidad, :usr_id
+                :caducidad, :usr_id, 1
             )
         ");
         $stmtIns->execute([
@@ -325,14 +355,15 @@ class PostproduccionServicio
     }
 
     /**
-     * Registra la aprobación o las observaciones del cliente titular sobre una entrega.
+     * Registra la aprobación o las observaciones del cliente titular sobre una entrega con control de concurrencia optimista.
      */
     public function responderEntregaCliente(
         int $organizacionId,
         int $entregaId,
         int $clienteId,
         bool $aprobada,
-        ?string $observaciones = null
+        ?string $observaciones = null,
+        ?int $versionBloqueoEsperada = null
     ): array {
         $entrega = $this->obtenerEntrega($organizacionId, $entregaId);
         if (!$entrega) {
@@ -345,19 +376,45 @@ class PostproduccionServicio
         }
 
         $nuevoEstado = $aprobada ? 'APROBADA_CLIENTE' : 'OBSERVADA_CLIENTE';
-        $stmtUpd = $this->pdo->prepare("
-            UPDATE `postproduccion_entregas`
-            SET `estado_entrega` = :estado,
-                `aprobado_por_cliente_en` = IF(:aprobada = 1, NOW(), NULL),
-                `observaciones_cliente` = :obs
-            WHERE `id` = :id
-        ");
-        $stmtUpd->execute([
-            'estado'   => $nuevoEstado,
-            'aprobada' => $aprobada ? 1 : 0,
-            'obs'      => $observaciones,
-            'id'       => $entregaId,
-        ]);
+
+        if ($versionBloqueoEsperada !== null) {
+            $stmtUpd = $this->pdo->prepare("
+                UPDATE `postproduccion_entregas`
+                SET `estado_entrega` = :estado,
+                    `aprobado_por_cliente_en` = IF(:aprobada = 1, NOW(), NULL),
+                    `observaciones_cliente` = :obs,
+                    `version_bloqueo` = `version_bloqueo` + 1
+                WHERE `id` = :id AND `organizacion_id` = :org_id AND `version_bloqueo` = :version
+            ");
+            $stmtUpd->execute([
+                'estado'   => $nuevoEstado,
+                'aprobada' => $aprobada ? 1 : 0,
+                'obs'      => $observaciones,
+                'id'       => $entregaId,
+                'org_id'   => $organizacionId,
+                'version'  => $versionBloqueoEsperada,
+            ]);
+
+            if ($stmtUpd->rowCount() === 0) {
+                throw new ConflictoConcurrenciaExcepcion("Conflicto de concurrencia: La entrega fue modificada concurrentemente por otra sesión.");
+            }
+        } else {
+            $stmtUpd = $this->pdo->prepare("
+                UPDATE `postproduccion_entregas`
+                SET `estado_entrega` = :estado,
+                    `aprobado_por_cliente_en` = IF(:aprobada = 1, NOW(), NULL),
+                    `observaciones_cliente` = :obs,
+                    `version_bloqueo` = `version_bloqueo` + 1
+                WHERE `id` = :id AND `organizacion_id` = :org_id
+            ");
+            $stmtUpd->execute([
+                'estado'   => $nuevoEstado,
+                'aprobada' => $aprobada ? 1 : 0,
+                'obs'      => $observaciones,
+                'id'       => $entregaId,
+                'org_id'   => $organizacionId,
+            ]);
+        }
 
         return $this->obtenerEntrega($organizacionId, $entregaId);
     }
@@ -381,6 +438,14 @@ class PostproduccionServicio
             throw new InvalidArgumentException("El archivo solicitado no existe en su organización.");
         }
 
+        // Validación de Estado del Archivo (Ciclo de Vida y Seguridad)
+        if ($archivo['estado'] === 'REVOCADO') {
+            throw new InvalidArgumentException("Acceso denegado: El archivo multimedia ha sido revocado.");
+        }
+        if ($archivo['estado'] === 'ELIMINADO_SOLICITUD') {
+            throw new InvalidArgumentException("Acceso denegado: El archivo fue eliminado conforme a la solicitud de supresión de datos.");
+        }
+
         $proyecto = $this->obtenerProyecto($organizacionId, (int) $archivo['proyecto_id']);
 
         // Protección Anti-IDOR: Si es un cliente, validar titularidad
@@ -390,9 +455,7 @@ class PostproduccionServicio
             }
         }
 
-        // Regla Crítica de Edición: El cambio a CERRADA no revoca el acceso histórico del cliente
-        // (Se permite la descarga de entregables legítimos sin lanzar excepción por estado CERRADA)
-
+        // Regla Soberana de Edición: El cambio a CERRADA no revoca el acceso histórico del cliente
         // Abrir flujo de lectura
         $stream = $this->almacenamiento->obtenerStream($archivo['ruta_privada']);
 
@@ -420,6 +483,137 @@ class PostproduccionServicio
             'stream'  => $stream,
             'archivo' => $archivo,
         ];
+    }
+
+    /**
+     * Marca un archivo como ARCHIVADO (conservación histórica pasiva).
+     */
+    public function archivarArchivo(int $organizacionId, int $archivoId, int $usuarioId): array
+    {
+        $archivo = $this->obtenerArchivo($organizacionId, $archivoId);
+        if (!$archivo) {
+            throw new InvalidArgumentException("El archivo #{$archivoId} no existe en su organización.");
+        }
+
+        $this->pdo->prepare("UPDATE `postproduccion_archivos` SET `estado` = 'ARCHIVADO' WHERE `id` = :id AND `organizacion_id` = :org_id")
+            ->execute(['id' => $archivoId, 'org_id' => $organizacionId]);
+
+        return $this->obtenerArchivo($organizacionId, $archivoId);
+    }
+
+    /**
+     * Revoca el acceso a un archivo por motivos contractuales o de seguridad.
+     */
+    public function revocarArchivo(int $organizacionId, int $archivoId, int $usuarioId, string $motivo): array
+    {
+        $archivo = $this->obtenerArchivo($organizacionId, $archivoId);
+        if (!$archivo) {
+            throw new InvalidArgumentException("El archivo #{$archivoId} no existe en su organización.");
+        }
+
+        $this->pdo->prepare("UPDATE `postproduccion_archivos` SET `estado` = 'REVOCADO' WHERE `id` = :id AND `organizacion_id` = :org_id")
+            ->execute(['id' => $archivoId, 'org_id' => $organizacionId]);
+
+        return $this->obtenerArchivo($organizacionId, $archivoId);
+    }
+
+    /**
+     * Registra una solicitud de supresión de datos personales / eliminación autorizada (Ley 29733).
+     */
+    public function solicitarSupresionArchivo(
+        int $organizacionId,
+        int $archivoId,
+        string $solicitanteTipo,
+        int $solicitanteId,
+        string $motivo,
+        string $ip
+    ): array {
+        $archivo = $this->obtenerArchivo($organizacionId, $archivoId);
+        if (!$archivo) {
+            throw new InvalidArgumentException("El archivo #{$archivoId} no existe en su organización.");
+        }
+
+        if (!in_array($solicitanteTipo, ['CLIENTE', 'USUARIO'], true)) {
+            throw new InvalidArgumentException("Tipo de solicitante inválido: {$solicitanteTipo}.");
+        }
+
+        $stmtIns = $this->pdo->prepare("
+            INSERT INTO `postproduccion_solicitudes_supresion` (
+                `organizacion_id`, `archivo_id`, `solicitante_tipo`, `solicitante_id`,
+                `motivo`, `estado`, `ip_solicitud`
+            ) VALUES (
+                :org_id, :arch_id, :tipo, :sol_id,
+                :motivo, 'PENDIENTE', :ip
+            )
+        ");
+        $stmtIns->execute([
+            'org_id'  => $organizacionId,
+            'arch_id' => $archivoId,
+            'tipo'    => $solicitanteTipo,
+            'sol_id'  => $solicitanteId,
+            'motivo'  => trim($motivo),
+            'ip'      => $ip,
+        ]);
+
+        $solicitudId = (int) $this->pdo->lastInsertId();
+        return $this->obtenerSolicitudSupresion($organizacionId, $solicitudId);
+    }
+
+    /**
+     * Ejecuta la eliminación física definitiva de un archivo bajo autorización legal (Ley 29733).
+     */
+    public function ejecutarSupresionAutorizada(int $organizacionId, int $solicitudId, int $usuarioAutorizadorId): array
+    {
+        $solicitud = $this->obtenerSolicitudSupresion($organizacionId, $solicitudId);
+        if (!$solicitud) {
+            throw new InvalidArgumentException("La solicitud #{$solicitudId} no existe en su organización.");
+        }
+        if ($solicitud['estado'] !== 'PENDIENTE') {
+            throw new InvalidArgumentException("La solicitud #{$solicitudId} ya fue procesada (estado: {$solicitud['estado']}).");
+        }
+
+        $archivo = $this->obtenerArchivo($organizacionId, (int) $solicitud['archivo_id']);
+        if (!$archivo) {
+            throw new InvalidArgumentException("El archivo asociado no existe.");
+        }
+
+        // 1. Eliminar físicamente del disco
+        if (!empty($archivo['ruta_privada'])) {
+            $this->almacenamiento->eliminar($archivo['ruta_privada']);
+        }
+
+        // 2. Marcar archivo como eliminado con ruta limpia y preservar checksum para evidencia
+        $this->pdo->prepare("
+            UPDATE `postproduccion_archivos`
+            SET `estado` = 'ELIMINADO_SOLICITUD',
+                `ruta_privada` = ''
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ")->execute(['id' => $archivo['id'], 'org_id' => $organizacionId]);
+
+        // 3. Descontar del proyecto
+        $this->pdo->prepare("
+            UPDATE `postproduccion_proyectos`
+            SET `total_archivos` = GREATEST(0, `total_archivos` - 1),
+                `peso_total_bytes` = GREATEST(0, `peso_total_bytes` - :peso)
+            WHERE `id` = :id
+        ")->execute(['peso' => $archivo['peso_bytes'], 'id' => $archivo['proyecto_id']]);
+
+        // 4. Actualizar estado de la solicitud de supresión
+        $this->pdo->prepare("
+            UPDATE `postproduccion_solicitudes_supresion`
+            SET `estado` = 'APROBADA_EJECUTADA',
+                `fecha_ejecucion` = NOW(),
+                `checksum_sha256_purgado` = :hash,
+                `autorizado_por_usuario_id` = :usr_id
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ")->execute([
+            'hash'   => $archivo['checksum_sha256'],
+            'usr_id' => $usuarioAutorizadorId,
+            'id'     => $solicitudId,
+            'org_id' => $organizacionId,
+        ]);
+
+        return $this->obtenerSolicitudSupresion($organizacionId, $solicitudId);
     }
 
     /**
@@ -461,17 +655,15 @@ class PostproduccionServicio
     }
 
     /**
-     * Lista los proyectos multimedia de un cliente para su espacio público.
+     * Lista proyectos visibles para el portal de clientes.
      */
     public function listarProyectosCliente(int $organizacionId, int $clienteId): array
     {
         $stmt = $this->pdo->prepare("
             SELECT p.*,
-                   e.nombre as edicion_nombre, e.anio as edicion_anio, e.estado as edicion_estado,
-                   r.correlativo as reserva_correlativo
+                   e.nombre as edicion_nombre, e.anio as edicion_anio, e.estado as edicion_estado
             FROM `postproduccion_proyectos` p
             JOIN `ediciones_candelaria` e ON p.edicion_id = e.id
-            LEFT JOIN `reservas` r ON p.reserva_id = r.id
             WHERE p.organizacion_id = :org_id AND p.cliente_id = :cli_id
             ORDER BY p.id DESC
         ");
@@ -480,20 +672,28 @@ class PostproduccionServicio
     }
 
     /**
-     * Retorna el detalle completo de un proyecto, sus galerías y entregas para el espacio del cliente.
+     * Retorna el detalle completo de un proyecto audiovisual para el cliente.
      */
     public function obtenerDetalleProyectoCliente(int $organizacionId, int $proyectoId, int $clienteId): ?array
     {
-        $proyecto = $this->obtenerProyecto($organizacionId, $proyectoId);
-        if (!$proyecto || (int) $proyecto['cliente_id'] !== $clienteId) {
+        $stmt = $this->pdo->prepare("
+            SELECT p.*,
+                   e.nombre as edicion_nombre, e.anio as edicion_anio, e.estado as edicion_estado
+            FROM `postproduccion_proyectos` p
+            JOIN `ediciones_candelaria` e ON p.edicion_id = e.id
+            WHERE p.id = :id AND p.organizacion_id = :org_id AND p.cliente_id = :cli_id
+        ");
+        $stmt->execute(['id' => $proyectoId, 'org_id' => $organizacionId, 'cli_id' => $clienteId]);
+        $proyecto = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$proyecto) {
             return null;
         }
 
-        // Obtener galerías públicas
+        // Cargar galerías públicas
         $stmtGal = $this->pdo->prepare("
             SELECT * FROM `postproduccion_galerias`
             WHERE `organizacion_id` = :org_id AND `proyecto_id` = :pry_id AND `es_publica_cliente` = 1
-            ORDER BY `orden` ASC, `id` ASC
+            ORDER BY `orden` ASC
         ");
         $stmtGal->execute(['org_id' => $organizacionId, 'pry_id' => $proyectoId]);
         $galerias = $stmtGal->fetchAll(PDO::FETCH_ASSOC);
@@ -504,7 +704,7 @@ class PostproduccionServicio
                 SELECT `id`, `galeria_id`, `nombre_original`, `tipo_archivo`, `mime_type`,
                        `peso_bytes`, `ancho_px`, `alto_px`, `duracion_segundos`, `es_destacado`, `creado_en`
                 FROM `postproduccion_archivos`
-                WHERE `galeria_id` = :gal_id AND `estado` = 'LISTO'
+                WHERE `galeria_id` = :gal_id AND `estado` IN ('ACTIVO', 'ARCHIVADO')
                 ORDER BY `es_destacado` DESC, `id` ASC
             ");
             $stmtArch->execute(['gal_id' => $g['id']]);
@@ -564,6 +764,14 @@ class PostproduccionServicio
     {
         $stmt = $this->pdo->prepare("SELECT * FROM `postproduccion_entregas` WHERE id = :id AND organizacion_id = :org_id");
         $stmt->execute(['id' => $entregaId, 'org_id' => $organizacionId]);
+        $res = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $res ?: null;
+    }
+
+    public function obtenerSolicitudSupresion(int $organizacionId, int $solicitudId): ?array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM `postproduccion_solicitudes_supresion` WHERE id = :id AND organizacion_id = :org_id");
+        $stmt->execute(['id' => $solicitudId, 'org_id' => $organizacionId]);
         $res = $stmt->fetch(PDO::FETCH_ASSOC);
         return $res ?: null;
     }
