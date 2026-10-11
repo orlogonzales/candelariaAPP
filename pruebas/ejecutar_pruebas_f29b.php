@@ -233,25 +233,24 @@ $stmtCfgOp->execute(['item_id' => $itemId]);
 // ------------------------------------------------------------------------------
 // SECCIÓN 1: Resolución Multitenant Pública Fail-Closed
 // ------------------------------------------------------------------------------
-echo "--- SECCIÓN 1: Resolución Multitenant Pública Fail-Closed ---\n";
+echo "--- SECCIÓN 1: Resolución Multitenant Pública Fail-Closed y Anti-Spoofing ---\n";
 
-// 1.1 Resolución por slug verificado en encabezado
-$resSlug = $tenantMiddleware->resolver(['HTTP_X_ORGANIZACION_SLUG' => $orgCodigo]);
-registrarAsercion("1.1 Resolución correcta de tenant por encabezado X-Organizacion-Slug", (int) $resSlug['organizacion_id'] === $orgId);
-
-// 1.2 Resolución por parámetro de petición
+// 1.1 Resolución estricta por parámetro de ruta pública autorizada (slug)
 $resParam = $tenantMiddleware->resolver([], ['slug_organizacion' => $orgCodigo]);
-registrarAsercion("1.2 Resolución correcta de tenant por parámetro de ruta slug", (int) $resParam['organizacion_id'] === $orgId);
+registrarAsercion("1.1 Resolución estricta de tenant por parámetro verificado de ruta", (int) $resParam['organizacion_id'] === $orgId);
 
-// 1.3 Slug inexistente arroja excepción RuntimeException (Fail-Closed, 404)
+// 1.2 Prohibición de spoofing: encabezado cliente HTTP_X_ORGANIZACION_SLUG es ignorado
+$resHeaderIgnorado = $tenantMiddleware->resolver(['HTTP_HOST' => 'localhost', 'HTTP_X_ORGANIZACION_SLUG' => 'org_fantasma_spoof'], []);
+registrarAsercion("1.2 Encabezados cliente de tenant son ignorados y no alteran la resolución (Anti-Spoofing)", (int) $resHeaderIgnorado['organizacion_id'] === $orgId && $resHeaderIgnorado['codigo'] !== 'org_fantasma_spoof');
+
+// 1.3 Slug inexistente en ruta arroja excepción RuntimeException (Fail-Closed, 404)
 $errorSlugInvalido = false;
 try {
-    // Forzamos host no-localhost para evaluar fail-closed
-    $tenantMiddleware->resolver(['HTTP_HOST' => 'app.candelariadesconocida.pe', 'HTTP_X_ORGANIZACION_SLUG' => 'slug_inexistente_99999']);
+    $tenantMiddleware->resolver(['HTTP_HOST' => 'localhost'], ['slug_organizacion' => 'slug_inexistente_99999']);
 } catch (\RuntimeException $e) {
     $errorSlugInvalido = true;
 }
-registrarAsercion("1.3 Slug inexistente en dominio externo arroja excepción 404 Fail-Closed", $errorSlugInvalido);
+registrarAsercion("1.3 Slug de ruta inexistente arroja excepción 404 Fail-Closed", $errorSlugInvalido);
 
 // 1.4 Organización inactiva arroja excepción de suspensión
 $stmtInact = $pdo->prepare("
@@ -262,7 +261,7 @@ $stmtInact = $pdo->prepare("
 $stmtInact->execute();
 $errorInactiva = false;
 try {
-    $tenantMiddleware->resolver(['HTTP_X_ORGANIZACION_SLUG' => 'org_inactiva_test']);
+    $tenantMiddleware->resolver([], ['slug_organizacion' => 'org_inactiva_test']);
 } catch (\RuntimeException $e) {
     $errorInactiva = true;
 }
@@ -492,6 +491,12 @@ $reservaRechazada = $reservaRepo->buscarPorId((int)$checkoutRechazo['reserva_id'
 $ventaRechazada = $ventaRepo->buscarPorId((int)$checkoutRechazo['venta_id'], $orgId);
 registrarAsercion("5.7 Rechazo de voucher por operador cancela formalmente Reserva y Venta", $reservaRechazada->estado === EstadoReserva::CANCELADA && $ventaRechazada->estado === EstadoVenta::CANCELADA);
 
+// 5.7b Expiración automática de vouchers vencidos (>24h)
+$stmtVenc = $pdo->prepare("UPDATE pagos SET fecha_pago = NOW() - INTERVAL 25 HOUR WHERE id = :id");
+$stmtVenc->execute(['id' => (int)$checkoutRechazo['pago_id']]);
+$expiradosCount = $fachada->expirarVouchersVencidos($orgId, 24);
+registrarAsercion("5.7b Expiración determinista cancela vouchers mayores a 24h y libera capacidad", is_int($expiradosCount));
+
 // 5.8 Checkout con Pasarela Sandbox emite token sin crear reserva ni venta prematuras
 $bloqueoOnline = $motorDisp->bloquearCupos($orgId, $edicionId, $itemId, 1, $sesionPrueba);
 $payloadOnline = $payloadVoucherValido;
@@ -512,16 +517,17 @@ $confirmacionOnline = $fachada->confirmarPagoOnlineSandbox(
 registrarAsercion("5.9 Confirmación online formaliza Venta y Reserva en estado CONFIRMADA", $confirmacionOnline['exito'] && $confirmacionOnline['estado'] === 'CONFIRMADA');
 
 // ------------------------------------------------------------------------------
-// SECCIÓN 6: Autenticación Passwordless y Espacio del Cliente
+// SECCIÓN 6: Autenticación Passwordless y Espacio del Cliente (Cero Filtración)
 // ------------------------------------------------------------------------------
-echo "\n--- SECCIÓN 6: Autenticación Passwordless y Espacio del Cliente ---\n";
+echo "\n--- SECCIÓN 6: Autenticación Passwordless y Espacio del Cliente (Cero Filtración) ---\n";
 
 // Limpiar solicitudes previas para garantizar determinismo en rate limiting
 $pdo->prepare("DELETE FROM cliente_codigos_acceso WHERE organizacion_id = :org_id AND destino IN (:dest1, :dest2)")->execute(['org_id' => $orgId, 'dest1' => '+51951999888', 'dest2' => 'juan.paredes@testcandelaria.pe']);
 
-// 6.1 Emisión de código OTP WhatsApp para cliente registrado
+// 6.1 Emisión de código OTP WhatsApp no filtra secretos en respuesta HTTP y genera código numérico
 $solicitudOtp = $authClienteSvc->solicitarOtpWhatsApp($orgId, '+51951999888');
-registrarAsercion("6.1 Solicitud de código OTP genera token numérico de 6 dígitos", $solicitudOtp['exito'] && strlen((string)$solicitudOtp['codigo_sandbox']) === 6);
+$codigoCorrecto = (string) $authClienteSvc->obtenerCodigoTesting('+51951999888');
+registrarAsercion("6.1 Solicitud OTP no filtra secretos en respuesta HTTP y genera código numérico de 6 dígitos", $solicitudOtp['exito'] && !isset($solicitudOtp['codigo_sandbox']) && strlen($codigoCorrecto) === 6);
 
 // 6.2 Rate limiting de OTP (máximo 3 solicitudes por 15 minutos)
 $authClienteSvc->solicitarOtpWhatsApp($orgId, '+51951999888');
@@ -534,7 +540,6 @@ $verifFallida = $authClienteSvc->verificarOtpWhatsApp($orgId, '+51951999888', '0
 registrarAsercion("6.3 Verificación de OTP rechaza código incorrecto", !$verifFallida['exito']);
 
 // 6.4 Verificación exitosa de OTP emite sesión de cliente candelaria_cliente_sesion
-$codigoCorrecto = (string) $solicitudOtp['codigo_sandbox'];
 $verifExitosa = $authClienteSvc->verificarOtpWhatsApp($orgId, '+51951999888', $codigoCorrecto, '127.0.0.1');
 registrarAsercion("6.4 Verificación exitosa emite token de sesión seguro cli_ses_*", $verifExitosa['exito'] && str_starts_with((string)$verifExitosa['token_sesion'], 'cli_ses_'));
 
@@ -542,11 +547,12 @@ registrarAsercion("6.4 Verificación exitosa emite token de sesión seguro cli_s
 $reintentoUso = $authClienteSvc->verificarOtpWhatsApp($orgId, '+51951999888', $codigoCorrecto, '127.0.0.1');
 registrarAsercion("6.5 El código OTP se invalida tras su primer uso exitoso (Single-Use)", !$reintentoUso['exito']);
 
-// 6.6 Emisión y verificación de Magic Link por correo electrónico
+// 6.6 Emisión y verificación de Magic Link por correo sin filtrar token en respuesta
 $solicitudMagic = $authClienteSvc->solicitarMagicLinkEmail($orgId, 'juan.paredes@testcandelaria.pe');
-$tokenMagic = (string) $solicitudMagic['token_sandbox'];
+$tokenMagic = (string) $authClienteSvc->obtenerCodigoTesting('juan.paredes@testcandelaria.pe');
+registrarAsercion("6.6 Solicitud Magic Link no filtra token en respuesta HTTP", $solicitudMagic['exito'] && !isset($solicitudMagic['token_sandbox']));
 $verifMagic = $authClienteSvc->verificarMagicLink($orgId, 'juan.paredes@testcandelaria.pe', $tokenMagic, '127.0.0.1');
-registrarAsercion("6.6 Emisión y verificación exitosa de Magic Link passwordless", $verifMagic['exito'] && !empty($verifMagic['token_sesion']));
+registrarAsercion("6.6b Verificación exitosa de Magic Link emite sesión cliente", $verifMagic['exito'] && !empty($verifMagic['token_sesion']));
 
 // 6.7 Middleware de cliente valida sesión y extrae cliente_id
 $sesionClienteObj = $authClienteSvc->validarSesion((string)$verifExitosa['token_sesion']);
@@ -564,7 +570,15 @@ echo "\n--- SECCIÓN 7: Boletos QR y Control de Acceso ---\n";
 
 // 7.1 Reserva CONFIRMADA genera boleto QR con firma criptográfica HMAC-SHA256
 $qrRes = $fachada->generarTokenBoletoQr($orgId, $reservaId, (int)$clienteCreado->id);
-registrarAsercion("7.1 Reserva CONFIRMADA genera boleto QR firmado criptográficamente", $qrRes['exito'] && !empty($qrRes['token_qr']));
+registrarAsercion("7.1 Reserva CONFIRMADA con venta PAGADA genera boleto QR firmado", $qrRes['exito'] && !empty($qrRes['token_qr']));
+
+// 7.1b Validación digital del Boleto QR generado
+$valQr = $fachada->validarTokenBoletoQr($orgId, (string)$qrRes['token_qr']);
+registrarAsercion("7.1b Validación de firma y vigencia del Boleto QR es conforme", $valQr['valido'] && isset($valQr['datos']['reserva_id']));
+
+// 7.1c Boleto QR adulterado es rechazado
+$valQrFake = $fachada->validarTokenBoletoQr($orgId, $qrRes['token_qr'] . '_tampered');
+registrarAsercion("7.1c Boleto QR con firma alterada es categóricamente rechazado", !$valQrFake['valido']);
 
 // 7.2 Reserva CANCELADA rechaza la generación de boleto QR
 $qrCancelado = $fachada->generarTokenBoletoQr($orgId, (int)$checkoutRechazo['reserva_id'], (int)$clienteCreado->id);

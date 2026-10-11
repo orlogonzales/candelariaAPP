@@ -6,6 +6,7 @@ namespace Aplicacion\Servicios;
 
 use Aplicacion\Entidades\ReservaBloqueoTemporal;
 use Aplicacion\Repositorios\ReservaBloqueoTemporalRepositorio;
+use Aplicacion\Reservas\EstadoReserva;
 use InvalidArgumentException;
 use Nucleo\BaseDatos\Conexion;
 use PDO;
@@ -101,7 +102,8 @@ class MotorDisponibilidadServicio
 
         $capacidadBase = ($capRef !== false && $capRef !== null) ? (int) $capRef : 100;
 
-        // Descontar prestaciones ya reservadas en la edición
+        // Descontar prestaciones de reservas formalmente CONFIRMADAS
+        // (Las reservas provisionales REGISTRADA/PENDIENTE_DATOS están respaldadas por bloqueos en RETENCION_VOUCHER para evitar doble descuento)
         $stmtReservados = $this->pdo->prepare("
             SELECT COALESCE(SUM(rp.cantidad), 0)
             FROM `reserva_prestaciones` rp
@@ -109,7 +111,7 @@ class MotorDisponibilidadServicio
             WHERE r.organizacion_id = :org_id
               AND r.edicion_id = :edicion_id
               AND rp.item_comercial_id = :item_id
-              AND r.estado != 'CANCELADA'
+              AND r.estado = '" . EstadoReserva::CONFIRMADA->value . "'
         ");
         $stmtReservados->execute([
             'org_id'     => $organizacionId,
@@ -118,7 +120,7 @@ class MotorDisponibilidadServicio
         ]);
         $reservados = (int) $stmtReservados->fetchColumn();
 
-        // Descontar bloqueos activos
+        // Descontar bloqueos temporales activos y retenciones de voucher vigentes (Cero doble descuento)
         $bloqueados = $this->bloqueoRepo->sumarCuposBloqueadosActivos($organizacionId, $itemComercialId, null, $fechaServicio);
 
         $disponible = $capacidadBase - $reservados - $bloqueados;
@@ -148,14 +150,14 @@ class MotorDisponibilidadServicio
 
         $capacidadMaxima = (int) ($salida['capacidad_maxima'] ?? 0);
 
-        // Pasajeros confirmados en esta salida
+        // Pasajeros en esta salida de reservas formalmente CONFIRMADAS
         $stmtOcupados = $this->pdo->prepare("
             SELECT COALESCE(SUM(osp.cantidad_pasajeros), 0)
             FROM `operacion_salida_prestaciones` osp
             JOIN `reserva_prestaciones` rp ON osp.prestacion_id = rp.id
             JOIN `reservas` r ON rp.reserva_id = r.id
             WHERE osp.salida_id = :salida_id
-              AND r.estado != 'CANCELADA'
+              AND r.estado = '" . EstadoReserva::CONFIRMADA->value . "'
         ");
         $stmtOcupados->execute(['salida_id' => $salidaId]);
         $ocupados = (int) $stmtOcupados->fetchColumn();

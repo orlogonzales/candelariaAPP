@@ -61,9 +61,9 @@ class ResolucionTenantPublicoMiddleware
             throw new RuntimeException("El dominio '{$hostSinPuerto}' no está registrado para ninguna organización activa (404 Not Found).");
         }
 
-        // 2. Identificación por Slug Público explícito (encabezado o parámetro verificado)
-        $slug = $servidor['HTTP_X_ORGANIZACION_SLUG']
-            ?? $peticion['slug_organizacion']
+        // 2. Identificación por Slug Público explícito EXCLUSIVAMENTE desde la ruta URL autorizada
+        // Queda categóricamente prohibido confiar en encabezados cliente como X-Tenant-Slug para evitar spoofing o cruce no autorizado.
+        $slug = $peticion['slug_organizacion']
             ?? $peticion['org_slug']
             ?? null;
 
@@ -89,7 +89,7 @@ class ResolucionTenantPublicoMiddleware
                 ];
             }
 
-            // Si se envió un slug explícito y no existe, rechazar fail-closed
+            // Si se envió un slug explícito en la ruta y no existe o no está activo, rechazar fail-closed
             throw new RuntimeException("No se encontró ninguna organización activa con el identificador '{$slugLimpio}' (404 Not Found).");
         }
 

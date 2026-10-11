@@ -481,4 +481,150 @@ class PortalPublicoControlador
             'mensaje'      => $e->getMessage(),
         ], $codigo);
     }
+
+    /**
+     * GET /p/{slug} y GET /p/{slug}/catalogo
+     */
+    public function vistaCatalogo(?string $slug = null): string
+    {
+        try {
+            $peticion = $slug !== null ? ['slug_organizacion' => $slug] : $_GET;
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $peticion);
+            $edicionInfo = $this->fachada->obtenerEdicionActual($tenant['organizacion_id']);
+
+            $edicionId = $edicionInfo ? (int) $edicionInfo['edicion']['id'] : 0;
+            $catalogo = $edicionId > 0 ? $this->fachada->obtenerCatalogoPublico($tenant['organizacion_id'], $edicionId) : ['paquetes' => [], 'items' => []];
+
+            return \Nucleo\Http\Vista::renderizar('publico/catalogo', [
+                'titulo'       => 'Catálogo Oficial | ' . $tenant['nombre'],
+                'organizacion' => [
+                    'id'               => $tenant['organizacion_id'],
+                    'codigo'           => $tenant['codigo'],
+                    'nombre_comercial' => $tenant['nombre'],
+                ],
+                'edicion'      => $edicionInfo['edicion'] ?? [],
+                'catalogo'     => $catalogo,
+            ], 'publico');
+        } catch (Throwable $e) {
+            http_response_code(404);
+            return "<h1>404 No Encontrado</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+        }
+    }
+
+    /**
+     * GET /p/{slug}/paquete/{id}
+     */
+    public function vistaPaquete(mixed $param1 = null, mixed $param2 = null): string
+    {
+        try {
+            if ($param2 !== null) {
+                // Si viene de /p/{slug}/paquete/{id}: param1 es slug, param2 es paqueteId
+                $slug = is_numeric($param1) ? (string) $param2 : (string) $param1;
+                $paqueteId = is_numeric($param2) ? (int) $param2 : (int) $param1;
+            } else {
+                $slug = is_string($param1) && !is_numeric($param1) ? $param1 : null;
+                $paqueteId = is_numeric($param1) ? (int) $param1 : (int) ($_GET['id'] ?? 0);
+            }
+
+            $peticion = $slug !== null ? ['slug_organizacion' => $slug] : $_GET;
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $peticion);
+            $edicionInfo = $this->fachada->obtenerEdicionActual($tenant['organizacion_id']);
+            $edicionId = $edicionInfo ? (int) $edicionInfo['edicion']['id'] : 0;
+
+            $paquete = $this->fachada->obtenerDetallePaquete($tenant['organizacion_id'], $edicionId, (int) $paqueteId);
+            if (!$paquete) {
+                http_response_code(404);
+                return "<h1>Paquete No Encontrado</h1>";
+            }
+
+            return \Nucleo\Http\Vista::renderizar('publico/paquete_detalle', [
+                'titulo'       => $paquete['nombre'] . ' | ' . $tenant['nombre'],
+                'organizacion' => [
+                    'id'               => $tenant['organizacion_id'],
+                    'codigo'           => $tenant['codigo'],
+                    'nombre_comercial' => $tenant['nombre'],
+                ],
+                'edicion'      => $edicionInfo['edicion'] ?? [],
+                'paquete'      => $paquete,
+            ], 'publico');
+        } catch (Throwable $e) {
+            http_response_code(404);
+            return "<h1>404 No Encontrado</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+        }
+    }
+
+    /**
+     * GET /p/{slug}/checkout
+     */
+    public function vistaCheckout(?string $slug = null): string
+    {
+        try {
+            $peticion = $slug !== null ? ['slug_organizacion' => $slug] : $_GET;
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $peticion);
+            $edicionInfo = $this->fachada->obtenerEdicionActual($tenant['organizacion_id']);
+
+            return \Nucleo\Http\Vista::renderizar('publico/checkout', [
+                'titulo'       => 'Checkout y Reserva Segura | ' . $tenant['nombre'],
+                'organizacion' => [
+                    'id'               => $tenant['organizacion_id'],
+                    'codigo'           => $tenant['codigo'],
+                    'nombre_comercial' => $tenant['nombre'],
+                ],
+                'edicion'      => $edicionInfo['edicion'] ?? [],
+            ], 'publico');
+        } catch (Throwable $e) {
+            http_response_code(404);
+            return "<h1>404 No Encontrado</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+        }
+    }
+
+    /**
+     * GET /p/{slug}/checkout/confirmacion
+     */
+    public function vistaConfirmacion(?string $slug = null): string
+    {
+        try {
+            $peticion = $slug !== null ? ['slug_organizacion' => $slug] : $_GET;
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $peticion);
+            $edicionInfo = $this->fachada->obtenerEdicionActual($tenant['organizacion_id']);
+
+            return \Nucleo\Http\Vista::renderizar('publico/checkout_confirmacion', [
+                'titulo'       => 'Confirmación de Reserva | ' . $tenant['nombre'],
+                'organizacion' => [
+                    'id'               => $tenant['organizacion_id'],
+                    'codigo'           => $tenant['codigo'],
+                    'nombre_comercial' => $tenant['nombre'],
+                ],
+                'edicion'      => $edicionInfo['edicion'] ?? [],
+            ], 'publico');
+        } catch (Throwable $e) {
+            http_response_code(404);
+            return "<h1>404 No Encontrado</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+        }
+    }
+
+    /**
+     * GET /p/{slug}/mi-espacio
+     */
+    public function vistaEspacioCliente(?string $slug = null): string
+    {
+        try {
+            $peticion = $slug !== null ? ['slug_organizacion' => $slug] : $_GET;
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $peticion);
+            $edicionInfo = $this->fachada->obtenerEdicionActual($tenant['organizacion_id']);
+
+            return \Nucleo\Http\Vista::renderizar('publico/espacio_cliente', [
+                'titulo'       => 'Mi Espacio y Boletos Digitales | ' . $tenant['nombre'],
+                'organizacion' => [
+                    'id'               => $tenant['organizacion_id'],
+                    'codigo'           => $tenant['codigo'],
+                    'nombre_comercial' => $tenant['nombre'],
+                ],
+                'edicion'      => $edicionInfo['edicion'] ?? [],
+            ], 'publico');
+        } catch (Throwable $e) {
+            http_response_code(404);
+            return "<h1>404 No Encontrado</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+        }
+    }
 }

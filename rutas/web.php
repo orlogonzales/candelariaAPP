@@ -230,3 +230,13 @@ Enrutador::get('/pagos', [\Aplicacion\Controladores\PagoControlador::class, 'ind
 // ==============================================================================
 Enrutador::get('/comunicaciones', [\Aplicacion\Controladores\ComunicacionControlador::class, 'index']);
 
+// ==============================================================================
+// PORTAL PÚBLICO, CATÁLOGO, CHECKOUT Y ESPACIO CLIENTE (FASE 2.9C)
+// ==============================================================================
+Enrutador::get('/p/{slug}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaCatalogo']);
+Enrutador::get('/p/{slug}/catalogo', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaCatalogo']);
+Enrutador::get('/p/{slug}/paquete/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaPaquete']);
+Enrutador::get('/p/{slug}/checkout', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaCheckout']);
+Enrutador::get('/p/{slug}/checkout/confirmacion', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaConfirmacion']);
+Enrutador::get('/p/{slug}/mi-espacio', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaEspacioCliente']);
+

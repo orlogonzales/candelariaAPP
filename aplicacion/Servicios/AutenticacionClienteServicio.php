@@ -18,6 +18,8 @@ class AutenticacionClienteServicio
 {
     public const COOKIE_CLIENTE_SESION = 'candelaria_cliente_sesion';
 
+    private array $codigosTesting = [];
+
     public function __construct(
         private ClienteSesionRepositorio $sesionRepo,
         private ClienteCodigoAccesoRepositorio $codigoRepo,
@@ -25,6 +27,17 @@ class AutenticacionClienteServicio
         private PersonaRepositorio $personaRepo,
         private ?ComunicacionServicio $comunicacionServicio = null
     ) {
+    }
+
+    /**
+     * Acceso exclusivo para verificación en suites de pruebas automatizadas (solo en entorno no-producción).
+     */
+    public function obtenerCodigoTesting(string $destino): ?string
+    {
+        if ((string) entorno('APP_ENV') === 'produccion') {
+            return null;
+        }
+        return $this->codigosTesting[$destino] ?? null;
     }
 
     /**
@@ -92,10 +105,13 @@ class AutenticacionClienteServicio
             }
         }
 
+        if ((string) entorno('APP_ENV') !== 'produccion') {
+            $this->codigosTesting[$telefonoLimpio] = $codigoNumerico;
+        }
+
         return [
-            'exito'          => true,
-            'mensaje'        => "Se ha enviado un código de acceso de 6 dígitos a su WhatsApp {$telefonoLimpio}.",
-            'codigo_sandbox' => $codigoNumerico, // Expuesto solo en entorno no-producción / tests
+            'exito'   => true,
+            'mensaje' => "Se ha enviado un código de acceso de 6 dígitos a su WhatsApp {$telefonoLimpio}.",
         ];
     }
 
@@ -146,10 +162,13 @@ class AutenticacionClienteServicio
 
         $this->codigoRepo->crear($codigoAcceso);
 
+        if ((string) entorno('APP_ENV') !== 'produccion') {
+            $this->codigosTesting[$correoLimpio] = $tokenPlano;
+        }
+
         return [
-            'exito'          => true,
-            'mensaje'        => "Se ha enviado un enlace de acceso seguro a su correo {$correoLimpio}.",
-            'token_sandbox'  => $tokenPlano,
+            'exito'   => true,
+            'mensaje' => "Se ha enviado un enlace de acceso seguro a su correo {$correoLimpio}.",
         ];
     }
 

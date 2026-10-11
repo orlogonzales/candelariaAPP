@@ -206,6 +206,58 @@ class FachadaPortalPublicoServicio
     }
 
     /**
+     * Retorna la información completa de un paquete para la ficha pública con disponibilidad real.
+     */
+    public function obtenerDetallePaquete(int $organizacionId, int $edicionId, int $paqueteId): ?array
+    {
+        $stmtPaq = $this->pdo->prepare("
+            SELECT p.id, p.codigo, p.nombre, p.descripcion,
+                   tpe.precio, tpe.moneda, ope.id as oferta_id
+            FROM `paquetes` p
+            JOIN `ofertas_paquetes_edicion` ope ON ope.paquete_id = p.id
+            JOIN `tarifas_paquetes_edicion` tpe ON tpe.oferta_paquete_id = ope.id
+            WHERE ope.organizacion_id = :org_id
+              AND ope.edicion_id = :edicion_id
+              AND p.id = :paquete_id
+              AND ope.estado = 'ACTIVO'
+              AND p.estado = 'ACTIVO'
+            LIMIT 1
+        ");
+        $stmtPaq->execute([
+            'org_id'     => $organizacionId,
+            'edicion_id' => $edicionId,
+            'paquete_id' => $paqueteId,
+        ]);
+        $p = $stmtPaq->fetch(PDO::FETCH_ASSOC);
+
+        if (!$p) {
+            return null;
+        }
+
+        $cuposDisp = $this->motorDisp->calcularDisponibilidadPaquete($organizacionId, $edicionId, $paqueteId);
+
+        $stmtComp = $this->pdo->prepare("
+            SELECT pi.cantidad, ic.id as item_id, ic.codigo, ic.nombre, ic.tipo, ic.unidad_medida
+            FROM `paquete_items` pi
+            JOIN `items_comerciales` ic ON pi.item_comercial_id = ic.id
+            WHERE pi.paquete_id = :paquete_id AND ic.estado = 'ACTIVO'
+        ");
+        $stmtComp->execute(['paquete_id' => $paqueteId]);
+        $componentes = $stmtComp->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'id'                => $paqueteId,
+            'codigo'            => $p['codigo'],
+            'nombre'            => $p['nombre'],
+            'descripcion'       => $p['descripcion'],
+            'precio'            => (float) $p['precio'],
+            'moneda'            => $p['moneda'],
+            'cupos_disponibles' => $cuposDisp,
+            'componentes'       => $componentes,
+        ];
+    }
+
+    /**
      * Recalcula forzosamente en el backend una solicitud de cotización.
      * Cero cálculos matemáticos permitidos en el cliente.
      *
@@ -535,7 +587,7 @@ class FachadaPortalPublicoServicio
         $resultadoReserva = $this->reservaServicio->formalizarDesdeVenta($organizacionId, (int) $venta->id, contexto: $ctxSistema);
         $reserva = $resultadoReserva['reserva'];
 
-        // 4. Extender bloqueo temporal a RETENCION_VOUCHER (24h)
+        // 4. Extender bloqueo temporal a RETENCION_VOUCHER (24h de retención garantizada)
         $this->motorDisp->extenderParaVoucher($tokenBloqueo, 24);
 
         // 5. Registrar el Pago en estado PENDIENTE_VERIFICACION
@@ -888,7 +940,7 @@ class FachadaPortalPublicoServicio
             'id'      => (int) $pago['venta_id'],
         ]);
 
-        // 3. Transicionar Reserva a CONFIRMADA
+        // 3. Transicionar Reserva a CONFIRMADA y consumir bloqueos
         if (!empty($pago['reserva_id'])) {
             $stmtUpRes = $this->pdo->prepare("
                 UPDATE `reservas`
@@ -899,6 +951,18 @@ class FachadaPortalPublicoServicio
                 'est_res' => EstadoReserva::CONFIRMADA->value,
                 'id'      => (int) $pago['reserva_id'],
             ]);
+
+            // Consumir formalmente bloqueos en retención para los items de la reserva
+            $this->pdo->prepare("
+                UPDATE `reserva_bloqueos_temporales`
+                SET `estado` = 'CONSUMIDO'
+                WHERE `organizacion_id` = :org_id
+                  AND `estado` = 'RETENCION_VOUCHER'
+                  AND `item_comercial_id` IN (
+                      SELECT rp.item_comercial_id FROM `reserva_prestaciones` rp
+                      WHERE rp.reserva_id = :reserva_id
+                  )
+            ")->execute(['org_id' => $organizacionId, 'reserva_id' => (int) $pago['reserva_id']]);
         }
 
         // 4. Encolar notificación: RESERVA_CONFIRMADA
@@ -958,7 +1022,7 @@ class FachadaPortalPublicoServicio
             'id'     => $pagoId,
         ]);
 
-        // 2. Cancelar reserva
+        // 2. Cancelar reserva y liberar bloqueos temporales
         if (!empty($pago['reserva_id'])) {
             $stmtUpRes = $this->pdo->prepare("
                 UPDATE `reservas`
@@ -969,6 +1033,18 @@ class FachadaPortalPublicoServicio
                 'est_res' => EstadoReserva::CANCELADA->value,
                 'id'      => (int) $pago['reserva_id'],
             ]);
+
+            // Liberar bloqueos en RETENCION_VOUCHER para restituir disponibilidad
+            $this->pdo->prepare("
+                UPDATE `reserva_bloqueos_temporales`
+                SET `estado` = 'LIBERADO_MANUAL'
+                WHERE `organizacion_id` = :org_id
+                  AND `estado` = 'RETENCION_VOUCHER'
+                  AND `item_comercial_id` IN (
+                      SELECT rp.item_comercial_id FROM `reserva_prestaciones` rp
+                      WHERE rp.reserva_id = :reserva_id
+                  )
+            ")->execute(['org_id' => $organizacionId, 'reserva_id' => (int) $pago['reserva_id']]);
         }
 
         // 3. Cancelar venta
@@ -1015,12 +1091,28 @@ class FachadaPortalPublicoServicio
             throw new AccesoDenegadoExcepcion("Acceso denegado: No tiene permisos para acceder a esta reserva.");
         }
 
-        // Condición estricta: solo reservas CONFIRMADAS pueden emitir boletos QR
+        // Condición estricta 1: Solo reservas formalmente CONFIRMADAS pueden emitir boletos QR
         if ($reserva['estado'] !== EstadoReserva::CONFIRMADA->value) {
             return [
                 'exito'        => false,
                 'codigo_error' => 'RESERVA_NO_CONFIRMADA',
-                'mensaje'      => 'El boleto QR solo se emite para reservas confirmadas con pago verificado.',
+                'mensaje'      => 'El boleto QR solo se emite para reservas formalmente confirmadas con datos completos.',
+            ];
+        }
+
+        // Condición estricta 2: Derecho de acceso condicionado a venta CONFIRMADA con pago total verificado
+        $stmtVta = $this->pdo->prepare("
+            SELECT `estado`, `estado_financiero` FROM `ventas`
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+        $stmtVta->execute(['id' => (int) $reserva['venta_id'], 'org_id' => $organizacionId]);
+        $venta = $stmtVta->fetch(PDO::FETCH_ASSOC);
+
+        if (!$venta || $venta['estado'] !== EstadoVenta::CONFIRMADA->value || !in_array($venta['estado_financiero'], [EstadoFinancieroVenta::PAGADA_TOTAL->value, EstadoFinancieroVenta::SOBREPAGADA->value], true)) {
+            return [
+                'exito'        => false,
+                'codigo_error' => 'PAGO_NO_VERIFICADO',
+                'mensaje'      => 'El derecho de acceso no está activo: la venta asociada aún no cuenta con pago total verificado.',
             ];
         }
 
@@ -1035,12 +1127,14 @@ class FachadaPortalPublicoServicio
 
         $secretoQr = hash('sha256', 'candelaria_qr_secret_org_' . $organizacionId);
         $payloadBoleto = [
-            'reserva_id'   => $reservaId,
-            'correlativo'  => $reserva['correlativo'],
-            'titular'      => $reserva['contacto_nombre'],
-            'edicion'      => $reserva['edicion_nombre'],
-            'prestaciones' => $prestaciones,
-            'emitido_en'   => date('Y-m-d H:i:s'),
+            'organizacion_id' => $organizacionId,
+            'reserva_id'      => $reservaId,
+            'venta_id'        => (int) $reserva['venta_id'],
+            'correlativo'     => $reserva['correlativo'],
+            'titular'         => $reserva['contacto_nombre'],
+            'edicion'         => $reserva['edicion_nombre'],
+            'prestaciones'    => $prestaciones,
+            'emitido_en'      => date('Y-m-d H:i:s'),
         ];
 
         $payloadJson = json_encode($payloadBoleto, JSON_UNESCAPED_UNICODE);
@@ -1053,6 +1147,136 @@ class FachadaPortalPublicoServicio
             'correlativo'  => $reserva['correlativo'],
             'datos_boleto' => $payloadBoleto,
         ];
+    }
+
+    /**
+     * Valida la firma criptográfica y la vigencia del derecho de acceso de un boleto QR.
+     */
+    public function validarTokenBoletoQr(int $organizacionId, string $tokenQr): array
+    {
+        $partes = explode('.', $tokenQr);
+        if (count($partes) !== 2) {
+            return ['valido' => false, 'motivo' => 'Formato de token QR inválido.'];
+        }
+
+        [$payloadB64, $firmaRecibida] = $partes;
+        $payloadJson = base64_decode(strtr($payloadB64, '-_', '+/'));
+        if ($payloadJson === false) {
+            return ['valido' => false, 'motivo' => 'Payload de boleto no decodificable.'];
+        }
+
+        $secretoQr = hash('sha256', 'candelaria_qr_secret_org_' . $organizacionId);
+        $firmaCalculada = hash_hmac('sha256', $payloadJson, $secretoQr);
+
+        if (!hash_equals($firmaCalculada, $firmaRecibida)) {
+            return ['valido' => false, 'motivo' => 'Firma digital inválida o adulterada.'];
+        }
+
+        $datos = json_decode($payloadJson, true);
+        if (!is_array($datos) || empty($datos['reserva_id'])) {
+            return ['valido' => false, 'motivo' => 'Estructura interna del boleto inválida.'];
+        }
+
+        // Validar vigencia real en base de datos (Anti-revocación / cancelaciones tardías)
+        $stmt = $this->pdo->prepare("
+            SELECT r.estado as reserva_estado, v.estado as venta_estado, v.estado_financiero
+            FROM `reservas` r
+            JOIN `ventas` v ON r.venta_id = v.id
+            WHERE r.id = :r_id AND r.organizacion_id = :org_id
+        ");
+        $stmt->execute(['r_id' => (int) $datos['reserva_id'], 'org_id' => $organizacionId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return ['valido' => false, 'motivo' => 'La reserva asociada al boleto no existe en esta organización.'];
+        }
+
+        if ($row['reserva_estado'] !== EstadoReserva::CONFIRMADA->value) {
+            return ['valido' => false, 'motivo' => "El derecho de acceso está inactivo (estado de reserva: {$row['reserva_estado']})."];
+        }
+
+        if ($row['venta_estado'] !== EstadoVenta::CONFIRMADA->value || !in_array($row['estado_financiero'], [EstadoFinancieroVenta::PAGADA_TOTAL->value, EstadoFinancieroVenta::SOBREPAGADA->value], true)) {
+            return ['valido' => false, 'motivo' => "El derecho de acceso ha sido revocado por falta de pago verificado."];
+        }
+
+        return [
+            'valido' => true,
+            'motivo' => 'Boleto QR legítimo con derecho de acceso vigente.',
+            'datos'  => $datos,
+        ];
+    }
+
+    /**
+     * Expira vouchers en revisión tras cumplirse el límite de horas (default 24h),
+     * cancelando la reserva y la venta para liberar los cupos de manera determinista sin borrar historial.
+     */
+    public function expirarVouchersVencidos(int $organizacionId, int $horasLimite = 24): int
+    {
+        $stmtVencidos = $this->pdo->prepare("
+            SELECT p.id as pago_id, p.venta_id, v.cliente_id, r.id as reserva_id, r.correlativo as reserva_correlativo
+            FROM `pagos` p
+            JOIN `ventas` v ON p.venta_id = v.id
+            LEFT JOIN `reservas` r ON r.venta_id = v.id
+            WHERE p.organizacion_id = :org_id
+              AND p.metodo_pago = 'TRANSFERENCIA_BANCARIA'
+              AND p.estado = 'PENDIENTE_VERIFICACION'
+              AND p.fecha_pago <= (NOW() - INTERVAL :horas HOUR)
+        ");
+        $stmtVencidos->bindValue(':org_id', $organizacionId, PDO::PARAM_INT);
+        $stmtVencidos->bindValue(':horas', $horasLimite, PDO::PARAM_INT);
+        $stmtVencidos->execute();
+        $vencidos = $stmtVencidos->fetchAll(PDO::FETCH_ASSOC);
+
+        $expirados = 0;
+        foreach ($vencidos as $v) {
+            $pagoId = (int) $v['pago_id'];
+            $ventaId = (int) $v['venta_id'];
+            $reservaId = !empty($v['reserva_id']) ? (int) $v['reserva_id'] : null;
+
+            // 1. Pago -> RECHAZADO con nota de expiración
+            $this->pdo->prepare("
+                UPDATE `pagos`
+                SET `estado` = 'RECHAZADO',
+                    `notas_operativas` = CONCAT(COALESCE(`notas_operativas`, ''), ' [EXPIRADO POR PLAZO VENCIDO]'),
+                    `verificado_en` = NOW()
+                WHERE `id` = :id
+            ")->execute(['id' => $pagoId]);
+
+            // 2. Venta -> CANCELADA
+            $this->pdo->prepare("
+                UPDATE `ventas`
+                SET `estado` = 'CANCELADA',
+                    `motivo_cancelacion` = 'INCUMPLIMIENTO_ORGANIZACION',
+                    `motivo_cancelacion_detalle` = 'Plazo de 24h expirado sin verificación de comprobante'
+                WHERE `id` = :id
+            ")->execute(['id' => $ventaId]);
+
+            // 3. Reserva -> CANCELADA (libera cupos inmediatamente)
+            if ($reservaId !== null) {
+                $this->pdo->prepare("
+                    UPDATE `reservas`
+                    SET `estado` = 'CANCELADA',
+                        `notas_operativas` = CONCAT(COALESCE(`notas_operativas`, ''), ' [CANCELADA: Plazo de pago expirado]')
+                    WHERE `id` = :id
+                ")->execute(['id' => $reservaId]);
+            }
+
+            // 4. Encolar notificación en Outbox
+            $this->encolarNotificacionOutbox(
+                $organizacionId,
+                (int) $v['cliente_id'],
+                'voucher_expirado_plazo_vencido',
+                [
+                    'correlativo_reserva' => $v['reserva_correlativo'] ?? ('VTA-' . $ventaId),
+                    'motivo'              => "El plazo de {$horasLimite} horas para la validación de su pago ha expirado.",
+                ],
+                'VOUCHER_EXPIRADO'
+            );
+
+            $expirados++;
+        }
+
+        return $expirados;
     }
 
     /**

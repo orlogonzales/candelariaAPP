@@ -132,6 +132,32 @@ class ReservaBloqueoTemporalRepositorio
         ]);
     }
 
+    public function cambiarEstadoPorToken(string $token, string $nuevoEstado, ?string $nuevaExpiracion = null): bool
+    {
+        if ($nuevaExpiracion !== null) {
+            $stmt = $this->pdo->prepare("
+                UPDATE `reserva_bloqueos_temporales`
+                SET `estado` = :estado, `expira_en` = :expira
+                WHERE `token_bloqueo` = :token
+            ");
+            return $stmt->execute([
+                'estado' => $nuevoEstado,
+                'expira' => $nuevaExpiracion,
+                'token'  => $token,
+            ]);
+        }
+
+        $stmt = $this->pdo->prepare("
+            UPDATE `reserva_bloqueos_temporales`
+            SET `estado` = :estado
+            WHERE `token_bloqueo` = :token
+        ");
+        return $stmt->execute([
+            'estado' => $nuevoEstado,
+            'token'  => $token,
+        ]);
+    }
+
     public function liberarExpirados(): int
     {
         $stmt = $this->pdo->prepare("
