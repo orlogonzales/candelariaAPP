@@ -681,8 +681,25 @@ class EdicionControlador
                     ob_clean();
                 }
                 if (!headers_sent()) {
-                    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
-                    header(sprintf('Content-Disposition: attachment; filename="%s_%s.xls"', $slugBase, date('Ymd_His')));
+                    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                    header(sprintf('Content-Disposition: attachment; filename="%s_%s.xlsx"', $slugBase, date('Ymd_His')));
+                    header('Content-Length: ' . strlen($contenido));
+                }
+                echo $contenido;
+                exit;
+            }
+
+            if ($formato === 'xml') {
+                $contenido = $this->reporteServicio->exportarXmlSpreadsheetMl($tipo, $reporteData);
+                if (php_sapi_name() === 'cli') {
+                    return $contenido;
+                }
+                if (ob_get_level() > 0) {
+                    ob_clean();
+                }
+                if (!headers_sent()) {
+                    header('Content-Type: application/xml; charset=utf-8');
+                    header(sprintf('Content-Disposition: attachment; filename="%s_%s.xml"', $slugBase, date('Ymd_His')));
                     header('Content-Length: ' . strlen($contenido));
                 }
                 echo $contenido;
@@ -718,7 +735,7 @@ class EdicionControlador
                 exit;
             }
 
-            return $this->responderError("Formato de exportación no soportado: '{$formato}'. Formatos admitidos: csv, xlsx, pdf.", 400);
+            return $this->responderError("Formato de exportación no soportado: '{$formato}'. Formatos admitidos: csv, xlsx, xml, pdf.", 400);
         } catch (AccesoDenegadoExcepcion $e) {
             return $this->responderError($e->getMessage(), 403);
         } catch (InvalidArgumentException $e) {

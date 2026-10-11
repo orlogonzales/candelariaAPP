@@ -562,11 +562,6 @@ class CierreEdicionServicio
             throw new AccesoDenegadoExcepcion("Clave de confirmación incorrecta para el usuario autorizador #{$usuarioAutorizadorId}.");
         }
 
-        $cierreVigente = $this->obtenerCierreVigente($organizacionId, $edicionId);
-        if ($cierreVigente === null) {
-            throw new InvalidArgumentException("La edición #{$edicionId} no cuenta con un cierre vigente para reapertura.");
-        }
-
         $nuevoEstado = in_array($nuevoEstado, ['OPERACION', 'POSTPRODUCCION_ENTREGA'], true) ? $nuevoEstado : 'POSTPRODUCCION_ENTREGA';
 
         $transaccionPropia = false;
@@ -576,17 +571,34 @@ class CierreEdicionServicio
         }
 
         try {
+            // P0: Bloqueo pesimista inmediato sobre el cierre vigente de la edición
+            $stmtLockCierre = $this->pdo->prepare("
+                SELECT * FROM `edicion_cierres`
+                WHERE `organizacion_id` = :org_id AND `edicion_id` = :ed_id AND `estado` = 'VIGENTE'
+                LIMIT 1 FOR UPDATE
+            ");
+            $stmtLockCierre->execute(['org_id' => $organizacionId, 'ed_id' => $edicionId]);
+            $cierreVigente = $stmtLockCierre->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cierreVigente) {
+                throw new ConflictoConcurrenciaExcepcion("La edición #{$edicionId} no cuenta con un cierre vigente o ya fue reabierta concurrentemente por otro operador.");
+            }
+
             $cierreId = (int) $cierreVigente['id'];
 
-            // 1. Transicionar cierre a REABIERTO_EXCEPCIONAL
+            // 1. Transicionar cierre a REABIERTO_EXCEPCIONAL condicionado a que siga VIGENTE
             $stmtCierre = $this->pdo->prepare("
                 UPDATE `edicion_cierres`
                 SET `estado` = 'REABIERTO_EXCEPCIONAL',
                     `version_bloqueo` = `version_bloqueo` + 1,
                     `actualizado_en` = CURRENT_TIMESTAMP
-                WHERE `id` = :id AND `organizacion_id` = :org_id
+                WHERE `id` = :id AND `organizacion_id` = :org_id AND `estado` = 'VIGENTE'
             ");
             $stmtCierre->execute(['id' => $cierreId, 'org_id' => $organizacionId]);
+
+            if ($stmtCierre->rowCount() === 0) {
+                throw new ConflictoConcurrenciaExcepcion("Conflicto de concurrencia: El cierre #{$cierreId} fue modificado concurrentemente por otra transacción.");
+            }
 
             // 2. Insertar bitácora inmutable en edicion_cierre_reaperturas
             $stmtReap = $this->pdo->prepare("

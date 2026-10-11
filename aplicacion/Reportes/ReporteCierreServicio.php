@@ -497,7 +497,194 @@ class ReporteCierreServicio
     /**
      * Exporta el reporte a formato XLSX estructurado mediante XML SpreadsheetML de alta compatibilidad.
      */
+    /**
+     * Exporta el reporte a formato XLSX auténtico mediante un paquete OpenXML comprimido con ZipArchive (ECMA-376).
+     * Devuelve el contenido binario del archivo ZIP con firma PK\x03\x04 y estructura de hojas de cálculo válida.
+     */
     public function exportarXlsx(string $tipoReporte, array $reporteData): string
+    {
+        if (!class_exists('\ZipArchive')) {
+            throw new RuntimeException('La extensión ZipArchive no está habilitada en el entorno PHP para generar paquetes OpenXML.');
+        }
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'candelaria_xlsx_');
+        $zip = new \ZipArchive();
+        if ($zip->open($tmpFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('No se pudo inicializar el archivo temporal para el paquete OpenXML.');
+        }
+
+        // 1. [Content_Types].xml
+        $contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' . "\n" .
+            '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' . "\n" .
+            '  <Default Extension="xml" ContentType="application/xml"/>' . "\n" .
+            '  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' . "\n" .
+            '  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' . "\n" .
+            '  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' . "\n" .
+            '</Types>';
+        $zip->addFromString('[Content_Types].xml', $contentTypes);
+
+        // 2. _rels/.rels
+        $rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . "\n" .
+            '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' . "\n" .
+            '</Relationships>';
+        $zip->addFromString('_rels/.rels', $rels);
+
+        // 3. xl/_rels/workbook.xml.rels
+        $wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . "\n" .
+            '  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' . "\n" .
+            '  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' . "\n" .
+            '</Relationships>';
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $wbRels);
+
+        // 4. xl/workbook.xml
+        $workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' . "\n" .
+            '  <sheets>' . "\n" .
+            '    <sheet name="Reporte" sheetId="1" r:id="rId1"/>' . "\n" .
+            '  </sheets>' . "\n" .
+            '</workbook>';
+        $zip->addFromString('xl/workbook.xml', $workbook);
+
+        // 5. xl/styles.xml
+        $styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" .
+            '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' . "\n" .
+            '  <fonts count="3">' . "\n" .
+            '    <font><sz val="11"/><name val="Calibri"/></font>' . "\n" .
+            '    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>' . "\n" .
+            '    <font><b/><sz val="13"/><color rgb="FF8B0000"/><name val="Calibri"/></font>' . "\n" .
+            '  </fonts>' . "\n" .
+            '  <fills count="4">' . "\n" .
+            '    <fill><patternFill patternType="none"/></fill>' . "\n" .
+            '    <fill><patternFill patternType="gray125"/></fill>' . "\n" .
+            '    <fill><patternFill patternType="solid"><fgColor rgb="FF1B365D"/></patternFill></fill>' . "\n" .
+            '    <fill><patternFill patternType="solid"><fgColor rgb="FFEAEAEA"/></patternFill></fill>' . "\n" .
+            '  </fills>' . "\n" .
+            '  <borders count="1">' . "\n" .
+            '    <border><left/><right/><top/><bottom/><diagonal/></border>' . "\n" .
+            '  </borders>' . "\n" .
+            '  <cellStyleXfs count="1">' . "\n" .
+            '    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>' . "\n" .
+            '  </cellStyleXfs>' . "\n" .
+            '  <cellXfs count="4">' . "\n" .
+            '    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' . "\n" . // 0: Normal
+            '    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>' . "\n" . // 1: Header
+            '    <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' . "\n" . // 2: Titulo
+            '    <xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>' . "\n" . // 3: Totales
+            '  </cellXfs>' . "\n" .
+            '</styleSheet>';
+        $zip->addFromString('xl/styles.xml', $styles);
+
+        // 6. xl/worksheets/sheet1.xml
+        $titulo = htmlspecialchars((string)($reporteData['titulo'] ?? 'Reporte Oficial'), ENT_XML1, 'UTF-8');
+        $generado = htmlspecialchars((string)($reporteData['generado_en'] ?? date('Y-m-d H:i:s')), ENT_XML1, 'UTF-8');
+        $items = $reporteData['items'] ?? [];
+
+        $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n";
+        $sheetXml .= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' . "\n";
+        $sheetXml .= '  <sheetData>' . "\n";
+
+        $filaActual = 1;
+
+        // Fila 1: Título
+        $sheetXml .= '    <row r="' . $filaActual . '">' . "\n";
+        $sheetXml .= '      <c r="A' . $filaActual . '" s="2" t="inlineStr"><is><t>' . $titulo . '</t></is></c>' . "\n";
+        $sheetXml .= '    </row>' . "\n";
+        $filaActual++;
+
+        // Fila 2: Subtítulo de Emisión
+        $sheetXml .= '    <row r="' . $filaActual . '">' . "\n";
+        $sheetXml .= '      <c r="A' . $filaActual . '" t="inlineStr"><is><t>Fecha de Emisión: ' . $generado . ' | CandelariaAPP Oficial</t></is></c>' . "\n";
+        $sheetXml .= '    </row>' . "\n";
+        $filaActual += 2; // Espacio
+
+        if (!empty($items)) {
+            // Fila de Cabeceras
+            $sheetXml .= '    <row r="' . $filaActual . '">' . "\n";
+            $colIdx = 1;
+            foreach (array_keys($items[0]) as $col) {
+                $ref = $this->numeroAColumnaExcel($colIdx) . $filaActual;
+                $colNombre = htmlspecialchars(strtoupper(str_replace('_', ' ', $col)), ENT_XML1, 'UTF-8');
+                $sheetXml .= '      <c r="' . $ref . '" s="1" t="inlineStr"><is><t>' . $colNombre . '</t></is></c>' . "\n";
+                $colIdx++;
+            }
+            $sheetXml .= '    </row>' . "\n";
+            $filaActual++;
+
+            // Filas de Datos
+            foreach ($items as $item) {
+                $sheetXml .= '    <row r="' . $filaActual . '">' . "\n";
+                $colIdx = 1;
+                foreach ($item as $valor) {
+                    $ref = $this->numeroAColumnaExcel($colIdx) . $filaActual;
+                    if (is_int($valor) || is_float($valor) || (is_numeric($valor) && strlen((string)$valor) > 0 && !str_starts_with((string)$valor, '0') && !str_contains((string)$valor, '-'))) {
+                        $sheetXml .= '      <c r="' . $ref . '"><v>' . $valor . '</v></c>' . "\n";
+                    } else {
+                        $sanitizado = htmlspecialchars((string) $this->sanitizarParaCsv($valor), ENT_XML1, 'UTF-8');
+                        $sheetXml .= '      <c r="' . $ref . '" t="inlineStr"><is><t>' . $sanitizado . '</t></is></c>' . "\n";
+                    }
+                    $colIdx++;
+                }
+                $sheetXml .= '    </row>' . "\n";
+                $filaActual++;
+            }
+        }
+
+        // Totales al pie
+        if (!empty($reporteData['totales'])) {
+            $filaActual++;
+            $sheetXml .= '    <row r="' . $filaActual . '">' . "\n";
+            $sheetXml .= '      <c r="A' . $filaActual . '" s="3" t="inlineStr"><is><t>RESUMEN OFICIAL</t></is></c>' . "\n";
+            $sheetXml .= '      <c r="B' . $filaActual . '" s="3" t="inlineStr"><is><t>VALOR</t></is></c>' . "\n";
+            $sheetXml .= '    </row>' . "\n";
+            $filaActual++;
+
+            foreach ($reporteData['totales'] as $clave => $val) {
+                $nombreClave = htmlspecialchars(strtoupper(str_replace('_', ' ', $clave)), ENT_XML1, 'UTF-8');
+                $sheetXml .= '    <row r="' . $filaActual . '">' . "\n";
+                $sheetXml .= '      <c r="A' . $filaActual . '" t="inlineStr"><is><t>' . $nombreClave . '</t></is></c>' . "\n";
+                if (is_numeric($val)) {
+                    $sheetXml .= '      <c r="B' . $filaActual . '"><v>' . $val . '</v></c>' . "\n";
+                } else {
+                    $sheetXml .= '      <c r="B' . $filaActual . '" t="inlineStr"><is><t>' . htmlspecialchars((string)$val, ENT_XML1, 'UTF-8') . '</t></is></c>' . "\n";
+                }
+                $sheetXml .= '    </row>' . "\n";
+                $filaActual++;
+            }
+        }
+
+        $sheetXml .= '  </sheetData>' . "\n";
+        $sheetXml .= '</worksheet>';
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+
+        $zip->close();
+
+        $binario = file_get_contents($tmpFile);
+        @unlink($tmpFile);
+
+        return (string) $binario;
+    }
+
+    /**
+     * Convierte un índice numérico de columna (1-indexed) a letra Excel (1 -> A, 2 -> B, 27 -> AA).
+     */
+    private function numeroAColumnaExcel(int $colNumber): string
+    {
+        $letra = '';
+        while ($colNumber > 0) {
+            $modulo = ($colNumber - 1) % 26;
+            $letra = chr(65 + $modulo) . $letra;
+            $colNumber = (int)(($colNumber - $modulo) / 26);
+        }
+        return $letra;
+    }
+
+    /**
+     * Exporta el reporte a formato XML SpreadsheetML 2003 para máxima compatibilidad con lectores legacy.
+     */
+    public function exportarXmlSpreadsheetMl(string $tipoReporte, array $reporteData): string
     {
         $titulo = htmlspecialchars((string)($reporteData['titulo'] ?? 'Reporte Oficial'), ENT_XML1, 'UTF-8');
         $generado = htmlspecialchars((string)($reporteData['generado_en'] ?? date('Y-m-d H:i:s')), ENT_XML1, 'UTF-8');

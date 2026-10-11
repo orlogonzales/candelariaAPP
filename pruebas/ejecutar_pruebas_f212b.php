@@ -428,17 +428,43 @@ $resNumeroPuro = $refMetodoSanitizar->invoke($reporteServicio, 250.50);
 afirmar($resNumeroPuro === 250.50, "Valores numéricos puros no se alteran innecesariamente.");
 
 // ------------------------------------------------------------------------------
-// SECCIÓN 6: EXPORTACIÓN XLSX (SPREADSHEETML DE ALTA COMPATIBILIDAD)
+// SECCIÓN 6: EXPORTACIÓN XLSX (PAQUETE OPENXML ZIP ECMA-376) Y XML SPREADSHEETML
 // ------------------------------------------------------------------------------
-echo "\n--- SECCIÓN 6: EXPORTACIÓN XLSX ESTRUCTURADA ---\n";
+echo "\n--- SECCIÓN 6: EXPORTACIÓN XLSX (OPENXML AUTÉNTICO) Y XML SPREADSHEETML ---\n";
 
+// 6.1 OpenXML XLSX Auténtico (ZIP)
 $xlsx = $reporteServicio->exportarXlsx(ReporteCierreServicio::TIPO_LIBRO_INGRESOS, $libro);
 
-afirmar(str_starts_with($xlsx, '<?xml version="1.0" encoding="UTF-8"?>'), "XLSX inicia con declaración XML válida.");
-afirmar(str_contains($xlsx, 'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'), "Contiene namespace SpreadsheetML estándar.");
-afirmar(str_contains($xlsx, '<Style ss:ID="Header">'), "Define estilos corporativos de encabezado.");
-afirmar(str_contains($xlsx, '<Style ss:ID="DatoNumero">'), "Define formato numérico para cifras financieras.");
-afirmar(str_contains($xlsx, 'RESUMEN OFICIAL'), "Incluye bloque de resumen y totales al pie.");
+afirmar(str_starts_with($xlsx, "PK\x03\x04"), "XLSX inicia con la cabecera mágica de paquete ZIP PK\\x03\\x04.");
+
+$tmpXlsx = tempnam(sys_get_temp_dir(), 'test_xlsx_');
+file_put_contents($tmpXlsx, $xlsx);
+$zipTest = new ZipArchive();
+$abierto = $zipTest->open($tmpXlsx);
+afirmar($abierto === true, "El archivo XLSX se abre exitosamente como archivo ZIP válido con ZipArchive.");
+
+$hasContentTypes = $zipTest->locateName('[Content_Types].xml') !== false;
+$hasWorkbook = $zipTest->locateName('xl/workbook.xml') !== false;
+$hasSheet = $zipTest->locateName('xl/worksheets/sheet1.xml') !== false;
+$hasStyles = $zipTest->locateName('xl/styles.xml') !== false;
+
+afirmar($hasContentTypes, "Paquete XLSX contiene el manifiesto [Content_Types].xml.");
+afirmar($hasWorkbook, "Paquete XLSX contiene xl/workbook.xml.");
+afirmar($hasSheet, "Paquete XLSX contiene xl/worksheets/sheet1.xml.");
+afirmar($hasStyles, "Paquete XLSX contiene xl/styles.xml.");
+
+$sheetContent = $zipTest->getFromName('xl/worksheets/sheet1.xml');
+afirmar(str_contains($sheetContent, 'RESUMEN OFICIAL'), "La hoja sheet1.xml contiene el bloque de RESUMEN OFICIAL y totales.");
+afirmar(str_contains($sheetContent, 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'), "Namespace OpenXML SpreadsheetML válido.");
+
+$zipTest->close();
+@unlink($tmpXlsx);
+
+// 6.2 XML SpreadsheetML Legacy (formato XML de alta compatibilidad)
+$xmlMl = $reporteServicio->exportarXmlSpreadsheetMl(ReporteCierreServicio::TIPO_LIBRO_INGRESOS, $libro);
+afirmar(str_starts_with($xmlMl, '<?xml version="1.0" encoding="UTF-8"?>'), "XML SpreadsheetML inicia con declaración XML válida.");
+afirmar(str_contains($xmlMl, 'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'), "Contiene namespace SpreadsheetML estándar.");
+afirmar(str_contains($xmlMl, '<Style ss:ID="Header">'), "Define estilos corporativos de encabezado.");
 
 // ------------------------------------------------------------------------------
 // SECCIÓN 7: EXPORTACIÓN PDF INSTITUCIONAL CON HASH PROBATORIO
@@ -518,7 +544,27 @@ afirmar(str_starts_with($csvExportado, "\xEF\xBB\xBF"), "EdicionControlador::exp
 
 $_GET['formato'] = 'xlsx';
 $xlsxExportado = $controlador->exportarReporte($edicionId);
-afirmar(str_contains($xlsxExportado, 'SpreadsheetML'), "EdicionControlador::exportarReporte emite XML SpreadsheetML.");
+afirmar(str_starts_with($xlsxExportado, "PK\x03\x04"), "EdicionControlador::exportarReporte emite paquete binario OpenXML auténtico (PK\\x03\\x04).");
+
+// Validación del archivo XLSX generado mediante descompresión y parseo de su hoja interna
+$tmpCtrlXlsx = tempnam(sys_get_temp_dir(), 'ctrl_xlsx_');
+file_put_contents($tmpCtrlXlsx, $xlsxExportado);
+$zipCtrl = new \ZipArchive();
+$zipAbierto = $zipCtrl->open($tmpCtrlXlsx);
+afirmar($zipAbierto === true, "El binario XLSX del controlador es un archivo ZIP válido.");
+$sheetXmlCtrl = $zipCtrl->getFromName('xl/worksheets/sheet1.xml');
+$xmlParsed = simplexml_load_string($sheetXmlCtrl);
+afirmar($xmlParsed !== false, "El XML interno sheet1.xml del archivo XLSX es 100% válido y parseable por parser independiente.");
+afirmar(isset($xmlParsed->sheetData), "El documento de hoja de cálculo contiene elemento sheetData estructurado.");
+$zipCtrl->close();
+@unlink($tmpCtrlXlsx);
+
+$_GET['formato'] = 'xml';
+$xmlMlExportado = $controlador->exportarReporte($edicionId);
+afirmar(str_contains($xmlMlExportado, 'SpreadsheetML'), "EdicionControlador::exportarReporte emite XML SpreadsheetML cuando se solicita formato=xml.");
+$xmlMlParsed = simplexml_load_string($xmlMlExportado);
+afirmar($xmlMlParsed !== false, "El XML SpreadsheetML es parseable por simplexml_load_string.");
+afirmar(isset($xmlMlParsed->Worksheet), "El documento XML SpreadsheetML contiene elemento Worksheet estructurado.");
 
 $_GET['formato'] = 'pdf';
 $pdfExportado = $controlador->exportarReporte($edicionId);
@@ -529,11 +575,6 @@ $_GET['formato'] = 'txt_invalido';
 $jsonError = $controlador->exportarReporte($edicionId);
 $resError = json_decode($jsonError, true);
 afirmar(($resError['exito'] ?? true) === false, "Formato no soportado es rechazado con error controlado (código 400).");
-
-// Validación de Integridad XML del archivo XLSX con parser independiente
-$xmlParsed = simplexml_load_string($xlsxExportado);
-afirmar($xmlParsed !== false, "El archivo XLSX generado es un XML estructurado 100% válido y parseable por parser independiente.");
-afirmar(isset($xmlParsed->Worksheet), "El documento XML contiene elemento Worksheet estructurado.");
 
 // Verificación de Principio de Mínimo Privilegio: Usuario con ediciones.ver NO puede exportar sin permiso específico
 $authzRestringido = new class extends AutorizacionMiddleware {
