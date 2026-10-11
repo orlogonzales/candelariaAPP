@@ -10,6 +10,7 @@ use Aplicacion\Ediciones\ContextoEdicionResolver;
 use Aplicacion\Ediciones\EdicionServicio;
 use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
 use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
+use Aplicacion\Reportes\ReporteCierreServicio;
 use Aplicacion\Repositorios\AuditoriaRepositorio;
 use Aplicacion\Repositorios\EdicionRepositorio;
 use Aplicacion\Repositorios\OrganizacionRepositorio;
@@ -37,6 +38,7 @@ class EdicionControlador
     private EdicionRepositorio $edicionRepo;
     private ContextoEdicionResolver $contextoResolver;
     private CierreEdicionServicio $cierreServicio;
+    private ReporteCierreServicio $reporteServicio;
     private PDO $pdo;
 
     public function __construct(
@@ -46,6 +48,7 @@ class EdicionControlador
         ?EdicionRepositorio $edicionRepo = null,
         ?ContextoEdicionResolver $contextoResolver = null,
         ?CierreEdicionServicio $cierreServicio = null,
+        ?ReporteCierreServicio $reporteServicio = null,
         ?PDO $pdo = null
     ) {
         $this->pdo = $pdo ?? Conexion::obtenerInstancia();
@@ -67,6 +70,7 @@ class EdicionControlador
         }
 
         $this->cierreServicio = $cierreServicio ?? new CierreEdicionServicio($this->pdo, $auditoriaRepo);
+        $this->reporteServicio = $reporteServicio ?? new ReporteCierreServicio($this->pdo);
         $this->contextoResolver = $contextoResolver ?? new ContextoEdicionResolver($this->edicionRepo);
     }
 
@@ -547,6 +551,172 @@ class EdicionControlador
             return $this->responderError($e->getMessage(), 403);
         } catch (Throwable $e) {
             return $this->responderError('Error al auditar la integridad del cierre: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/reportes/libro-ingresos
+     * Retorna los datos conciliados del Libro Oficial de Ingresos y Cobranzas.
+     */
+    public function reporteLibroIngresos(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $datos = $this->reporteServicio->obtenerLibroIngresos($contexto->organizacionId, $id, $_GET);
+            return $this->responderExito($datos, 'Libro de ingresos y cobranzas obtenido exitosamente.');
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 404);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al generar el libro de ingresos: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/reportes/manifiesto-salidas
+     * Retorna los datos operativos de las salidas de campo y vehículos.
+     */
+    public function reporteManifiestoSalidas(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $datos = $this->reporteServicio->obtenerManifiestoSalidas($contexto->organizacionId, $id, $_GET);
+            return $this->responderExito($datos, 'Manifiesto de salidas operativas obtenido exitosamente.');
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 404);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al generar el manifiesto de salidas: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/reportes/padron-asistencia
+     * Retorna el padrón de asistencia con minimización de datos personales (Ley 29733).
+     */
+    public function reportePadronAsistencia(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $datos = $this->reporteServicio->obtenerPadronAsistencia($contexto->organizacionId, $id, $_GET);
+            return $this->responderExito($datos, 'Padrón oficial de asistencia obtenido exitosamente.');
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 404);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al generar el padrón de asistencia: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/reportes/exportar
+     * Exporta cualquiera de los 3 reportes oficiales a formato CSV (anti-formula injection), XLSX o PDF institucional.
+     */
+    public function exportarReporte(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $tipo = strtoupper(trim((string)($_GET['tipo'] ?? '')));
+            $formato = strtolower(trim((string)($_GET['formato'] ?? 'csv')));
+
+            $reporteData = match ($tipo) {
+                ReporteCierreServicio::TIPO_LIBRO_INGRESOS => $this->reporteServicio->obtenerLibroIngresos($contexto->organizacionId, $id, $_GET),
+                ReporteCierreServicio::TIPO_MANIFIESTO_SALIDAS => $this->reporteServicio->obtenerManifiestoSalidas($contexto->organizacionId, $id, $_GET),
+                ReporteCierreServicio::TIPO_PADRON_ASISTENCIA => $this->reporteServicio->obtenerPadronAsistencia($contexto->organizacionId, $id, $_GET),
+                default => throw new InvalidArgumentException("Tipo de reporte no reconocido: '{$tipo}'. Use LIBRO_INGRESOS, MANIFIESTO_SALIDAS o PADRON_ASISTENCIA."),
+            };
+
+            $slugBase = strtolower(str_replace('_', '-', $tipo)) . '-' . $id;
+
+            if ($formato === 'csv') {
+                $contenido = $this->reporteServicio->exportarCsv($tipo, $reporteData);
+                if (php_sapi_name() === 'cli') {
+                    return $contenido;
+                }
+                if (ob_get_level() > 0) {
+                    ob_clean();
+                }
+                if (!headers_sent()) {
+                    header('Content-Type: text/csv; charset=utf-8');
+                    header(sprintf('Content-Disposition: attachment; filename="%s_%s.csv"', $slugBase, date('Ymd_His')));
+                    header('Content-Length: ' . strlen($contenido));
+                }
+                echo $contenido;
+                exit;
+            }
+
+            if ($formato === 'xlsx') {
+                $contenido = $this->reporteServicio->exportarXlsx($tipo, $reporteData);
+                if (php_sapi_name() === 'cli') {
+                    return $contenido;
+                }
+                if (ob_get_level() > 0) {
+                    ob_clean();
+                }
+                if (!headers_sent()) {
+                    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+                    header(sprintf('Content-Disposition: attachment; filename="%s_%s.xls"', $slugBase, date('Ymd_His')));
+                    header('Content-Length: ' . strlen($contenido));
+                }
+                echo $contenido;
+                exit;
+            }
+
+            if ($formato === 'pdf') {
+                $stmtEd = $this->pdo->prepare("SELECT * FROM `ediciones_candelaria` WHERE `id` = :id AND `organizacion_id` = :org_id LIMIT 1");
+                $stmtEd->execute([':id' => $id, ':org_id' => $contexto->organizacionId]);
+                $edicionInfo = $stmtEd->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                $stmtOrg = $this->pdo->prepare("SELECT * FROM `organizaciones` WHERE `id` = :org_id LIMIT 1");
+                $stmtOrg->execute([':org_id' => $contexto->organizacionId]);
+                $tenantInfo = $stmtOrg->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                $contenido = $this->reporteServicio->exportarPdf($tipo, $reporteData, $tenantInfo, $edicionInfo);
+                if (php_sapi_name() === 'cli') {
+                    return $contenido;
+                }
+                if (ob_get_level() > 0) {
+                    ob_clean();
+                }
+                $descargar = !empty($_GET['descargar']);
+                $disposition = $descargar ? 'attachment' : 'inline';
+                if (!headers_sent()) {
+                    header('Content-Type: application/pdf');
+                    header(sprintf('Content-Disposition: %s; filename="%s_%s.pdf"', $disposition, $slugBase, date('Ymd_His')));
+                    header('Content-Length: ' . strlen($contenido));
+                    header('Cache-Control: private, max-age=0, must-revalidate');
+                    header('Pragma: public');
+                }
+                echo $contenido;
+                exit;
+            }
+
+            return $this->responderError("Formato de exportación no soportado: '{$formato}'. Formatos admitidos: csv, xlsx, pdf.", 400);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al exportar el reporte oficial: ' . $e->getMessage(), 500);
         }
     }
 

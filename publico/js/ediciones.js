@@ -142,6 +142,28 @@ class ModuloEdiciones {
             });
         }
 
+        // Listeners para Descarga de Reportes Oficiales (F2.12B)
+        document.querySelectorAll('.btn-descargar-reporte').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tipo = e.currentTarget.dataset.tipo;
+                const formato = e.currentTarget.dataset.formato;
+                this.descargarReporte(tipo, formato);
+            });
+        });
+
+        // Cambio reactivo de pestañas de reportes
+        const tabsReportes = document.querySelectorAll('#tabReportesOficiales button[data-bs-toggle="tab"]');
+        tabsReportes.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', (e) => {
+                const targetId = e.target.getAttribute('data-bs-target');
+                if (this.edicionReporteActualId) {
+                    if (targetId === '#panel-libro-ingresos') this.cargarReporteLibro(this.edicionReporteActualId);
+                    else if (targetId === '#panel-manifiesto-salidas') this.cargarReporteSalidas(this.edicionReporteActualId);
+                    else if (targetId === '#panel-padron-asistencia') this.cargarReportePadron(this.edicionReporteActualId);
+                }
+            });
+        });
+
         // Escuchar evento global de cambio de edición en pestaña
         document.addEventListener('candelaria:edicion-cambiada', (e) => {
             this.actualizarKpiPestana(e.detail?.nombre || 'Ninguna');
@@ -321,6 +343,12 @@ class ModuloEdiciones {
                                         </button>
                                     </li>
                                     `}
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <button class="dropdown-item btn-accion-reportes text-primary f-w-600" data-id="${ed.id}" data-nombre="${this.escapar(ed.nombre)}" data-estado="${ed.estado}">
+                                            <i class="fa-solid fa-file-invoice text-primary me-2"></i> Reportes Oficiales
+                                        </button>
+                                    </li>
                                 </ul>
                             </div>
                         </td>
@@ -411,6 +439,15 @@ class ModuloEdiciones {
                 const id = parseInt(e.currentTarget.dataset.id, 10);
                 const nombre = e.currentTarget.dataset.nombre;
                 this.verActaCierre(id, nombre);
+            });
+        });
+
+        document.querySelectorAll('.btn-accion-reportes').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id, 10);
+                const nombre = e.currentTarget.dataset.nombre;
+                const estado = e.currentTarget.dataset.estado;
+                this.abrirModalReportes(id, nombre, estado);
             });
         });
     }
@@ -1104,6 +1141,157 @@ class ModuloEdiciones {
             console.error('[ModuloEdiciones] Error al verificar integridad:', err);
             CandelariaUI.notificarError(err.message || 'No fue posible auditar el sellado criptográfico.');
         }
+    }
+
+    abrirModalReportes(id, nombre, estado) {
+        this.edicionReporteActualId = id;
+        const modalEl = document.getElementById('modalReportesOficiales');
+        if (!modalEl) return;
+
+        document.getElementById('repEdicionTitulo').innerText = nombre;
+        const badge = document.getElementById('repEdicionEstadoBadge');
+        if (badge) {
+            badge.innerText = estado;
+            badge.className = `badge ${estado === 'CERRADA' ? 'bg-secondary' : 'bg-success'}`;
+        }
+
+        const tabTrigger = document.querySelector('#tabReportesOficiales button#tab-libro-ingresos');
+        if (tabTrigger && typeof bootstrap !== 'undefined') {
+            const tabInstance = bootstrap.Tab.getOrCreateInstance(tabTrigger);
+            tabInstance.show();
+        }
+
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modalInstance.show();
+
+        this.cargarReporteLibro(id);
+    }
+
+    async cargarReporteLibro(id) {
+        const tbody = document.getElementById('repLibroTbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando Libro de Ingresos...</td></tr>';
+
+        try {
+            const resp = await window.CandelariaApi.get(`ediciones/${id}/reportes/libro-ingresos`);
+            const datos = resp?.datos || {};
+            const totales = datos.totales || {};
+            const items = datos.items || [];
+
+            document.getElementById('repLibroTotalVentas').innerText = `S/ ${(totales.total_ventas || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('repLibroTotalCobrado').innerText = `S/ ${(totales.total_cobrado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('repLibroTotalComisiones').innerText = `S/ ${(totales.total_comisiones_pasarela || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('repLibroTotalSaldos').innerText = `S/ ${(totales.total_saldo_pendiente || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted"><i class="fa-solid fa-inbox me-2"></i>No se registran ventas para esta edición.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(it => `
+                <tr>
+                    <td><code class="text-primary">${this.escapar(it.correlativo_venta)}</code></td>
+                    <td class="f-w-600 text-dark">${this.escapar(it.cliente_nombre)}</td>
+                    <td class="text-muted f-s-12">${this.escapar(it.cliente_documento || '-')}</td>
+                    <td><span class="badge ${it.estado_financiero === 'PAGADA_TOTAL' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'}">${this.escapar(it.estado_financiero)}</span></td>
+                    <td class="text-end f-w-600">S/ ${(it.total_venta || 0).toFixed(2)}</td>
+                    <td>${this.escapar(it.correlativo_recibo || it.correlativo_pago || '-')}</td>
+                    <td><span class="badge bg-light text-dark border">${this.escapar(it.metodo_pago)}</span></td>
+                    <td class="text-end text-success f-w-600">S/ ${(it.monto_cobrado_cliente || 0).toFixed(2)}</td>
+                    <td class="text-end text-secondary">S/ ${(it.comision_pasarela || 0).toFixed(2)}</td>
+                    <td class="text-end text-primary f-w-600">S/ ${(it.monto_neto_recibido || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al cargar libro de ingresos:', err);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-center py-3 text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i>${this.escapar(err.message || 'Error al cargar reporte.')}</td></tr>`;
+        }
+    }
+
+    async cargarReporteSalidas(id) {
+        const tbody = document.getElementById('repSalidasTbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando Manifiesto de Salidas...</td></tr>';
+
+        try {
+            const resp = await window.CandelariaApi.get(`ediciones/${id}/reportes/manifiesto-salidas`);
+            const datos = resp?.datos || {};
+            const totales = datos.totales || {};
+            const items = datos.items || [];
+
+            document.getElementById('repSalidasTotal').innerText = totales.total_salidas || 0;
+            document.getElementById('repSalidasCapacidad').innerText = totales.total_capacidad_flota || 0;
+            document.getElementById('repSalidasPasajeros').innerText = totales.total_pasajeros_asignados || 0;
+            document.getElementById('repSalidasOcupacion').innerText = `${totales.tasa_ocupacion_flota_pct || 0}%`;
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted"><i class="fa-solid fa-bus-simple me-2"></i>No se registran salidas operativas programadas.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(it => `
+                <tr>
+                    <td><code class="text-info">${this.escapar(it.correlativo_salida)}</code></td>
+                    <td class="f-w-600 text-dark">${this.escapar(it.titulo_salida || it.paquete_nombre)}</td>
+                    <td class="f-s-12">${this.escapar(it.fecha_salida)} <span class="text-muted">${this.escapar(it.hora_citacion || '')}</span></td>
+                    <td class="f-s-12"><strong>${this.escapar(it.vehiculo_placa)}</strong> <span class="text-muted">${this.escapar(it.vehiculo_marca_modelo || '')}</span></td>
+                    <td class="f-s-12">${this.escapar(it.conductor_nombre)}</td>
+                    <td class="f-s-12">${this.escapar(it.guia_nombre)}</td>
+                    <td class="text-center">${it.capacidad_vehiculo}</td>
+                    <td class="text-center"><span class="badge bg-primary-subtle text-primary f-w-700">${it.pasajeros_agendados}</span></td>
+                    <td><span class="badge bg-light text-dark border">${this.escapar(it.estado_salida)}</span></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al cargar manifiesto de salidas:', err);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center py-3 text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i>${this.escapar(err.message || 'Error al cargar reporte.')}</td></tr>`;
+        }
+    }
+
+    async cargarReportePadron(id) {
+        const tbody = document.getElementById('repPadronTbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando Padrón de Asistencia...</td></tr>';
+
+        try {
+            const resp = await window.CandelariaApi.get(`ediciones/${id}/reportes/padron-asistencia`);
+            const datos = resp?.datos || {};
+            const totales = datos.totales || {};
+            const items = datos.items || [];
+
+            document.getElementById('repPadronTotal').innerText = totales.total_participantes || 0;
+            document.getElementById('repPadronAsistieron').innerText = totales.total_asistieron || 0;
+            document.getElementById('repPadronAusentes').innerText = totales.total_ausentes || 0;
+            document.getElementById('repPadronTasa').innerText = `${totales.tasa_asistencia_pct || 0}%`;
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-users-slash me-2"></i>No se registran participantes asignados para esta festividad.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = items.map(it => `
+                <tr>
+                    <td><code class="text-secondary">${this.escapar(it.correlativo_reserva)}</code></td>
+                    <td class="f-s-12 text-muted">${this.escapar(it.titular_nombre)}</td>
+                    <td class="f-w-600 text-dark">${this.escapar(it.participante_nombre)}</td>
+                    <td><code class="text-dark bg-light px-1">${this.escapar(it.documento_minimizado)}</code></td>
+                    <td><span class="badge bg-light text-secondary font-monospace">${this.escapar(it.codigo_seguridad_qr)}</span></td>
+                    <td><span class="badge ${it.estado_checkin === 'INGRESADO' ? 'bg-success text-white' : 'bg-secondary text-white'}">${this.escapar(it.estado_checkin)}</span></td>
+                    <td class="f-s-12 text-muted">${this.escapar(it.fecha_checkin)}</td>
+                    <td class="f-s-12">${this.escapar(it.salida_asignada)}</td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al cargar padrón de asistencia:', err);
+            if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-3 text-danger"><i class="fa-solid fa-circle-exclamation me-1"></i>${this.escapar(err.message || 'Error al cargar reporte.')}</td></tr>`;
+        }
+    }
+
+    descargarReporte(tipo, formato) {
+        if (!this.edicionReporteActualId) {
+            CandelariaUI.notificarAdvertencia('No hay una festividad seleccionada para exportar.');
+            return;
+        }
+
+        const url = `${window.CandelariaConfig?.urlBase || ''}/api/v1/ediciones/${this.edicionReporteActualId}/reportes/exportar?tipo=${tipo}&formato=${formato}&descargar=1`;
+        window.open(url, '_blank');
     }
 
     escapar(str) {

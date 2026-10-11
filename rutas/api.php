@@ -218,6 +218,10 @@ Enrutador::post('/api/v1/ediciones/{id}/cerrar', [\Aplicacion\Controladores\Edic
 Enrutador::post('/api/v1/ediciones/{id}/reabrir', [\Aplicacion\Controladores\EdicionControlador::class, 'reabrirExcepcional']);
 Enrutador::get('/api/v1/ediciones/{id}/cierre', [\Aplicacion\Controladores\EdicionControlador::class, 'consultarCierre']);
 Enrutador::get('/api/v1/ediciones/{id}/cierre/verificar-integridad', [\Aplicacion\Controladores\EdicionControlador::class, 'verificarIntegridad']);
+Enrutador::get('/api/v1/ediciones/{id}/reportes/libro-ingresos', [\Aplicacion\Controladores\EdicionControlador::class, 'reporteLibroIngresos']);
+Enrutador::get('/api/v1/ediciones/{id}/reportes/manifiesto-salidas', [\Aplicacion\Controladores\EdicionControlador::class, 'reporteManifiestoSalidas']);
+Enrutador::get('/api/v1/ediciones/{id}/reportes/padron-asistencia', [\Aplicacion\Controladores\EdicionControlador::class, 'reportePadronAsistencia']);
+Enrutador::get('/api/v1/ediciones/{id}/reportes/exportar', [\Aplicacion\Controladores\EdicionControlador::class, 'exportarReporte']);
 Enrutador::get('/api/v1/contexto/edicion', [\Aplicacion\Controladores\EdicionControlador::class, 'contextoActual']);
 
 // ==============================================================================

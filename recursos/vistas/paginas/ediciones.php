@@ -495,3 +495,189 @@
     </div>
 </div>
 
+<!-- ==============================================================================
+     MODAL 6: REPORTES OFICIALES DE EDICIÓN Y CIERRE (FASE 2.12B)
+============================================================================== -->
+<div class="modal fade" id="modalReportesOficiales" tabindex="-1" aria-labelledby="modalReportesOficialesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content b-r-16 border-0 shadow">
+            <div class="modal-header bg-primary text-white b-r-top-16 py-3">
+                <h5 class="modal-title f-w-700" id="modalReportesOficialesLabel">
+                    <i class="fa-solid fa-file-invoice me-2"></i> Reportes Oficiales de Festividad y Cierre
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="p-3 bg-light b-r-12 mb-4 d-flex flex-wrap justify-content-between align-items-center">
+                    <div>
+                        <span class="f-s-12 text-muted text-uppercase f-w-600 d-block">Festividad Seleccionada</span>
+                        <h5 class="f-w-700 text-dark mb-0" id="repEdicionTitulo">-</h5>
+                    </div>
+                    <div class="text-end mt-2 mt-sm-0">
+                        <span id="repEdicionEstadoBadge" class="badge bg-secondary">-</span>
+                        <div class="f-s-11 text-muted mt-1">Corte oficial generado con hash probatorio</div>
+                    </div>
+                </div>
+
+                <!-- Tabs de Navegación entre los 3 Reportes Oficiales -->
+                <ul class="nav nav-tabs nav-tabs-bordered mb-3" id="tabReportesOficiales" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active f-w-600" id="tab-libro-ingresos" data-bs-toggle="tab" data-bs-target="#panel-libro-ingresos" type="button" role="tab" aria-selected="true">
+                            <i class="fa-solid fa-coins text-success me-2"></i> Libro de Ingresos y Cobranzas
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link f-w-600" id="tab-manifiesto-salidas" data-bs-toggle="tab" data-bs-target="#panel-manifiesto-salidas" type="button" role="tab" aria-selected="false">
+                            <i class="fa-solid fa-bus-simple text-info me-2"></i> Manifiesto de Salidas Operativas
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link f-w-600" id="tab-padron-asistencia" data-bs-toggle="tab" data-bs-target="#panel-padron-asistencia" type="button" role="tab" aria-selected="false">
+                            <i class="fa-solid fa-user-check text-warning me-2"></i> Padrón Oficial de Asistencia (Ley 29733)
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Contenido de las Pestañas -->
+                <div class="tab-content" id="tabContentReportes">
+                    <!-- 1. LIBRO DE INGRESOS -->
+                    <div class="tab-pane fade show active" id="panel-libro-ingresos" role="tabpanel">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 p-3 bg-body-tertiary rounded">
+                            <div class="d-flex flex-wrap gap-3">
+                                <div><span class="f-s-11 text-muted d-block">TOTAL DEVENGADO:</span><strong class="f-s-14 text-dark" id="repLibroTotalVentas">S/ 0.00</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">TOTAL COBRADO:</span><strong class="f-s-14 text-success" id="repLibroTotalCobrado">S/ 0.00</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">COMISIONES:</span><strong class="f-s-14 text-secondary" id="repLibroTotalComisiones">S/ 0.00</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">SALDO PENDIENTE:</span><strong class="f-s-14 text-danger" id="repLibroTotalSaldos">S/ 0.00</strong></div>
+                            </div>
+                            <div class="d-flex gap-2 mt-2 mt-md-0">
+                                <button type="button" class="btn btn-outline-success btn-sm btn-descargar-reporte" data-tipo="LIBRO_INGRESOS" data-formato="csv">
+                                    <i class="fa-solid fa-file-csv me-1"></i> CSV
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm btn-descargar-reporte" data-tipo="LIBRO_INGRESOS" data-formato="xlsx">
+                                    <i class="fa-solid fa-file-excel me-1"></i> Excel (XLSX)
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-descargar-reporte" data-tipo="LIBRO_INGRESOS" data-formato="pdf">
+                                    <i class="fa-solid fa-file-pdf me-1"></i> PDF Oficial
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive app-scroll" style="max-height: 380px;">
+                            <table class="table table-sm table-hover align-middle table-bordered mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Venta</th>
+                                        <th>Cliente</th>
+                                        <th>Doc</th>
+                                        <th>Financiero</th>
+                                        <th class="text-end">Total Venta</th>
+                                        <th>Pago / Recibo</th>
+                                        <th>Método</th>
+                                        <th class="text-end">Monto Cobrado</th>
+                                        <th class="text-end">Comisión</th>
+                                        <th class="text-end">Neto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="repLibroTbody">
+                                    <tr><td colspan="10" class="text-center py-3 text-muted">Cargando datos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 2. MANIFIESTO DE SALIDAS -->
+                    <div class="tab-pane fade" id="panel-manifiesto-salidas" role="tabpanel">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 p-3 bg-body-tertiary rounded">
+                            <div class="d-flex flex-wrap gap-3">
+                                <div><span class="f-s-11 text-muted d-block">TOTAL SALIDAS:</span><strong class="f-s-14 text-dark" id="repSalidasTotal">0</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">CAPACIDAD FLOTA:</span><strong class="f-s-14 text-info" id="repSalidasCapacidad">0</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">PASAJEROS ASIGNADOS:</span><strong class="f-s-14 text-primary" id="repSalidasPasajeros">0</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">TASA OCUPACIÓN:</span><strong class="f-s-14 text-success" id="repSalidasOcupacion">0%</strong></div>
+                            </div>
+                            <div class="d-flex gap-2 mt-2 mt-md-0">
+                                <button type="button" class="btn btn-outline-success btn-sm btn-descargar-reporte" data-tipo="MANIFIESTO_SALIDAS" data-formato="csv">
+                                    <i class="fa-solid fa-file-csv me-1"></i> CSV
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm btn-descargar-reporte" data-tipo="MANIFIESTO_SALIDAS" data-formato="xlsx">
+                                    <i class="fa-solid fa-file-excel me-1"></i> Excel (XLSX)
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-descargar-reporte" data-tipo="MANIFIESTO_SALIDAS" data-formato="pdf">
+                                    <i class="fa-solid fa-file-pdf me-1"></i> PDF Oficial
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive app-scroll" style="max-height: 380px;">
+                            <table class="table table-sm table-hover align-middle table-bordered mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Código Salida</th>
+                                        <th>Paquete / Servicio</th>
+                                        <th>Fecha / Citación</th>
+                                        <th>Vehículo / Placa</th>
+                                        <th>Conductor</th>
+                                        <th>Guía Oficial</th>
+                                        <th class="text-center">Capacidad</th>
+                                        <th class="text-center">Pasajeros</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="repSalidasTbody">
+                                    <tr><td colspan="9" class="text-center py-3 text-muted">Cargando datos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 3. PADRÓN DE ASISTENCIA -->
+                    <div class="tab-pane fade" id="panel-padron-asistencia" role="tabpanel">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 p-3 bg-body-tertiary rounded">
+                            <div class="d-flex flex-wrap gap-3">
+                                <div><span class="f-s-11 text-muted d-block">TOTAL PARTICIPANTES:</span><strong class="f-s-14 text-dark" id="repPadronTotal">0</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">CHECK-IN CONFIRMADO:</span><strong class="f-s-14 text-success" id="repPadronAsistieron">0</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">AUSENTES (NO-SHOW):</span><strong class="f-s-14 text-danger" id="repPadronAusentes">0</strong></div>
+                                <div><span class="f-s-11 text-muted d-block">TASA ASISTENCIA:</span><strong class="f-s-14 text-primary" id="repPadronTasa">0%</strong></div>
+                            </div>
+                            <div class="d-flex gap-2 mt-2 mt-md-0">
+                                <button type="button" class="btn btn-outline-success btn-sm btn-descargar-reporte" data-tipo="PADRON_ASISTENCIA" data-formato="csv">
+                                    <i class="fa-solid fa-file-csv me-1"></i> CSV
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm btn-descargar-reporte" data-tipo="PADRON_ASISTENCIA" data-formato="xlsx">
+                                    <i class="fa-solid fa-file-excel me-1"></i> Excel (XLSX)
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-descargar-reporte" data-tipo="PADRON_ASISTENCIA" data-formato="pdf">
+                                    <i class="fa-solid fa-file-pdf me-1"></i> PDF Oficial
+                                </button>
+                            </div>
+                        </div>
+                        <div class="alert alert-info py-2 px-3 f-s-12 mb-3">
+                            <i class="fa-solid fa-shield-halved me-1"></i> <strong>Cumplimiento Ley N° 29733:</strong> Los números de documento de identidad y códigos QR se muestran minimizados y enmascarados para protección estricta de la privacidad de los participantes.
+                        </div>
+                        <div class="table-responsive app-scroll" style="max-height: 380px;">
+                            <table class="table table-sm table-hover align-middle table-bordered mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Reserva</th>
+                                        <th>Titular</th>
+                                        <th>Participante</th>
+                                        <th>Doc. Minimizado</th>
+                                        <th>Cód. Seguridad</th>
+                                        <th>Estado Check-in</th>
+                                        <th>Timestamp Check-in</th>
+                                        <th>Salida Asignada</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="repPadronTbody">
+                                    <tr><td colspan="8" class="text-center py-3 text-muted">Cargando datos...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
