@@ -99,6 +99,14 @@ class ReservaServicio
                 );
             }
 
+            // Validar que la edición no esté CERRADA
+            $stmtEd = $this->pdo->prepare("SELECT estado, nombre FROM `ediciones_candelaria` WHERE id = :id");
+            $stmtEd->execute(['id' => $filaVenta['edicion_id']]);
+            $edInfo = $stmtEd->fetch(PDO::FETCH_ASSOC);
+            if ($edInfo && $edInfo['estado'] === 'CERRADA') {
+                throw new InvalidArgumentException("La festividad '{$edInfo['nombre']}' se encuentra formalmente CERRADA. Se prohíbe el registro de nuevas reservas u operaciones.");
+            }
+
             // 3. Regla 1:1 e Idempotencia: Verificar que no exista ya una reserva ni una entrega para esta venta
             $reservaExistente = $this->reservaRepo->buscarPorVentaId($ventaId);
             if ($reservaExistente !== null) {

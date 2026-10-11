@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aplicacion\Controladores;
 
 use Aplicacion\Autorizacion\AutorizacionServicio;
+use Aplicacion\Ediciones\CierreEdicionServicio;
 use Aplicacion\Ediciones\ContextoEdicionResolver;
 use Aplicacion\Ediciones\EdicionServicio;
 use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
@@ -35,6 +36,7 @@ class EdicionControlador
     private EdicionServicio $edicionServicio;
     private EdicionRepositorio $edicionRepo;
     private ContextoEdicionResolver $contextoResolver;
+    private CierreEdicionServicio $cierreServicio;
     private PDO $pdo;
 
     public function __construct(
@@ -43,6 +45,7 @@ class EdicionControlador
         ?EdicionServicio $edicionServicio = null,
         ?EdicionRepositorio $edicionRepo = null,
         ?ContextoEdicionResolver $contextoResolver = null,
+        ?CierreEdicionServicio $cierreServicio = null,
         ?PDO $pdo = null
     ) {
         $this->pdo = $pdo ?? Conexion::obtenerInstancia();
@@ -50,18 +53,20 @@ class EdicionControlador
         $this->authzMiddleware = $authzMiddleware ?? new AutorizacionMiddleware();
         $this->edicionRepo = $edicionRepo ?? new EdicionRepositorio($this->pdo);
 
+        $orgRepo = new OrganizacionRepositorio($this->pdo);
+        $rolRepo = new RolRepositorio($this->pdo);
+        $permRepo = new PermisoRepositorio($this->pdo);
+        $usrRepo = new UsuarioRepositorio($this->pdo);
+        $auditoriaRepo = new AuditoriaRepositorio($this->pdo);
+
         if ($edicionServicio !== null) {
             $this->edicionServicio = $edicionServicio;
         } else {
-            $orgRepo = new OrganizacionRepositorio($this->pdo);
-            $rolRepo = new RolRepositorio($this->pdo);
-            $permRepo = new PermisoRepositorio($this->pdo);
-            $usrRepo = new UsuarioRepositorio($this->pdo);
-            $auditoriaRepo = new AuditoriaRepositorio($this->pdo);
             $authzServicio = new AutorizacionServicio($rolRepo, $permRepo, $usrRepo, $auditoriaRepo, $this->pdo);
             $this->edicionServicio = new EdicionServicio($this->edicionRepo, $orgRepo, $authzServicio, $auditoriaRepo, $this->pdo);
         }
 
+        $this->cierreServicio = $cierreServicio ?? new CierreEdicionServicio($this->pdo, $auditoriaRepo);
         $this->contextoResolver = $contextoResolver ?? new ContextoEdicionResolver($this->edicionRepo);
     }
 
@@ -366,6 +371,150 @@ class EdicionControlador
             return $this->responderError($e->getMessage(), 400);
         } catch (Throwable $e) {
             return $this->responderError('Error interno al resolver contexto de edición.', 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/diagnostico-cierre
+     * Inspecciona ventas, pagos, vouchers, operaciones y entregas antes de asentar el cierre.
+     */
+    public function diagnosticoCierre(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $diagnostico = $this->cierreServicio->generarDiagnostico($contexto->organizacionId, $id);
+
+            return $this->responderExito(
+                $diagnostico,
+                'Diagnóstico de cierre de festividad generado exitosamente.'
+            );
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->responderError('Error interno al generar diagnóstico de cierre: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/ediciones/{id}/cerrar
+     * Asienta formalmente el acta de cierre administrativo y financiero.
+     */
+    public function ejecutarCierre(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.cerrar');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $this->validarCsrf($contexto);
+            $datos = $this->obtenerPayloadJson();
+
+            $tipoCierre = (string) ($datos['tipo_cierre'] ?? 'DEFINITIVO');
+            $justificacion = isset($datos['justificacion']) ? (string) $datos['justificacion'] : null;
+            $autorizadorId = isset($datos['autorizador_id']) ? (int) $datos['autorizador_id'] : null;
+            $versionBloqueo = isset($datos['version_bloqueo']) ? (int) $datos['version_bloqueo'] : 1;
+
+            $resultado = $this->cierreServicio->ejecutarCierre(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $id,
+                usuarioId: (int) $contexto->usuarioId,
+                tipoCierre: $tipoCierre,
+                justificacion: $justificacion,
+                autorizadorId: $autorizadorId,
+                versionBloqueoEsperada: $versionBloqueo,
+                contexto: $contexto
+            );
+
+            return $this->responderExito(
+                $resultado,
+                "La festividad ha sido cerrada formalmente bajo modalidad {$tipoCierre}.",
+                201
+            );
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (ConflictoConcurrenciaExcepcion $e) {
+            return $this->responderError($e->getMessage(), 409);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al ejecutar el cierre de la edición: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/v1/ediciones/{id}/reabrir
+     * Procedimiento excepcional de reversibilidad / reapertura auditada de una edición cerrada.
+     */
+    public function reabrirExcepcional(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.reabrir_excepcional');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $this->validarCsrf($contexto);
+            $datos = $this->obtenerPayloadJson();
+
+            $motivo = (string) ($datos['motivo_excepcional'] ?? '');
+            $autorizadorId = (int) ($datos['autorizado_por_usuario_id'] ?? 0);
+            $nuevoEstado = (string) ($datos['nuevo_estado'] ?? 'POSTPRODUCCION_ENTREGA');
+
+            $resultado = $this->cierreServicio->reabrirEdicionExcepcional(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $id,
+                usuarioSolicitanteId: (int) $contexto->usuarioId,
+                usuarioAutorizadorId: $autorizadorId,
+                motivoExcepcional: $motivo,
+                nuevoEstado: $nuevoEstado,
+                contexto: $contexto
+            );
+
+            return $this->responderExito(
+                $resultado,
+                'Reapertura excepcional de la festividad autorizada y registrada con éxito.'
+            );
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al procesar la reapertura excepcional: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/v1/ediciones/{id}/cierre
+     * Retorna el acta oficial de cierre vigente con su hash criptográfico.
+     */
+    public function consultarCierre(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
+                return $this->responderError('Contexto organizacional ausente.', 403);
+            }
+
+            $cierre = $this->cierreServicio->obtenerCierreVigente($contexto->organizacionId, $id);
+            if (!$cierre) {
+                return $this->responderError('La edición no cuenta con un cierre vigente asentado.', 404);
+            }
+
+            return $this->responderExito(
+                $cierre,
+                'Acta oficial de cierre obtenida exitosamente.'
+            );
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al consultar el cierre de la edición.', 500);
         }
     }
 

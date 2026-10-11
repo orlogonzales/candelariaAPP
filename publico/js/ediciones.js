@@ -94,6 +94,43 @@ class ModuloEdiciones {
             selectEstado.addEventListener('change', (e) => this.evaluarMotivoRetroceso(e.target.value));
         }
 
+        // Listeners para el Asistente de Cierre (F2.12A)
+        const radiosTipo = document.querySelectorAll('input[name="tipo_cierre"]');
+        radiosTipo.forEach(r => r.addEventListener('change', (e) => this.cambiarTipoCierreUI(e.target.value)));
+
+        const formCierre = document.getElementById('formEjecutarCierre');
+        if (formCierre) {
+            formCierre.addEventListener('submit', (e) => this.ejecutarCierreOficial(e));
+        }
+
+        const chkConfirm = document.getElementById('cierreConfirmacion');
+        if (chkConfirm) {
+            chkConfirm.addEventListener('change', (e) => {
+                const btn = document.getElementById('btnEjecutarCierreOficial');
+                if (btn) btn.disabled = !e.target.checked;
+            });
+        }
+
+        const btnShowReap = document.getElementById('btnMostrarFormReapertura');
+        if (btnShowReap) {
+            btnShowReap.addEventListener('click', () => {
+                document.getElementById('formReapertura')?.classList.remove('d-none');
+                btnShowReap.classList.add('d-none');
+            });
+        }
+        const btnCancelReap = document.getElementById('btnCancelarReapertura');
+        if (btnCancelReap) {
+            btnCancelReap.addEventListener('click', () => {
+                document.getElementById('formReapertura')?.classList.add('d-none');
+                document.getElementById('btnMostrarFormReapertura')?.classList.remove('d-none');
+            });
+        }
+
+        const formReap = document.getElementById('formReapertura');
+        if (formReap) {
+            formReap.addEventListener('submit', (e) => this.confirmarReapertura(e));
+        }
+
         // Escuchar evento global de cambio de edición en pestaña
         document.addEventListener('candelaria:edicion-cambiada', (e) => {
             this.actualizarKpiPestana(e.detail?.nombre || 'Ninguna');
@@ -259,6 +296,20 @@ class ModuloEdiciones {
                                             <i class="fa-solid fa-diagram-project text-dark me-2"></i> Cambiar Estado
                                         </button>
                                     </li>
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    ${!esCerrada ? `
+                                    <li>
+                                        <button class="dropdown-item btn-accion-asistente-cierre text-danger f-w-600" data-id="${ed.id}" data-nombre="${this.escapar(ed.nombre)}">
+                                            <i class="fa-solid fa-lock text-danger me-2"></i> Asistente de Cierre
+                                        </button>
+                                    </li>
+                                    ` : `
+                                    <li>
+                                        <button class="dropdown-item btn-accion-ver-acta-cierre text-dark f-w-600" data-id="${ed.id}" data-nombre="${this.escapar(ed.nombre)}">
+                                            <i class="fa-solid fa-stamp text-warning me-2"></i> Ver Acta de Cierre
+                                        </button>
+                                    </li>
+                                    `}
                                 </ul>
                             </div>
                         </td>
@@ -333,6 +384,22 @@ class ModuloEdiciones {
                 const nombre = e.currentTarget.dataset.nombre;
                 const codigo = e.currentTarget.dataset.codigo;
                 this.seleccionarEdicionPestana(id, nombre, codigo);
+            });
+        });
+
+        document.querySelectorAll('.btn-accion-asistente-cierre').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id, 10);
+                const nombre = e.currentTarget.dataset.nombre;
+                this.abrirAsistenteCierre(id, nombre);
+            });
+        });
+
+        document.querySelectorAll('.btn-accion-ver-acta-cierre').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = parseInt(e.currentTarget.dataset.id, 10);
+                const nombre = e.currentTarget.dataset.nombre;
+                this.verActaCierre(id, nombre);
             });
         });
     }
@@ -627,6 +694,348 @@ class ModuloEdiciones {
     seleccionarEdicionPestana(id, nombre, codigo) {
         window.CandelariaContextoEdicion?.establecerEdicion(id, nombre, codigo);
         CandelariaUI.notificarExito(`Esta pestaña ahora opera explícitamente en el contexto de "${nombre}".`, 'Contexto de Pestaña Actualizado');
+    }
+
+    async abrirAsistenteCierre(id, nombre) {
+        const modalEl = document.getElementById('modalAsistenteCierre');
+        if (!modalEl) return;
+
+        document.getElementById('cierreEdicionId').value = id;
+        document.getElementById('cierreEdicionSubtitulo').textContent = nombre ? `Auditoría y Cierre Oficial de "${nombre}"` : 'Auditoría y Cierre Oficial';
+
+        const loading = document.getElementById('cierreLoading');
+        const contenido = document.getElementById('cierreContenido');
+        const form = document.getElementById('formEjecutarCierre');
+
+        if (form) form.reset();
+        document.getElementById('btnEjecutarCierreOficial').disabled = true;
+        document.getElementById('panelCamposCondicionado').classList.add('d-none');
+
+        loading.classList.remove('d-none');
+        contenido.classList.add('d-none');
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+
+        try {
+            const resp = await window.CandelariaApi.get(`ediciones/${id}/diagnostico-cierre`);
+            const diag = resp?.datos;
+            if (!diag) throw new Error('Respuesta inválida del diagnóstico.');
+
+            const nombreFinal = nombre || diag.edicion?.nombre || 'Festividad';
+            document.getElementById('cierreEdicionSubtitulo').textContent = `Auditoría y Cierre Oficial de "${nombreFinal}"`;
+
+            this.renderizarDiagnosticoCierre(diag);
+
+            loading.classList.add('d-none');
+            contenido.classList.remove('d-none');
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al cargar diagnóstico:', err);
+            loading.innerHTML = `
+                <div class="alert alert-danger b-r-10 p-3 mb-0">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i> ${this.escapar(err.message || 'Error al conectar con el servidor.')}
+                </div>
+            `;
+        }
+    }
+
+    renderizarDiagnosticoCierre(diag) {
+        const res = diag.resumen_financiero || {};
+        document.getElementById('diagTotalFacturado').textContent = `S/ ${(res.monto_facturado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+        document.getElementById('diagVentasActivas').textContent = `${res.ventas_activas || 0} ventas confirmadas`;
+
+        document.getElementById('diagTotalRecaudado').textContent = `S/ ${(res.monto_recaudado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+        document.getElementById('diagRecibosCaja').textContent = `Recibos emitidos: ${res.recibos_caja_emitidos || 0}`;
+
+        document.getElementById('diagSaldoPorCobrar').textContent = `S/ ${(res.saldo_por_cobrar || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+        document.getElementById('diagVentasConSaldo').textContent = (res.saldo_por_cobrar > 0) ? 'Con saldo pendiente' : 'Sin saldos pendientes';
+
+        document.getElementById('diagSalidasFinalizadas').textContent = `${res.salidas_finalizadas || 0} Salidas`;
+        document.getElementById('diagEntregasAprobadas').textContent = `${res.entregas_aprobadas || 0} entregas aprobadas`;
+
+        // Banner dictamen
+        const banner = document.getElementById('cierreDictamenBanner');
+        const optDef = document.getElementById('tipoCierreDefinitivo');
+        const optCond = document.getElementById('tipoCierreCondicionado');
+        const optDefContainer = document.getElementById('optCierreDefinitivoContainer');
+
+        if (diag.total_bloqueantes > 0) {
+            banner.className = 'p-3 b-r-12 mb-4 bg-danger-subtle text-danger border border-danger';
+            banner.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-circle-xmark f-s-20"></i>
+                    <div>
+                        <strong class="f-s-14">Cierre Bloqueado por Incidencias Críticas</strong>
+                        <div class="f-s-12">Se detectaron ${diag.total_bloqueantes} impedimento(s) operativo(s) que impiden el cierre. Resuélvalos antes de proceder.</div>
+                    </div>
+                </div>
+            `;
+            optDef.disabled = true;
+            optCond.disabled = true;
+            optDef.checked = false;
+            optCond.checked = false;
+        } else if (diag.total_observaciones > 0) {
+            banner.className = 'p-3 b-r-12 mb-4 bg-warning-subtle text-warning-emphasis border border-warning';
+            banner.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation f-s-20"></i>
+                    <div>
+                        <strong class="f-s-14">Apto para Cierre Condicionado</strong>
+                        <div class="f-s-12">Existen ${diag.total_observaciones} observación(es) financieras o de postproducción pendientes. Se permite el cierre registrando justificación y autorizador.</div>
+                    </div>
+                </div>
+            `;
+            optDef.disabled = true;
+            optDefContainer.classList.add('opacity-50');
+            optCond.disabled = false;
+            optCond.checked = true;
+            this.cambiarTipoCierreUI('CONDICIONADO');
+        } else {
+            banner.className = 'p-3 b-r-12 mb-4 bg-success-subtle text-success border border-success';
+            banner.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-circle-check f-s-20"></i>
+                    <div>
+                        <strong class="f-s-14">Apto para Cierre Definitivo Pleno</strong>
+                        <div class="f-s-12">Balance en orden: No existen incidencias bloqueantes ni saldos pendientes de regularización.</div>
+                    </div>
+                </div>
+            `;
+            optDef.disabled = false;
+            optDefContainer.classList.remove('opacity-50');
+            optCond.disabled = false;
+            optDef.checked = true;
+            this.cambiarTipoCierreUI('DEFINITIVO');
+        }
+
+        // Lista de incidencias
+        const lista = document.getElementById('cierreListaIncidencias');
+        const todas = [...(diag.bloqueantes || []), ...(diag.observaciones || [])];
+
+        if (todas.length === 0) {
+            lista.innerHTML = `
+                <div class="p-3 bg-light rounded text-center text-muted f-s-13">
+                    <i class="fa-solid fa-check-double text-success me-1"></i> Auditoría impecable: Sin observaciones pendientes de liquidación.
+                </div>
+            `;
+        } else {
+            lista.innerHTML = todas.map(item => {
+                const esBloq = item.tipo === 'BLOQUEANTE';
+                return `
+                    <div class="alert ${esBloq ? 'alert-danger border-danger' : 'alert-warning border-warning'} p-3 mb-2 b-r-10 d-flex gap-2 align-items-start">
+                        <i class="fa-solid ${esBloq ? 'fa-circle-xmark text-danger' : 'fa-triangle-exclamation text-warning'} mt-1"></i>
+                        <div>
+                            <strong class="f-s-13 text-dark">${this.escapar(item.titulo || item.codigo)}</strong>
+                            <div class="f-s-12 text-secondary mt-1">${this.escapar(item.mensaje)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Cargar usuarios en el select de autorizador
+        this.cargarUsuariosAutorizadores();
+    }
+
+    async cargarUsuariosAutorizadores() {
+        const select = document.getElementById('cierreAutorizador');
+        const selectReap = document.getElementById('reaperturaAutorizador');
+        if (!select) return;
+
+        try {
+            const resp = await window.CandelariaApi.get('usuarios?limite=100');
+            const usuarios = resp?.datos?.usuarios || resp?.datos || [];
+
+            const opciones = usuarios.map(u => `<option value="${u.id}">${this.escapar(u.nombres || u.nombre || '')} ${this.escapar(u.apellidos || '')} (${this.escapar(u.correo || u.correo_electronico || '')})</option>`).join('');
+
+            select.innerHTML = `<option value="">Seleccione autorizador formal...</option>${opciones}`;
+            if (selectReap) {
+                selectReap.innerHTML = `<option value="">Seleccione autorizador...</option>${opciones}`;
+            }
+        } catch (e) {
+            console.warn('[ModuloEdiciones] No fue posible cargar lista de usuarios para autorizador:', e);
+        }
+    }
+
+    cambiarTipoCierreUI(tipo) {
+        const panelCond = document.getElementById('panelCamposCondicionado');
+        const txtJust = document.getElementById('cierreJustificacion');
+        const selAut = document.getElementById('cierreAutorizador');
+
+        if (tipo === 'CONDICIONADO') {
+            panelCond?.classList.remove('d-none');
+            if (txtJust) txtJust.required = true;
+            if (selAut) selAut.required = true;
+        } else {
+            panelCond?.classList.add('d-none');
+            if (txtJust) txtJust.required = false;
+            if (selAut) selAut.required = false;
+        }
+    }
+
+    async ejecutarCierreOficial(e) {
+        e.preventDefault();
+        const id = document.getElementById('cierreEdicionId').value;
+        const tipoRadio = document.querySelector('input[name="tipo_cierre"]:checked');
+        const btn = document.getElementById('btnEjecutarCierreOficial');
+
+        if (!tipoRadio) {
+            CandelariaUI.notificarError('Debe seleccionar la modalidad de cierre.');
+            return;
+        }
+
+        const tipoCierre = tipoRadio.value;
+        const justificacion = document.getElementById('cierreJustificacion')?.value || '';
+        const autorizadorId = document.getElementById('cierreAutorizador')?.value || null;
+
+        if (tipoCierre === 'CONDICIONADO') {
+            if (justificacion.trim().length < 15) {
+                CandelariaUI.notificarError('El cierre condicionado exige una justificación formal fundamentada (mínimo 15 caracteres).');
+                return;
+            }
+            if (!autorizadorId) {
+                CandelariaUI.notificarError('Debe seleccionar el usuario que autoriza formalmente el cierre condicionado.');
+                return;
+            }
+        }
+
+        const confirmacion = await CandelariaUI.confirmarAccion(
+            `¿Confirma el Cierre ${tipoCierre} de la festividad?\n\nLa edición pasará a estado CERRADA y se congelarán las cifras financieras con hash SHA-256 inmutable.`,
+            'Asentar Cierre Oficial',
+            'Sí, asentar cierre'
+        );
+
+        if (!confirmacion.isConfirmed) return;
+
+        try {
+            CandelariaUI.procesarBoton(btn, 'Asentando cierre...');
+
+            const payload = {
+                tipo_cierre: tipoCierre,
+                justificacion: tipoCierre === 'CONDICIONADO' ? justificacion.trim() : null,
+                autorizador_id: tipoCierre === 'CONDICIONADO' ? parseInt(autorizadorId, 10) : null,
+                version_bloqueo: 1
+            };
+
+            const resp = await window.CandelariaApi.post(`ediciones/${id}/cerrar`, payload);
+
+            bootstrap.Modal.getInstance(document.getElementById('modalAsistenteCierre'))?.hide();
+            CandelariaUI.notificarExito(resp.mensaje || 'Cierre oficial asentado exitosamente.');
+
+            await this.cargarEdiciones();
+            window.CandelariaContextoEdicion?.sincronizarContextoInicial();
+
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al asentar cierre:', err);
+            CandelariaUI.notificarError(err.message || 'No fue posible asentar el cierre de la edición.');
+        } finally {
+            CandelariaUI.restaurarBoton(btn);
+        }
+    }
+
+    async verActaCierre(id, nombre) {
+        const modalEl = document.getElementById('modalActaCierre');
+        if (!modalEl) return;
+
+        try {
+            const resp = await window.CandelariaApi.get(`ediciones/${id}/cierre`);
+            const cierre = resp?.datos;
+            if (!cierre) throw new Error('No se encontró acta de cierre para esta edición.');
+
+            document.getElementById('actaEdicionNombre').textContent = nombre;
+            document.getElementById('actaTipoBadge').textContent = `CIERRE ${cierre.tipo_cierre}`;
+            document.getElementById('actaTipoBadge').className = (cierre.tipo_cierre === 'CONDICIONADO') ? 'badge bg-warning text-dark' : 'badge bg-danger';
+            document.getElementById('actaFecha').textContent = cierre.fecha_cierre;
+            document.getElementById('actaUsuario').textContent = `${cierre.usuario_cierre_nombres || ''} ${cierre.usuario_cierre_apellidos || ''}`;
+            document.getElementById('actaHash').textContent = cierre.hash_integridad_cierre;
+
+            if (cierre.tipo_cierre === 'CONDICIONADO') {
+                document.getElementById('actaAutorizadorFila').classList.remove('d-none');
+                document.getElementById('actaAutorizador').textContent = `${cierre.autorizador_nombres || ''} ${cierre.autorizador_apellidos || ''}`;
+                document.getElementById('actaJustificacionFila').classList.remove('d-none');
+                document.getElementById('actaJustificacion').textContent = cierre.justificacion_condicionado || '-';
+            } else {
+                document.getElementById('actaAutorizadorFila').classList.add('d-none');
+                document.getElementById('actaJustificacionFila').classList.add('d-none');
+            }
+
+            // Llenar tabla cifras congeladas
+            const res = cierre.resumen_financiero || {};
+            const tbody = document.getElementById('actaTablaCifras');
+            tbody.innerHTML = `
+                <tr><th class="w-50 bg-light">Monto Total Facturado:</th><td><strong>S/ ${(res.monto_facturado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong></td></tr>
+                <tr><th class="bg-light">Monto Total Recaudado:</th><td class="text-success"><strong>S/ ${(res.monto_recaudado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong></td></tr>
+                <tr><th class="bg-light">Saldo por Cobrar Congelado:</th><td class="text-warning"><strong>S/ ${(res.saldo_por_cobrar || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong></td></tr>
+                <tr><th class="bg-light">Ventas Activas:</th><td>${res.ventas_activas || 0}</td></tr>
+                <tr><th class="bg-light">Recibos de Caja Emitidos:</th><td>${res.recibos_caja_emitidos || 0} (S/ ${(res.recibos_caja_monto || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })})</td></tr>
+                <tr><th class="bg-light">Salidas Operativas Finalizadas:</th><td>${res.salidas_finalizadas || 0}</td></tr>
+                <tr><th class="bg-light">Entregas Audiovisuales Aprobadas:</th><td>${res.entregas_aprobadas || 0}</td></tr>
+            `;
+
+            // Configurar formulario reapertura
+            document.getElementById('formReapertura')?.classList.add('d-none');
+            document.getElementById('btnMostrarFormReapertura')?.classList.remove('d-none');
+            modalEl.dataset.edicionId = id;
+
+            this.cargarUsuariosAutorizadores();
+
+            const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            bsModal.show();
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al consultar acta:', err);
+            CandelariaUI.notificarError(err.message || 'No fue posible cargar el acta de cierre.');
+        }
+    }
+
+    async confirmarReapertura(e) {
+        e.preventDefault();
+        const modalEl = document.getElementById('modalActaCierre');
+        const id = modalEl?.dataset?.edicionId;
+        const motivo = document.getElementById('reaperturaMotivo')?.value || '';
+        const autorizadorId = document.getElementById('reaperturaAutorizador')?.value || '';
+        const btn = document.getElementById('btnConfirmarReapertura');
+
+        if (motivo.trim().length < 20) {
+            CandelariaUI.notificarError('La reapertura extraordinaria exige un motivo formal debidamente fundamentado (mínimo 20 caracteres).');
+            return;
+        }
+
+        if (!autorizadorId) {
+            CandelariaUI.notificarError('Debe seleccionar el usuario que autoriza formalmente la reapertura.');
+            return;
+        }
+
+        const confirmacion = await CandelariaUI.confirmarAccion(
+            '¿Está seguro de reabrir extraordinariamente la festividad?\n\nEsta acción transitará el cierre a REABIERTO_EXCEPCIONAL y quedará grabada en la bitácora inmutable de auditoría.',
+            'Reapertura Extraordinaria',
+            'Sí, autorizar reapertura'
+        );
+
+        if (!confirmacion.isConfirmed) return;
+
+        try {
+            CandelariaUI.procesarBoton(btn, 'Autorizando reapertura...');
+
+            const payload = {
+                motivo_excepcional: motivo.trim(),
+                autorizado_por_usuario_id: parseInt(autorizadorId, 10),
+                nuevo_estado: 'POSTPRODUCCION_ENTREGA'
+            };
+
+            const resp = await window.CandelariaApi.post(`ediciones/${id}/reabrir`, payload);
+
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+            CandelariaUI.notificarExito(resp.mensaje || 'Festividad reabierta exitosamente.');
+
+            await this.cargarEdiciones();
+            window.CandelariaContextoEdicion?.sincronizarContextoInicial();
+
+        } catch (err) {
+            console.error('[ModuloEdiciones] Error al reabrir edición:', err);
+            CandelariaUI.notificarError(err.message || 'No fue posible ejecutar la reapertura.');
+        } finally {
+            CandelariaUI.restaurarBoton(btn);
+        }
     }
 
     escapar(str) {

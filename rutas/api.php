@@ -213,6 +213,10 @@ Enrutador::post('/api/v1/ediciones', [\Aplicacion\Controladores\EdicionControlad
 Enrutador::put('/api/v1/ediciones/{id}', [\Aplicacion\Controladores\EdicionControlador::class, 'actualizar']);
 Enrutador::post('/api/v1/ediciones/{id}/estado', [\Aplicacion\Controladores\EdicionControlador::class, 'cambiarEstado']);
 Enrutador::post('/api/v1/ediciones/{id}/seleccionar-actual', [\Aplicacion\Controladores\EdicionControlador::class, 'seleccionarActual']);
+Enrutador::get('/api/v1/ediciones/{id}/diagnostico-cierre', [\Aplicacion\Controladores\EdicionControlador::class, 'diagnosticoCierre']);
+Enrutador::post('/api/v1/ediciones/{id}/cerrar', [\Aplicacion\Controladores\EdicionControlador::class, 'ejecutarCierre']);
+Enrutador::post('/api/v1/ediciones/{id}/reabrir', [\Aplicacion\Controladores\EdicionControlador::class, 'reabrirExcepcional']);
+Enrutador::get('/api/v1/ediciones/{id}/cierre', [\Aplicacion\Controladores\EdicionControlador::class, 'consultarCierre']);
 Enrutador::get('/api/v1/contexto/edicion', [\Aplicacion\Controladores\EdicionControlador::class, 'contextoActual']);
 
 // ==============================================================================

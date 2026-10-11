@@ -132,6 +132,9 @@ class VentaServicio
             if ($edicion === null || (int) $edicion->organizacionId !== $organizacionId) {
                 throw new InvalidArgumentException("La edición vinculada a la cotización no existe o pertenece a otra organización.");
             }
+            if ($edicion->estado->value === 'CERRADA') {
+                throw new InvalidArgumentException("La festividad '{$edicion->nombre}' se encuentra formalmente CERRADA. Se prohíbe el registro de nuevas operaciones comerciales.");
+            }
 
             // 9. Validación de Cliente y Snapshot de Identidad
             $clienteId = (int) $filaCot['cliente_id'];

@@ -261,3 +261,224 @@
         </div>
     </div>
 </div>
+
+<!-- ==============================================================================
+     MODAL 4: ASISTENTE DE CIERRE ADMINISTRATIVO Y FINANCIERO (F2.12A)
+============================================================================== -->
+<div class="modal fade" id="modalAsistenteCierre" tabindex="-1" aria-labelledby="modalAsistenteCierreLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content b-r-16 border-0 shadow">
+            <div class="modal-header bg-dark text-white b-r-top-16 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="w-35 h-35 d-flex-center bg-danger text-white rounded-circle">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title f-w-700 mb-0" id="modalAsistenteCierreLabel">Asistente de Cierre Administrativo y Financiero</h5>
+                        <span class="f-s-12 text-light-emphasis" id="cierreEdicionSubtitulo">Auditoría previa, diagnóstico de incidencias y congelamiento oficial</span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="cierreEdicionId" value="">
+                
+                <!-- Loading State -->
+                <div id="cierreLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2 f-s-13">Auditoría en proceso: Evaluando ventas, caja, pagos, salidas y postproducción...</p>
+                </div>
+
+                <!-- Contenido Dinámico del Diagnóstico -->
+                <div id="cierreContenido" class="d-none">
+                    <!-- Banner de Estado General -->
+                    <div id="cierreDictamenBanner" class="p-3 b-r-12 mb-4">
+                        <!-- Inyectado por JS: Apto Definitivo, Apto Condicionado o Bloqueado -->
+                    </div>
+
+                    <!-- Cuadrícula de Balance Financiero Congelable -->
+                    <h6 class="f-w-700 text-dark mb-3"><i class="fa-solid fa-scale-balanced me-2 text-primary"></i>Balance Financiero y Conciliación de Festividad</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 b-r-10 p-3">
+                                <span class="f-s-11 text-muted text-uppercase f-w-600">Total Facturado</span>
+                                <h4 class="f-w-700 text-dark mb-0 mt-1" id="diagTotalFacturado">S/ 0.00</h4>
+                                <span class="f-s-11 text-muted" id="diagVentasActivas">0 ventas confirmadas</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 b-r-10 p-3">
+                                <span class="f-s-11 text-muted text-uppercase f-w-600">Total Recaudado</span>
+                                <h4 class="f-w-700 text-success mb-0 mt-1" id="diagTotalRecaudado">S/ 0.00</h4>
+                                <span class="f-s-11 text-success" id="diagRecibosCaja">Recibos emitidos: 0</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 b-r-10 p-3">
+                                <span class="f-s-11 text-muted text-uppercase f-w-600">Saldo por Cobrar</span>
+                                <h4 class="f-w-700 text-warning mb-0 mt-1" id="diagSaldoPorCobrar">S/ 0.00</h4>
+                                <span class="f-s-11 text-muted" id="diagVentasConSaldo">0 con saldo pendiente</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light border-0 b-r-10 p-3">
+                                <span class="f-s-11 text-muted text-uppercase f-w-600">Operaciones & Entregas</span>
+                                <h4 class="f-w-700 text-info mb-0 mt-1" id="diagSalidasFinalizadas">0 Salidas</h4>
+                                <span class="f-s-11 text-muted" id="diagEntregasAprobadas">0 entregas aprobadas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Incidencias y Observaciones -->
+                    <h6 class="f-w-700 text-dark mb-2"><i class="fa-solid fa-list-check me-2 text-primary"></i>Diagnóstico de Incidencias Operativas</h6>
+                    <div id="cierreListaIncidencias" class="mb-4">
+                        <!-- Inyectado dinámicamente -->
+                    </div>
+
+                    <!-- Formulario de Ejecución de Cierre -->
+                    <form id="formEjecutarCierre" novalidate>
+                        <div class="card border b-r-12 p-3 bg-light">
+                            <h6 class="f-w-700 text-dark mb-3"><i class="fa-solid fa-file-signature me-2 text-primary"></i>Modalidad y Acta de Cierre</h6>
+                            
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check p-3 border rounded bg-white" id="optCierreDefinitivoContainer">
+                                        <input class="form-check-input" type="radio" name="tipo_cierre" id="tipoCierreDefinitivo" value="DEFINITIVO">
+                                        <label class="form-check-label f-w-600 text-dark" for="tipoCierreDefinitivo">
+                                            <i class="fa-solid fa-circle-check text-success me-1"></i> Cierre Definitivo (Sin Saldos ni Pendientes)
+                                        </label>
+                                        <div class="form-text f-s-12 text-muted mt-1">Requiere 0 incidencias bloqueantes y 0 observaciones financieras.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check p-3 border rounded bg-white" id="optCierreCondicionadoContainer">
+                                        <input class="form-check-input" type="radio" name="tipo_cierre" id="tipoCierreCondicionado" value="CONDICIONADO">
+                                        <label class="form-check-label f-w-600 text-dark" for="tipoCierreCondicionado">
+                                            <i class="fa-solid fa-file-contract text-warning me-1"></i> Cierre Condicionado (Con Justificación y Cuentas x Cobrar)
+                                        </label>
+                                        <div class="form-text f-s-12 text-muted mt-1">Permite cuentas por cobrar legítimas y entregas audiovisuales en proceso bajo autorización.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Campos para Cierre Condicionado -->
+                            <div id="panelCamposCondicionado" class="d-none">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-7">
+                                        <label for="cierreJustificacion" class="form-label f-w-600 f-s-13 text-dark">
+                                            Justificación Formal del Cierre Condicionado <span class="text-danger">*</span>
+                                        </label>
+                                        <textarea class="form-control" id="cierreJustificacion" name="justificacion" rows="3" placeholder="Explique las obligaciones legítimas pendientes, compromisos de pago acordados con clientes o cronograma de entrega audiovisual..."></textarea>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label for="cierreAutorizador" class="form-label f-w-600 f-s-13 text-dark">
+                                            Usuario que Autoriza el Cierre Condicionado <span class="text-danger">*</span>
+                                        </label>
+                                        <select class="form-select" id="cierreAutorizador" name="autorizador_id">
+                                            <option value="">Seleccione autorizador formal...</option>
+                                        </select>
+                                        <div class="form-text f-s-11 text-muted">Debe ser un usuario con facultades superiores en la organización.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Checkbox de Advertencia Soberana -->
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="cierreConfirmacion" required>
+                                <label class="form-check-label f-s-13 text-dark" for="cierreConfirmacion">
+                                    <strong>Certifico la veracidad del balance.</strong> Comprendo que la edición quedará en estado <span class="badge bg-danger">CERRADA</span>, bloqueando nuevas ventas y modificaciones operativas, y que el snapshot quedará congelado con hash SHA-256 inmutable.
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-danger" id="btnEjecutarCierreOficial" disabled>
+                                <i class="fa-solid fa-lock me-1"></i> Asentar Cierre Oficial
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==============================================================================
+     MODAL 5: ACTA DE CIERRE VIGENTE Y REAPERTURA EXCEPCIONAL
+============================================================================== -->
+<div class="modal fade" id="modalActaCierre" tabindex="-1" aria-labelledby="modalActaCierreLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content b-r-16 border-0 shadow">
+            <div class="modal-header bg-dark text-white b-r-top-16 py-3">
+                <h5 class="modal-title f-w-700" id="modalActaCierreLabel">
+                    <i class="fa-solid fa-stamp me-2 text-warning"></i> Acta Oficial de Cierre de Festividad
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="p-3 bg-light b-r-12 mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="f-w-700 f-s-15 text-dark" id="actaEdicionNombre">-</span>
+                        <span id="actaTipoBadge" class="badge bg-danger">-</span>
+                    </div>
+                    <div class="f-s-12 text-muted mb-1"><strong>Fecha de Cierre:</strong> <span id="actaFecha">-</span></div>
+                    <div class="f-s-12 text-muted mb-1"><strong>Asentado por:</strong> <span id="actaUsuario">-</span></div>
+                    <div id="actaAutorizadorFila" class="f-s-12 text-muted mb-1 d-none"><strong>Autorizado por:</strong> <span id="actaAutorizador">-</span></div>
+                    <div id="actaJustificacionFila" class="f-s-12 text-muted mb-2 d-none"><strong>Justificación:</strong> <span id="actaJustificacion" class="fst-italic">-</span></div>
+                    <div class="f-s-11 text-muted font-monospace text-break">
+                        <strong>Hash de Integridad (SHA-256):</strong> <span id="actaHash" class="text-primary">-</span>
+                    </div>
+                </div>
+
+                <!-- Snapshot financiero resumido -->
+                <h6 class="f-w-700 text-dark mb-2">Cifras Congeladas al Cierre</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-bordered">
+                        <tbody id="actaTablaCifras">
+                            <!-- Inyectado por JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Sección de Reapertura Excepcional -->
+                <div id="seccionReaperturaExcepcional" class="p-3 border border-danger-subtle bg-danger-subtle b-r-12 mt-4">
+                    <h6 class="f-w-700 text-danger mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> Procedimiento Extraordinario de Reapertura</h6>
+                    <p class="f-s-12 text-danger-emphasis mb-3">
+                        Solo debe utilizarse ante rectificaciones formales justificadas. El cierre actual pasará a estado REABIERTO_EXCEPCIONAL y quedará en bitácora de auditoría inmutable.
+                    </p>
+                    <button type="button" class="btn btn-outline-danger btn-sm f-w-600" id="btnMostrarFormReapertura">
+                        <i class="fa-solid fa-unlock-keyhole me-1"></i> Solicitar Reapertura Excepcional
+                    </button>
+
+                    <form id="formReapertura" class="d-none mt-3" novalidate>
+                        <div class="mb-3">
+                            <label for="reaperturaMotivo" class="form-label f-w-600 f-s-12 text-dark">
+                                Motivo Formal y Fundamentado (Mínimo 20 caracteres) <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="reaperturaMotivo" rows="3" required placeholder="Fundamente detalladamente la necesidad de reabrir la festividad..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reaperturaAutorizador" class="form-label f-w-600 f-s-12 text-dark">
+                                Usuario Autorizador de la Reapertura <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="reaperturaAutorizador" required>
+                                <option value="">Seleccione autorizador...</option>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-light btn-sm" id="btnCancelarReapertura">Cancelar</button>
+                            <button type="submit" class="btn btn-danger btn-sm" id="btnConfirmarReapertura">
+                                <i class="fa-solid fa-unlock me-1"></i> Confirmar y Reabrir Festividad
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
