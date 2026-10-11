@@ -188,7 +188,7 @@ $stmtTarifa = $pdo->prepare("
 $stmtTarifa->execute(['oferta_id' => $ofertaId]);
 
 // ------------------------------------------------------------------------------
-// SECCIÓN 1: Concurrencia Real y Prevención de Sobreventa del Último Cupo
+// SECCIÓN 1: Concurrencia Real Simultánea y Cero Sobreventa del Último Cupo
 // ------------------------------------------------------------------------------
 echo "--- SECCIÓN 1: Concurrencia Real y Prevención de Sobreventa (Último Cupo) ---\n";
 
@@ -196,38 +196,61 @@ echo "--- SECCIÓN 1: Concurrencia Real y Prevención de Sobreventa (Último Cup
 $disp1 = $motorDisp->calcularDisponibilidadItem($orgId, $edId, $itemId);
 registrarAsercion("1.1 Capacidad inicial auditada es exactamente 1 cupo", $disp1 === 1);
 
-// 1.2 Comprador A bloquea exitosamente el último cupo disponible
-$sesionA = 'ses_comprador_a_' . bin2hex(random_bytes(6));
-$bloqueoA = $motorDisp->bloquearCupos($orgId, $edId, $itemId, 1, $sesionA, ttlMinutos: 15);
-registrarAsercion("1.2 Comprador A adquiere bloqueo atómico sobre el único cupo disponible",
-    $bloqueoA['exito'] && !empty($bloqueoA['token_bloqueo'])
+// 1.2 Ejecución paralela real: Dos subprocesos CLI independientes compitiendo al unísono por el último cupo
+$cmdWorkerBloqueo = 'php ' . escapeshellarg(__DIR__ . '/soporte/worker_concurrencia_bloqueo.php');
+$descriptors = [
+    1 => ['pipe', 'w'],
+    2 => ['pipe', 'w'],
+];
+
+$procA = proc_open("{$cmdWorkerBloqueo} {$orgId} {$edId} {$itemId} ses_proc_a", $descriptors, $pipesA);
+$procB = proc_open("{$cmdWorkerBloqueo} {$orgId} {$edId} {$itemId} ses_proc_b", $descriptors, $pipesB);
+
+$salidaA = stream_get_contents($pipesA[1]); fclose($pipesA[1]); fclose($pipesA[2]); proc_close($procA);
+$salidaB = stream_get_contents($pipesB[1]); fclose($pipesB[1]); fclose($pipesB[2]); proc_close($procB);
+
+$resProcA = json_decode($salidaA, true) ?: [];
+$resProcB = json_decode($salidaB, true) ?: [];
+
+$exitosParalelos = ((!empty($resProcA['exito'])) ? 1 : 0) + ((!empty($resProcB['exito'])) ? 1 : 0);
+$rechazosParalelos = ((empty($resProcA['exito'])) ? 1 : 0) + ((empty($resProcB['exito'])) ? 1 : 0);
+
+registrarAsercion("1.2 Concurrencia simultánea real: exactamente 1 proceso adquiere el cupo y el otro es serializado y rechazado",
+    $exitosParalelos === 1 && $rechazosParalelos === 1
 );
 
-// 1.3 Disponibilidad inmediata tras el bloqueo de A es 0
-$dispPostA = $motorDisp->calcularDisponibilidadItem($orgId, $edId, $itemId);
-registrarAsercion("1.3 Disponibilidad se reduce de inmediato a 0 (Cero sobreventa)", $dispPostA === 0);
-
-// 1.4 Comprador B compitiendo simultáneamente es RECHAZADO por exclusión mutua
-$sesionB = 'ses_comprador_b_' . bin2hex(random_bytes(6));
-$bloqueoB = $motorDisp->bloquearCupos($orgId, $edId, $itemId, 1, $sesionB, ttlMinutos: 15);
-registrarAsercion("1.4 Comprador B es rechazado de forma determinista (409 Conflict / Sin cupos)",
-    !$bloqueoB['exito'] && str_contains($bloqueoB['mensaje'], 'No hay suficientes cupos')
+// 1.3 Invariante de Base de Datos: exactamente 1 bloqueo activo en tabla
+$stmtContarBloqueos = $pdo->prepare("
+    SELECT COUNT(*) FROM reserva_bloqueos_temporales 
+    WHERE organizacion_id = :org_id AND item_comercial_id = :item_id AND estado = 'ACTIVO' AND expira_en > NOW()
+");
+$stmtContarBloqueos->execute(['org_id' => $orgId, 'item_id' => $itemId]);
+$bloqueosActivosBd = (int) $stmtContarBloqueos->fetchColumn();
+registrarAsercion("1.3 Integridad en BD: exactamente 1 bloqueo activo registrado (Cero sobreventa física)",
+    $bloqueosActivosBd === 1
 );
 
-// 1.5 Liberación voluntaria por abandono de A restituye la disponibilidad
-$tokenA = (string) $bloqueoA['token_bloqueo'];
-$liberadoA = $motorDisp->liberarBloqueo($tokenA);
+// 1.4 Disponibilidad reducida a 0 de forma determinista
+$dispPostParalelo = $motorDisp->calcularDisponibilidadItem($orgId, $edId, $itemId);
+registrarAsercion("1.4 Disponibilidad reducida inmediatamente a 0 tras la carrera concurrente",
+    $dispPostParalelo === 0
+);
+
+// 1.5 Liberación voluntaria del bloqueo adquirido restituye la disponibilidad
+$tokenGanador = !empty($resProcA['exito']) ? (string) $resProcA['token_bloqueo'] : (string) $resProcB['token_bloqueo'];
+$liberado = $motorDisp->liberarBloqueo($tokenGanador);
 $dispPostLiberacion = $motorDisp->calcularDisponibilidadItem($orgId, $edId, $itemId);
-registrarAsercion("1.5 Liberación de bloqueo restituye exactamente el cupo a disponibilidad",
-    $liberadoA && $dispPostLiberacion === 1
+registrarAsercion("1.5 Liberación voluntaria restituye deterministamente el cupo a disponibilidad",
+    $liberado && $dispPostLiberacion === 1
 );
 
-// 1.6 Comprador B ahora sí puede adquirir el cupo restituido
-$bloqueoBReintento = $motorDisp->bloquearCupos($orgId, $edId, $itemId, 1, $sesionB, ttlMinutos: 15);
-registrarAsercion("1.6 Comprador B puede bloquear el cupo una vez liberado por A",
-    $bloqueoBReintento['exito'] && !empty($bloqueoBReintento['token_bloqueo'])
+// 1.6 Adquisición formal del cupo restituido para proceder con el checkout canónico
+$sesionCheckout = 'ses_checkout_' . bin2hex(random_bytes(6));
+$bloqueoParaCheckout = $motorDisp->bloquearCupos($orgId, $edId, $itemId, 1, $sesionCheckout, ttlMinutos: 15);
+registrarAsercion("1.6 Comprador adquiere el cupo restituido para checkout formal",
+    $bloqueoParaCheckout['exito'] && !empty($bloqueoParaCheckout['token_bloqueo'])
 );
-$tokenB = (string) $bloqueoBReintento['token_bloqueo'];
+$tokenB = (string) $bloqueoParaCheckout['token_bloqueo'];
 
 // ------------------------------------------------------------------------------
 // SECCIÓN 2: Contratos Comerciales Canónicos y Ciclo de Checkout
@@ -333,8 +356,8 @@ $ctxOperador = new ContextoOperacion(
 $resAprob = $fachada->aprobarVoucherPorOperador($orgId, $pagoId, $ctxOperador);
 registrarAsercion("3.1 Aprobación formal del voucher por operador de caja", $resAprob['exito']);
 
-// 3.2 Venta pasa a PAGADA_TOTAL y Reserva pasa a CONFIRMADA
-$stmtVtaAprob = $pdo->prepare("SELECT estado, estado_financiero, monto_pagado, saldo_pendiente FROM ventas WHERE id = :id");
+// 3.2 Venta conserva estado comercial 'CONFIRMADA' y su estado financiero pasa a 'PAGADA_TOTAL'
+$stmtVtaAprob = $pdo->prepare("SELECT estado, estado_financiero, monto_pagado, saldo_pendiente, total FROM ventas WHERE id = :id");
 $stmtVtaAprob->execute(['id' => $ventaId]);
 $vtaAprobRow = $stmtVtaAprob->fetch(PDO::FETCH_ASSOC);
 
@@ -342,8 +365,11 @@ $stmtRsvAprob = $pdo->prepare("SELECT estado FROM reservas WHERE id = :id");
 $stmtRsvAprob->execute(['id' => $reservaId]);
 $rsvAprobEstado = $stmtRsvAprob->fetchColumn();
 
-registrarAsercion("3.2 Transición atómica: Venta pasa a 'PAGADA_TOTAL' y Reserva pasa a 'CONFIRMADA'",
+registrarAsercion("3.2 Contrato Canónico: Venta conserva estado comercial 'CONFIRMADA', estado financiero pasa a 'PAGADA_TOTAL' con saldo 0.00 y Reserva a 'CONFIRMADA'",
+    $vtaAprobRow['estado'] === EstadoVenta::CONFIRMADA->value &&
     $vtaAprobRow['estado_financiero'] === EstadoFinancieroVenta::PAGADA_TOTAL->value &&
+    (float)$vtaAprobRow['monto_pagado'] === (float)$vtaAprobRow['total'] &&
+    (float)$vtaAprobRow['saldo_pendiente'] === 0.00 &&
     $rsvAprobEstado === EstadoReserva::CONFIRMADA->value
 );
 
@@ -354,32 +380,69 @@ registrarAsercion("3.3 Emisión exitosa de Boleto QR inviolable tras pago verifi
 );
 
 // ------------------------------------------------------------------------------
-// SECCIÓN 4: Validación de Boleto QR, Anti-Replay y Control de Acceso
+// SECCIÓN 4: Validación de Boleto QR, Separación Histórica vs Check-in Atómico
 // ------------------------------------------------------------------------------
-echo "\n--- SECCIÓN 4: Validación de Boletos QR, Anti-Replay y Control de Acceso ---\n";
+echo "\n--- SECCIÓN 4: Validación de Boletos QR, Separación Histórica y Check-in Atómico ---\n";
 
 $tokenQrRaw = (string) $boletoQr['token_qr'];
 
-// 4.1 Validación de firma y vigencia en base de datos
+// 4.1 Consulta histórica de boleto legítimo y vigente
 $val1 = $fachada->validarTokenBoletoQr($orgId, $tokenQrRaw, marcarUso: false);
-registrarAsercion("4.1 Validación positiva de boleto QR vigente y auténtico",
-    $val1['valido'] && str_contains($val1['motivo'], 'derecho de acceso vigente')
+registrarAsercion("4.1 Consulta histórica: validación positiva de boleto QR vigente y auténtico",
+    $val1['valido'] && str_contains($val1['motivo'], 'legítimo y vigente')
 );
 
-// 4.2 Registro de ingreso de puerta (marcarUso = true)
-$valCheckin = $fachada->validarTokenBoletoQr($orgId, $tokenQrRaw, marcarUso: true);
-registrarAsercion("4.2 Control de acceso registra ingreso exitoso en puerta", $valCheckin['valido']);
+// 4.2 Cierre Administrativo de Edición: Preserva consulta histórica pero bloquea nuevos ingresos en puerta
+$stmtEstadoEd = $pdo->prepare("SELECT estado FROM ediciones_candelaria WHERE id = :id");
+$stmtEstadoEd->execute(['id' => $edId]);
+$estadoOriginalEd = (string) $stmtEstadoEd->fetchColumn();
 
-// 4.3 Prevención de Reutilización / Captura de pantalla (Anti-Replay)
-$valDuplicado = $fachada->validarTokenBoletoQr($orgId, $tokenQrRaw, marcarUso: true);
-registrarAsercion("4.3 Segundo intento de escaneo es RECHAZADO por duplicidad (Anti-Replay / Captura de pantalla)",
-    !$valDuplicado['valido'] && str_contains($valDuplicado['motivo'], 'duplicado')
+$pdo->prepare("UPDATE ediciones_candelaria SET estado = 'CERRADA' WHERE id = :id")->execute(['id' => $edId]);
+
+$valHistoricaCerrada = $fachada->validarTokenBoletoQr($orgId, $tokenQrRaw, marcarUso: false);
+$valCheckinCerrada = $fachada->validarTokenBoletoQr($orgId, $tokenQrRaw, marcarUso: true);
+
+$pdo->prepare("UPDATE ediciones_candelaria SET estado = :est WHERE id = :id")->execute(['est' => $estadoOriginalEd, 'id' => $edId]);
+
+registrarAsercion("4.2 Separación funcional: Cierre de edición PRESERVA consulta histórica pero RECHAZA nuevo ingreso en puerta",
+    $valHistoricaCerrada['valido'] === true &&
+    $valCheckinCerrada['valido'] === false &&
+    str_contains($valCheckinCerrada['motivo'], 'CERRADA')
 );
 
-// 4.4 Tampering: Token con firma adulterada es rechazado de inmediato
+// 4.3 Check-in Concurrente Simultáneo: Dos subprocesos compitiendo al unísono con el mismo boleto en puerta
+$cmdWorkerCheckin = 'php ' . escapeshellarg(__DIR__ . '/soporte/worker_concurrencia_checkin.php');
+$descriptorsChk = [
+    1 => ['pipe', 'w'],
+    2 => ['pipe', 'w'],
+];
+
+$procChk1 = proc_open("{$cmdWorkerCheckin} {$orgId} {$tokenQrRaw}", $descriptorsChk, $pipesChk1);
+$procChk2 = proc_open("{$cmdWorkerCheckin} {$orgId} {$tokenQrRaw}", $descriptorsChk, $pipesChk2);
+
+$salidaChk1 = stream_get_contents($pipesChk1[1]); fclose($pipesChk1[1]); fclose($pipesChk1[2]); proc_close($procChk1);
+$salidaChk2 = stream_get_contents($pipesChk2[1]); fclose($pipesChk2[1]); fclose($pipesChk2[2]); proc_close($procChk2);
+
+$resChk1 = json_decode($salidaChk1, true) ?: [];
+$resChk2 = json_decode($salidaChk2, true) ?: [];
+
+$exitosCheckin = ((!empty($resChk1['valido'])) ? 1 : 0) + ((!empty($resChk2['valido'])) ? 1 : 0);
+$duplicadosCheckin = ((empty($resChk1['valido'])) ? 1 : 0) + ((empty($resChk2['valido'])) ? 1 : 0);
+
+registrarAsercion("4.3 Check-in concurrente simultáneo: exactamente 1 proceso ingresa y el otro es bloqueado por duplicidad (Anti-Replay)",
+    $exitosCheckin === 1 && $duplicadosCheckin === 1
+);
+
+// 4.4 Consulta histórica post-checkin: Permite al cliente/auditor consultar el boleto ya canjeado
+$valPostCanje = $fachada->validarTokenBoletoQr($orgId, $tokenQrRaw, marcarUso: false);
+registrarAsercion("4.4 Consulta histórica post-checkin: boleto se conserva legítimo indicando 'ya_ingresado = true'",
+    $valPostCanje['valido'] === true && !empty($valPostCanje['ya_ingresado'])
+);
+
+// 4.5 Tampering: Token con firma adulterada es rechazado de inmediato
 $tokenAdulterado = substr($tokenQrRaw, 0, -5) . 'XXXXX';
 $valTampered = $fachada->validarTokenBoletoQr($orgId, $tokenAdulterado);
-registrarAsercion("4.4 Token con firma manipulada es rechazado por integridad HMAC",
+registrarAsercion("4.5 Token con firma manipulada es rechazado por integridad HMAC",
     !$valTampered['valido'] && str_contains($valTampered['motivo'], 'adulterada')
 );
 

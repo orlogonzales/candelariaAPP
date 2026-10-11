@@ -929,13 +929,17 @@ class FachadaPortalPublicoServicio
             'id'     => $pagoId,
         ]);
 
-        // 2. Actualizar estado financiero de la venta
+        // 2. Actualizar estado financiero de la venta preservando el estado comercial canónico CONFIRMADA
         $stmtUpVta = $this->pdo->prepare("
             UPDATE `ventas`
-            SET `estado_financiero` = :est_fin
+            SET `estado` = :est_com,
+                `estado_financiero` = :est_fin,
+                `monto_pagado` = `total`,
+                `saldo_pendiente` = 0.00
             WHERE `id` = :id
         ");
         $stmtUpVta->execute([
+            'est_com' => EstadoVenta::CONFIRMADA->value,
             'est_fin' => EstadoFinancieroVenta::PAGADA_TOTAL->value,
             'id'      => (int) $pago['venta_id'],
         ]);
@@ -1178,7 +1182,92 @@ class FachadaPortalPublicoServicio
             return ['valido' => false, 'motivo' => 'Estructura interna del boleto inválida.'];
         }
 
-        // 1. Validar vigencia real en base de datos (Anti-revocación / cancelaciones tardías)
+        $reservaId = (int) $datos['reserva_id'];
+
+        // CASO A: Check-in / Ingreso Operativo en Puerta ($marcarUso = true)
+        // Requiere atomicidad estricta y bloqueo pesimista FOR UPDATE para impedir ingresos simultáneos
+        if ($marcarUso) {
+            $transaccionIniciada = false;
+            if (!$this->pdo->inTransaction()) {
+                $this->pdo->beginTransaction();
+                $transaccionIniciada = true;
+            }
+
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT r.id, r.edicion_id, r.estado as reserva_estado, r.notas_operativas,
+                           v.estado as venta_estado, v.estado_financiero
+                    FROM `reservas` r
+                    JOIN `ventas` v ON r.venta_id = v.id
+                    WHERE r.id = :r_id AND r.organizacion_id = :org_id
+                    FOR UPDATE
+                ");
+                $stmt->execute(['r_id' => $reservaId, 'org_id' => $organizacionId]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$row) {
+                    if ($transaccionIniciada) { $this->pdo->rollBack(); }
+                    return ['valido' => false, 'motivo' => 'La reserva asociada al boleto no existe en esta organización.'];
+                }
+
+                if ($row['reserva_estado'] !== EstadoReserva::CONFIRMADA->value) {
+                    if ($transaccionIniciada) { $this->pdo->rollBack(); }
+                    return ['valido' => false, 'motivo' => "El derecho de acceso está inactivo o cancelado (estado: {$row['reserva_estado']})."];
+                }
+
+                if ($row['venta_estado'] !== EstadoVenta::CONFIRMADA->value || !in_array($row['estado_financiero'], [EstadoFinancieroVenta::PAGADA_TOTAL->value, EstadoFinancieroVenta::SOBREPAGADA->value], true)) {
+                    if ($transaccionIniciada) { $this->pdo->rollBack(); }
+                    return ['valido' => false, 'motivo' => "El derecho de acceso ha sido revocado por falta de pago verificado."];
+                }
+
+                // Validar ciclo de vida para NUEVOS INGRESOS: Edición CERRADA no admite nuevos accesos en puerta
+                $stmtEd = $this->pdo->prepare("SELECT estado FROM `ediciones_candelaria` WHERE id = :ed_id");
+                $stmtEd->execute(['ed_id' => (int) $row['edicion_id']]);
+                $edEstado = (string) $stmtEd->fetchColumn();
+                if ($edEstado === 'CERRADA') {
+                    if ($transaccionIniciada) { $this->pdo->rollBack(); }
+                    return ['valido' => false, 'motivo' => 'El evento oficial ha concluido (Edición CERRADA). No se admiten nuevos ingresos en puerta.'];
+                }
+
+                // Check-in Atómico / Anti-Replay: verificar si ya fue canjeado
+                $notasOp = (string) ($row['notas_operativas'] ?? '');
+                if (str_contains($notasOp, '[CHECKIN_QR_REGISTRADO')) {
+                    if ($transaccionIniciada) { $this->pdo->rollBack(); }
+                    return [
+                        'valido' => false,
+                        'motivo' => 'Boleto QR duplicado: este acceso ya fue canjeado previamente.',
+                        'datos'  => $datos,
+                    ];
+                }
+
+                $timestampUso = date('Y-m-d H:i:s');
+                $notaCheckin = " [CHECKIN_QR_REGISTRADO: {$timestampUso}]";
+                $this->pdo->prepare("
+                    UPDATE `reservas`
+                    SET `notas_operativas` = CONCAT(COALESCE(`notas_operativas`, ''), :nota)
+                    WHERE `id` = :id
+                ")->execute(['nota' => $notaCheckin, 'id' => (int) $row['id']]);
+
+                if ($transaccionIniciada) {
+                    $this->pdo->commit();
+                }
+
+                return [
+                    'valido' => true,
+                    'motivo' => 'Ingreso registrado exitosamente en puerta (Check-in concedido).',
+                    'datos'  => array_merge($datos, ['checkin_en' => $timestampUso]),
+                ];
+            } catch (\Throwable $e) {
+                if ($transaccionIniciada && $this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                throw $e;
+            }
+        }
+
+        // CASO B: Consulta Histórica / Visualización de Boleto ($marcarUso = false)
+        // El cliente y el sistema pueden auditar boletos históricos legítimos aun cuando la edición esté CERRADA
+        // o el boleto ya haya sido canjeado previamente.
         $stmt = $this->pdo->prepare("
             SELECT r.id, r.edicion_id, r.estado as reserva_estado, r.notas_operativas,
                    v.estado as venta_estado, v.estado_financiero
@@ -1186,7 +1275,7 @@ class FachadaPortalPublicoServicio
             JOIN `ventas` v ON r.venta_id = v.id
             WHERE r.id = :r_id AND r.organizacion_id = :org_id
         ");
-        $stmt->execute(['r_id' => (int) $datos['reserva_id'], 'org_id' => $organizacionId]);
+        $stmt->execute(['r_id' => $reservaId, 'org_id' => $organizacionId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$row) {
@@ -1198,49 +1287,17 @@ class FachadaPortalPublicoServicio
         }
 
         if ($row['venta_estado'] !== EstadoVenta::CONFIRMADA->value || !in_array($row['estado_financiero'], [EstadoFinancieroVenta::PAGADA_TOTAL->value, EstadoFinancieroVenta::SOBREPAGADA->value], true)) {
-            return ['valido' => false, 'motivo' => "El derecho de acceso ha sido revocado por falta de pago verificado."];
+            return ['valido' => false, 'motivo' => "El derecho de acceso no cuenta con pago confirmado."];
         }
 
-        // 2. Validar ciclo de vida de la edición (No permitir acceso a ediciones concluidas)
-        $stmtEd = $this->pdo->prepare("SELECT estado FROM `ediciones_candelaria` WHERE id = :ed_id");
-        $stmtEd->execute(['ed_id' => (int) $row['edicion_id']]);
-        $edEstado = (string) $stmtEd->fetchColumn();
-        if ($edEstado === 'CERRADA') {
-            return ['valido' => false, 'motivo' => 'El evento oficial ha concluido (Edición CERRADA).'];
-        }
-
-        // 3. Política Anti-Reutilización (Anti-Replay / Captura de pantalla)
         $notasOp = (string) ($row['notas_operativas'] ?? '');
         $yaIngresado = str_contains($notasOp, '[CHECKIN_QR_REGISTRADO');
 
-        if ($marcarUso) {
-            if ($yaIngresado) {
-                return [
-                    'valido' => false,
-                    'motivo' => 'Boleto QR duplicado: este acceso ya fue canjeado previamente.',
-                    'datos'  => $datos,
-                ];
-            }
-
-            $timestampUso = date('Y-m-d H:i:s');
-            $notaCheckin = " [CHECKIN_QR_REGISTRADO: {$timestampUso}]";
-            $this->pdo->prepare("
-                UPDATE `reservas`
-                SET `notas_operativas` = CONCAT(COALESCE(`notas_operativas`, ''), :nota)
-                WHERE `id` = :id
-            ")->execute(['nota' => $notaCheckin, 'id' => (int) $row['id']]);
-        } elseif ($yaIngresado) {
-            return [
-                'valido' => false,
-                'motivo' => 'El boleto ya fue utilizado para ingreso previamente.',
-                'datos'  => $datos,
-            ];
-        }
-
         return [
-            'valido' => true,
-            'motivo' => 'Boleto QR legítimo con derecho de acceso vigente.',
-            'datos'  => $datos,
+            'valido'       => true,
+            'motivo'       => $yaIngresado ? 'Boleto QR auténtico (Canjeado previamente).' : 'Boleto QR legítimo y vigente.',
+            'datos'        => array_merge($datos, ['ya_ingresado' => $yaIngresado]),
+            'ya_ingresado' => $yaIngresado,
         ];
     }
 
