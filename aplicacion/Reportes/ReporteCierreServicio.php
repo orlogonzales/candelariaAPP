@@ -106,6 +106,7 @@ class ReporteCierreServicio
         $totalComisiones = 0.0;
         $totalSaldos = 0.0;
         $ventasProcesadas = [];
+        $pagosProcesados = [];
         $items = [];
 
         foreach ($filas as $f) {
@@ -119,9 +120,13 @@ class ReporteCierreServicio
             }
 
             if ($f['pago_id'] !== null && $f['estado_pago'] === 'APROBADO') {
-                $totalCobrado += (float) $f['monto_cobrado_cliente'];
-                $totalRecaudadoNeto += (float) $f['monto_neto_recibido'];
-                $totalComisiones += (float) $f['comision_pasarela'];
+                $pId = (int) $f['pago_id'];
+                if (!isset($pagosProcesados[$pId])) {
+                    $pagosProcesados[$pId] = true;
+                    $totalCobrado += (float) $f['monto_cobrado_cliente'];
+                    $totalRecaudadoNeto += (float) $f['monto_neto_recibido'];
+                    $totalComisiones += (float) $f['comision_pasarela'];
+                }
             }
 
             $items[] = [
@@ -710,10 +715,19 @@ class ReporteCierreServicio
             return $valor;
         }
 
-        // Detectar si el primer caracter es fórmula o comando peligroso
+        // Detectar si el primer caracter directo es fórmula o comando peligroso
         $primerCaracter = $str[0];
-        if (in_array($primerCaracter, ['=', '+', '-', '@', "\t", "\r"], true)) {
+        if (in_array($primerCaracter, ['=', '+', '-', '@', "\t", "\r", ';', '%', '|'], true)) {
             return "'" . $str;
+        }
+
+        // Detectar si tras quitar espacios simples (' ') el primer caracter es fórmula
+        $strTrimSpaces = ltrim($str, " ");
+        if ($strTrimSpaces !== '') {
+            $primerTrim = $strTrimSpaces[0];
+            if (in_array($primerTrim, ['=', '+', '-', '@', "\t", "\r", ';', '%', '|'], true)) {
+                return "'" . $str;
+            }
         }
 
         return $str;

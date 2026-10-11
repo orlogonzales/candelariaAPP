@@ -554,11 +554,12 @@ class CierreEdicionServicio
             throw new AccesoDenegadoExcepcion("El usuario autorizador #{$usuarioAutorizadorId} carece de facultades RBAC para autorizar reaperturas (requiere permiso ediciones.reabrir_excepcional o rol administrador).");
         }
 
-        // P0: Aprobación expresa — Si se proporciona clave de confirmación, verificar criptográficamente
-        if ($claveConfirmacionAutorizador !== null && $claveConfirmacionAutorizador !== '') {
-            if (!password_verify($claveConfirmacionAutorizador, (string)$autorizador['contrasena_hash'])) {
-                throw new AccesoDenegadoExcepcion("Clave de confirmación incorrecta para el usuario autorizador #{$usuarioAutorizadorId}.");
-            }
+        // P0: Aprobación expresa — Se exige confirmación de credencial del usuario autorizador
+        if ($claveConfirmacionAutorizador === null || trim($claveConfirmacionAutorizador) === '') {
+            throw new InvalidArgumentException("La reapertura excepcional requiere obligatoriamente la confirmación de la credencial/clave del usuario autorizador.");
+        }
+        if (!password_verify($claveConfirmacionAutorizador, (string)$autorizador['contrasena_hash'])) {
+            throw new AccesoDenegadoExcepcion("Clave de confirmación incorrecta para el usuario autorizador #{$usuarioAutorizadorId}.");
         }
 
         $cierreVigente = $this->obtenerCierreVigente($organizacionId, $edicionId);

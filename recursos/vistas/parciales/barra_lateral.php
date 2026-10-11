@@ -10,6 +10,15 @@ $puedeAdministrarOrigenes = false;
 $puedeVerCatalogo = false;
 $puedeVerCotizaciones = false;
 $puedeVerVentas = false;
+$puedeVerReservas = false;
+$puedeVerOperaciones = false;
+$puedeVerProveedores = false;
+$puedeVerRecursos = false;
+$puedeVerEntregas = false;
+$puedeVerPagos = false;
+$puedeVerComunicaciones = false;
+$puedeVerPostproduccion = false;
+$puedeVerDashboardEjecutivo = false;
 if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $authzBarra = new \Aplicacion\Autorizacion\AutorizacionServicio();
     $puedeVerOrg = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'organizacion.ver');
@@ -31,6 +40,7 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerPagos = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'pagos.ver');
     $puedeVerComunicaciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'comunicaciones.ver');
     $puedeVerPostproduccion = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'postproduccion.proyectos.ver');
+    $puedeVerDashboardEjecutivo = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'dashboard.ejecutivo.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
@@ -167,6 +177,14 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                         <li class="no-sub">
                             <a href="<?= url_base('ediciones') ?>" id="navPrincipalEdiciones" class="<?= $seccionActual === 'ediciones' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-calendar-check me-2 text-secondary"></i> Ediciones Candelaria
+                            </a>
+                        </li>
+                        <?php endif; ?>
+                        <?php if ($puedeVerDashboardEjecutivo): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('dashboard-ejecutivo') ?>" id="navPrincipalDashboardEjecutivo" class="<?= $seccionActual === 'dashboard_ejecutivo' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-chart-line me-2 text-secondary"></i> Dashboard Ejecutivo
+                                <span class="badge bg-danger ms-2">KPIs</span>
                             </a>
                         </li>
                         <?php endif; ?>

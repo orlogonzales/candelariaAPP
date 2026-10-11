@@ -561,7 +561,7 @@ class EdicionControlador
     public function reporteLibroIngresos(int $id): string
     {
         try {
-            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            $contexto = $this->verificarAlMenosUnPermiso(['ediciones.reportes.ingresos.ver', 'pagos.ver', 'ediciones.ver']);
             if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
                 return $this->responderError('Contexto organizacional ausente.', 403);
             }
@@ -584,7 +584,7 @@ class EdicionControlador
     public function reporteManifiestoSalidas(int $id): string
     {
         try {
-            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            $contexto = $this->verificarAlMenosUnPermiso(['ediciones.reportes.salidas.ver', 'operacion.ver', 'ediciones.ver']);
             if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
                 return $this->responderError('Contexto organizacional ausente.', 403);
             }
@@ -607,7 +607,7 @@ class EdicionControlador
     public function reportePadronAsistencia(int $id): string
     {
         try {
-            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            $contexto = $this->verificarAlMenosUnPermiso(['ediciones.reportes.asistencia.ver', 'reservas.ver', 'ediciones.ver']);
             if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
                 return $this->responderError('Contexto organizacional ausente.', 403);
             }
@@ -626,17 +626,25 @@ class EdicionControlador
     /**
      * GET /api/v1/ediciones/{id}/reportes/exportar
      * Exporta cualquiera de los 3 reportes oficiales a formato CSV (anti-formula injection), XLSX o PDF institucional.
+     * Exige permiso específico de exportación por tipo de reporte (Principio de Mínimo Privilegio).
      */
     public function exportarReporte(int $id): string
     {
         try {
-            $contexto = $this->verificarSesionYPermiso('ediciones.ver');
+            $tipo = strtoupper(trim((string)($_GET['tipo'] ?? '')));
+            $formato = strtolower(trim((string)($_GET['formato'] ?? 'csv')));
+
+            $permisoExportacion = match ($tipo) {
+                ReporteCierreServicio::TIPO_LIBRO_INGRESOS => 'ediciones.reportes.ingresos.exportar',
+                ReporteCierreServicio::TIPO_MANIFIESTO_SALIDAS => 'ediciones.reportes.salidas.exportar',
+                ReporteCierreServicio::TIPO_PADRON_ASISTENCIA => 'ediciones.reportes.asistencia.exportar',
+                default => throw new InvalidArgumentException("Tipo de reporte no reconocido: '{$tipo}'. Use LIBRO_INGRESOS, MANIFIESTO_SALIDAS o PADRON_ASISTENCIA."),
+            };
+
+            $contexto = $this->verificarSesionYPermiso($permisoExportacion);
             if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
                 return $this->responderError('Contexto organizacional ausente.', 403);
             }
-
-            $tipo = strtoupper(trim((string)($_GET['tipo'] ?? '')));
-            $formato = strtolower(trim((string)($_GET['formato'] ?? 'csv')));
 
             $reporteData = match ($tipo) {
                 ReporteCierreServicio::TIPO_LIBRO_INGRESOS => $this->reporteServicio->obtenerLibroIngresos($contexto->organizacionId, $id, $_GET),
@@ -741,6 +749,34 @@ class EdicionControlador
         }
 
         return $contexto;
+    }
+
+    /**
+     * Verifica que el operador cuente con al menos uno de los permisos provistos.
+     *
+     * @param string[] $permisos
+     */
+    private function verificarAlMenosUnPermiso(array $permisos): ContextoOperacion
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            if (!headers_sent()) {
+                http_response_code(401);
+            }
+            throw new AccesoDenegadoExcepcion('No autenticado: requiere una sesión activa.', null, 401);
+        }
+
+        foreach ($permisos as $p) {
+            if ($this->authzMiddleware->verificarPermiso($p, $contexto, false)) {
+                return $contexto;
+            }
+        }
+
+        if (!headers_sent()) {
+            http_response_code(403);
+        }
+        $lista = implode("', '", $permisos);
+        throw new AccesoDenegadoExcepcion("Acceso denegado: requiere al menos uno de los permisos ['{$lista}'].", $permisos[0], 403);
     }
 
     /**

@@ -245,3 +245,8 @@ Enrutador::get('/p/{slug}/checkout', [\Aplicacion\Controladores\PortalPublicoCon
 Enrutador::get('/p/{slug}/checkout/confirmacion', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaConfirmacion']);
 Enrutador::get('/p/{slug}/mi-espacio', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaEspacioCliente']);
 
+// ==============================================================================
+// DASHBOARD EJECUTIVO Y MÉTRICAS DE RENDIMIENTO (FASE 2.12C)
+// ==============================================================================
+Enrutador::get('/dashboard-ejecutivo', [\Aplicacion\Controladores\DashboardControlador::class, 'vista']);
+

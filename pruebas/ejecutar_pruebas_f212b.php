@@ -530,6 +530,44 @@ $jsonError = $controlador->exportarReporte($edicionId);
 $resError = json_decode($jsonError, true);
 afirmar(($resError['exito'] ?? true) === false, "Formato no soportado es rechazado con error controlado (código 400).");
 
+// Validación de Integridad XML del archivo XLSX con parser independiente
+$xmlParsed = simplexml_load_string($xlsxExportado);
+afirmar($xmlParsed !== false, "El archivo XLSX generado es un XML estructurado 100% válido y parseable por parser independiente.");
+afirmar(isset($xmlParsed->Worksheet), "El documento XML contiene elemento Worksheet estructurado.");
+
+// Verificación de Principio de Mínimo Privilegio: Usuario con ediciones.ver NO puede exportar sin permiso específico
+$authzRestringido = new class extends AutorizacionMiddleware {
+    public function verificarPermiso(string $codigoPermiso, ?ContextoOperacion $contexto = null, bool $bloquearPeticion = true): bool {
+        return !str_contains($codigoPermiso, 'exportar');
+    }
+};
+$controladorRestringido = new EdicionControlador(
+    authMiddleware: $authMock,
+    authzMiddleware: $authzRestringido,
+    reporteServicio: $reporteServicio,
+    pdo: $pdo
+);
+$_GET['tipo'] = 'LIBRO_INGRESOS';
+$_GET['formato'] = 'csv';
+$jsonDenegado = $controladorRestringido->exportarReporte($edicionId);
+$resDenegado = json_decode($jsonDenegado, true);
+afirmar(($resDenegado['exito'] ?? true) === false, "Exportación financiera es bloqueada a usuarios sin permiso específico de exportación (Principio de Mínimo Privilegio).");
+
+$_GET['tipo'] = 'PADRON_ASISTENCIA';
+$jsonDenegadoPadron = $controladorRestringido->exportarReporte($edicionId);
+$resDenegadoPadron = json_decode($jsonDenegadoPadron, true);
+afirmar(($resDenegadoPadron['exito'] ?? true) === false, "Exportación de Padrón Ley 29733 es bloqueada a usuarios sin permiso ediciones.reportes.asistencia.exportar.");
+
+// Pruebas ampliadas de neutralización de inyección de fórmulas con espacios y comandos
+$resEspacioFormula = $refMetodoSanitizar->invoke($reporteServicio, " =1+1");
+afirmar($resEspacioFormula === "' =1+1", "Fórmula con espacio en blanco inicial neutralizada con apóstrofe.");
+
+$resPuntoComa = $refMetodoSanitizar->invoke($reporteServicio, ";calc");
+afirmar($resPuntoComa === "';calc", "Prefijo ';' neutralizado con apóstrofe.");
+
+$resPipe = $refMetodoSanitizar->invoke($reporteServicio, "|cmd");
+afirmar($resPipe === "'|cmd", "Prefijo '|' neutralizado con apóstrofe.");
+
 // ------------------------------------------------------------------------------
 // SECCIÓN 9: INTEGRIDAD HISTÓRICA INMUTABLE DEL USUARIO ORLANDO (ID 24)
 // ------------------------------------------------------------------------------

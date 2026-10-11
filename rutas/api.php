@@ -495,4 +495,10 @@ Enrutador::get('/api/v1/publico/portal/mis-galerias/{id}', [\Aplicacion\Controla
 Enrutador::get('/api/v1/publico/portal/descargar-multimedia/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarMiArchivoMultimedia']);
 Enrutador::post('/api/v1/publico/portal/entregas/{id}/responder', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'responderEntregaMultimedia']);
 
+// ==============================================================================
+// DASHBOARD EJECUTIVO Y MÉTRICAS DE RENDIMIENTO (FASE 2.12C)
+// ==============================================================================
+Enrutador::get('/api/v1/dashboard/kpis', [\Aplicacion\Controladores\DashboardControlador::class, 'kpis']);
+Enrutador::get('/api/v1/dashboard/comparativa', [\Aplicacion\Controladores\DashboardControlador::class, 'comparativa']);
+
 
