@@ -399,4 +399,45 @@ class ClienteRepositorio
 
         return (int) $stmt->fetchColumn();
     }
+
+    public function buscarPorTelefono(int $organizacionId, string $telefono): ?Cliente
+    {
+        $telLimpio = trim($telefono);
+        $sql = "SELECT c.*
+                FROM `clientes` c
+                INNER JOIN `personas` p ON p.id = c.persona_id
+                WHERE c.organizacion_id = :org_id
+                  AND (p.telefono_whatsapp = :tel1 OR p.telefono_movil = :tel2)
+                LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':org_id' => $organizacionId,
+            ':tel1'   => $telLimpio,
+            ':tel2'   => $telLimpio,
+        ]);
+        $fila = $stmt->fetch();
+
+        return $fila ? Cliente::desdeArreglo($fila) : null;
+    }
+
+    public function buscarPorCorreo(int $organizacionId, string $correo): ?Cliente
+    {
+        $correoLimpio = strtolower(trim($correo));
+        $sql = "SELECT c.*
+                FROM `clientes` c
+                INNER JOIN `personas` p ON p.id = c.persona_id
+                WHERE c.organizacion_id = :org_id
+                  AND p.correo_electronico = :correo
+                LIMIT 1";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            ':org_id' => $organizacionId,
+            ':correo' => $correoLimpio,
+        ]);
+        $fila = $stmt->fetch();
+
+        return $fila ? Cliente::desdeArreglo($fila) : null;
+    }
 }

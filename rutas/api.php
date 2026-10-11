@@ -441,3 +441,18 @@ Enrutador::post('/api/v1/comunicaciones/configuracion', [\Aplicacion\Controlador
 Enrutador::post('/api/v1/comunicaciones/simulador/recibir', [\Aplicacion\Controladores\ComunicacionControlador::class, 'simularMensajeEntrante']);
 Enrutador::post('/api/v1/comunicaciones/outbox/procesar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'procesarOutboxManual']);
 
+// ==============================================================================
+// PORTAL PÚBLICO, CATÁLOGO, COTIZADOR, CHECKOUT Y ESPACIO CLIENTE (FASE 2.9B)
+// ==============================================================================
+Enrutador::get('/api/v1/publico/edicion-actual', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'edicionActual']);
+Enrutador::get('/api/v1/publico/catalogo', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'catalogo']);
+Enrutador::post('/api/v1/publico/cotizar', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'cotizar']);
+Enrutador::post('/api/v1/publico/cupos/bloquear', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'bloquearCupos']);
+Enrutador::post('/api/v1/publico/checkout', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'checkout']);
+
+// Espacio del Cliente (Passwordless & Gestiones del Titular)
+Enrutador::post('/api/v1/publico/portal/solicitar-acceso', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'solicitarAcceso']);
+Enrutador::post('/api/v1/publico/portal/verificar-acceso', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'verificarAcceso']);
+Enrutador::get('/api/v1/publico/portal/mis-reservas', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'misReservas']);
+Enrutador::get('/api/v1/publico/portal/reserva/{id}/boleto-qr', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'boletoQr']);
+Enrutador::post('/api/v1/publico/portal/cerrar-sesion', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'cerrarSesion']);

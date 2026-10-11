@@ -183,7 +183,7 @@ class VentaServicio
                 motivoAnulacion: null,
                 motivoAnulacionDetalle: null,
                 versionBloqueo: 1,
-                creadoPor: $contexto->usuarioId ?? 1,
+                creadoPor: $this->resolverUsuarioCreador($contexto->usuarioId, $organizacionId),
                 creadoEn: date('Y-m-d H:i:s'),
                 actualizadoEn: date('Y-m-d H:i:s'),
                 lineas: []
@@ -536,5 +536,22 @@ class VentaServicio
             datosPrevios: null,
             datosNuevos: $detalles
         );
+    }
+
+    private function resolverUsuarioCreador(?int $usuarioId, int $organizacionId): int
+    {
+        if ($usuarioId !== null && $usuarioId > 0) {
+            return $usuarioId;
+        }
+
+        $stmtUser = $this->pdo->prepare("SELECT id FROM usuarios WHERE organizacion_id = :org_id AND estado = 'ACTIVO' ORDER BY id ASC LIMIT 1");
+        $stmtUser->execute(['org_id' => $organizacionId]);
+        $uId = $stmtUser->fetchColumn();
+        if ($uId) {
+            return (int) $uId;
+        }
+
+        $fallback = $this->pdo->query("SELECT id FROM usuarios WHERE estado = 'ACTIVO' ORDER BY id ASC LIMIT 1")->fetchColumn();
+        return $fallback ? (int) $fallback : 24;
     }
 }

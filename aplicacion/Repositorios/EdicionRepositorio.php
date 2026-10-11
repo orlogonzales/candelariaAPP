@@ -158,6 +158,14 @@ class EdicionRepositorio
     }
 
     /**
+     * Alias de obtenerActual para interoperabilidad de dominio.
+     */
+    public function buscarActual(int $organizacionId): ?Edicion
+    {
+        return $this->obtenerActual($organizacionId);
+    }
+
+    /**
      * Lista todas las ediciones registradas, opcionalmente filtradas por organización.
      * @return Edicion[]
      */

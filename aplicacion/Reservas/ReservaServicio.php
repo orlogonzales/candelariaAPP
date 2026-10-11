@@ -262,7 +262,7 @@ class ReservaServicio
                     contactoEmail: $venta->clienteEmail,
                     notasOperativas: null,
                     versionBloqueo: 1,
-                    creadoPor: $contexto->usuarioId ?? 1,
+                    creadoPor: $this->resolverUsuarioCreador($contexto->usuarioId, $organizacionId),
                     prestaciones: $prestacionesParaCrear
                 );
 
@@ -302,7 +302,7 @@ class ReservaServicio
                     entregadoPor: null,
                     notasDespacho: null,
                     versionBloqueo: 1,
-                    creadoPor: $contexto->usuarioId ?? 1,
+                    creadoPor: $this->resolverUsuarioCreador($contexto->usuarioId, $organizacionId),
                     items: $itemsEntregaParaCrear
                 );
 
@@ -456,7 +456,7 @@ class ReservaServicio
                 horaNueva: $nuevaHora ?? $prestacion->horaServicio,
                 motivoCategoria: $motivoCategoria,
                 motivoDetalle: $detalleTrim,
-                creadoPor: $contexto->usuarioId ?? 1
+                creadoPor: $this->resolverUsuarioCreador($contexto->usuarioId, $organizacionId)
             );
             $this->reservaRepo->registrarReprogramacion($reprog);
 
@@ -796,5 +796,22 @@ class ReservaServicio
             datosPrevios: null,
             datosNuevos: $detalles
         );
+    }
+
+    private function resolverUsuarioCreador(?int $usuarioId, int $organizacionId): int
+    {
+        if ($usuarioId !== null && $usuarioId > 0) {
+            return $usuarioId;
+        }
+
+        $stmtUser = $this->pdo->prepare("SELECT id FROM usuarios WHERE organizacion_id = :org_id AND estado = 'ACTIVO' ORDER BY id ASC LIMIT 1");
+        $stmtUser->execute(['org_id' => $organizacionId]);
+        $uId = $stmtUser->fetchColumn();
+        if ($uId) {
+            return (int) $uId;
+        }
+
+        $fallback = $this->pdo->query("SELECT id FROM usuarios WHERE estado = 'ACTIVO' ORDER BY id ASC LIMIT 1")->fetchColumn();
+        return $fallback ? (int) $fallback : 24;
     }
 }

@@ -113,7 +113,7 @@ class CotizacionServicio
         // 4. Resolver divisa soberana institucional
         $moneda = $this->resolverMonedaInstitucional();
 
-        $usuarioCreador = $contexto->usuarioId ?? 1;
+        $usuarioCreador = $this->resolverUsuarioCreador($contexto->usuarioId, $organizacionId);
 
         $cotizacion = new Cotizacion(
             id: null,
@@ -908,7 +908,7 @@ class CotizacionServicio
         $raizId = $origen->cotizacionRaizId ?? $origen->id;
         $correlativoBase = $origen->correlativoBase ?? $origen->correlativo;
         $nuevaVersion = $origen->versionNumero + 1;
-        $usuarioCreador = $contexto->usuarioId ?? 1;
+        $usuarioCreador = $this->resolverUsuarioCreador($contexto->usuarioId, $organizacionId);
 
         $borradorRevision = new Cotizacion(
             id: null,
@@ -1469,5 +1469,22 @@ class CotizacionServicio
             datosPrevios: null,
             datosNuevos: $detalles
         );
+    }
+
+    private function resolverUsuarioCreador(?int $usuarioId, int $organizacionId): int
+    {
+        if ($usuarioId !== null && $usuarioId > 0) {
+            return $usuarioId;
+        }
+
+        $stmtUser = $this->pdo->prepare("SELECT id FROM usuarios WHERE organizacion_id = :org_id AND estado = 'ACTIVO' ORDER BY id ASC LIMIT 1");
+        $stmtUser->execute(['org_id' => $organizacionId]);
+        $uId = $stmtUser->fetchColumn();
+        if ($uId) {
+            return (int) $uId;
+        }
+
+        $fallback = $this->pdo->query("SELECT id FROM usuarios WHERE estado = 'ACTIVO' ORDER BY id ASC LIMIT 1")->fetchColumn();
+        return $fallback ? (int) $fallback : 24;
     }
 }
