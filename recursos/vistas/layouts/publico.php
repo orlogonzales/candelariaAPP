@@ -12,7 +12,7 @@ $tenantSlug = htmlspecialchars((string) ($orgData['codigo'] ?? 'candelaria_centr
 $edicionId = htmlspecialchars((string) ($edicionData['id'] ?? '1'), ENT_QUOTES, 'UTF-8');
 $orgNombre = htmlspecialchars((string) ($orgData['nombre_comercial'] ?? 'Candelaria Oficial'), ENT_QUOTES, 'UTF-8');
 $edicionNombre = htmlspecialchars((string) ($edicionData['nombre'] ?? 'Festividad Candelaria'), ENT_QUOTES, 'UTF-8');
-$urlBase = url_base();
+$urlBase = rtrim(url_base(), '/') . '/';
 ?>
 <!DOCTYPE html>
 <html lang="es">

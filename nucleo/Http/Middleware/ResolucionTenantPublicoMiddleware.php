@@ -31,37 +31,7 @@ class ResolucionTenantPublicoMiddleware
         // Eliminar puerto si viene en el host (ej. localhost:8080)
         $hostSinPuerto = explode(':', $host)[0];
 
-        // 1. Identificación por FQDN o dominio personalizado registrado en organizaciones.sitio_web
-        if ($hostSinPuerto !== '' && $hostSinPuerto !== 'localhost' && $hostSinPuerto !== '127.0.0.1') {
-            $stmtHost = $this->pdo->prepare("
-                SELECT `id`, `codigo`, `nombre_comercial`, `estado`
-                FROM `organizaciones`
-                WHERE (`sitio_web` = :host OR `sitio_web` = :url_http OR `sitio_web` = :url_https)
-                LIMIT 1
-            ");
-            $stmtHost->execute([
-                'host'      => $hostSinPuerto,
-                'url_http'  => "http://{$hostSinPuerto}",
-                'url_https' => "https://{$hostSinPuerto}",
-            ]);
-            $orgHost = $stmtHost->fetch(PDO::FETCH_ASSOC);
-
-            if ($orgHost) {
-                if ($orgHost['estado'] !== 'ACTIVO') {
-                    throw new RuntimeException("La organización solicitada se encuentra suspendida o inactiva.");
-                }
-                return [
-                    'organizacion_id' => (int) $orgHost['id'],
-                    'codigo'          => (string) $orgHost['codigo'],
-                    'nombre'          => (string) $orgHost['nombre_comercial'],
-                ];
-            }
-
-            // Si se envió un host específico no-localhost y no existe en la base de datos, rechazar fail-closed
-            throw new RuntimeException("El dominio '{$hostSinPuerto}' no está registrado para ninguna organización activa (404 Not Found).");
-        }
-
-        // 2. Identificación por Slug Público explícito EXCLUSIVAMENTE desde la ruta URL autorizada
+        // 1. Identificación por Slug Público explícito EXCLUSIVAMENTE desde la ruta URL autorizada (/p/{slug})
         // Queda categóricamente prohibido confiar en encabezados cliente como X-Tenant-Slug para evitar spoofing o cruce no autorizado.
         $slug = $peticion['slug_organizacion']
             ?? $peticion['org_slug']
@@ -91,6 +61,36 @@ class ResolucionTenantPublicoMiddleware
 
             // Si se envió un slug explícito en la ruta y no existe o no está activo, rechazar fail-closed
             throw new RuntimeException("No se encontró ninguna organización activa con el identificador '{$slugLimpio}' (404 Not Found).");
+        }
+
+        // 2. Identificación por FQDN o dominio personalizado registrado en organizaciones.sitio_web
+        if ($hostSinPuerto !== '' && $hostSinPuerto !== 'localhost' && $hostSinPuerto !== '127.0.0.1') {
+            $stmtHost = $this->pdo->prepare("
+                SELECT `id`, `codigo`, `nombre_comercial`, `estado`
+                FROM `organizaciones`
+                WHERE (`sitio_web` = :host OR `sitio_web` = :url_http OR `sitio_web` = :url_https)
+                LIMIT 1
+            ");
+            $stmtHost->execute([
+                'host'      => $hostSinPuerto,
+                'url_http'  => "http://{$hostSinPuerto}",
+                'url_https' => "https://{$hostSinPuerto}",
+            ]);
+            $orgHost = $stmtHost->fetch(PDO::FETCH_ASSOC);
+
+            if ($orgHost) {
+                if ($orgHost['estado'] !== 'ACTIVO') {
+                    throw new RuntimeException("La organización solicitada se encuentra suspendida o inactiva.");
+                }
+                return [
+                    'organizacion_id' => (int) $orgHost['id'],
+                    'codigo'          => (string) $orgHost['codigo'],
+                    'nombre'          => (string) $orgHost['nombre_comercial'],
+                ];
+            }
+
+            // Si se envió un host específico no-localhost y no existe en la base de datos, rechazar fail-closed
+            throw new RuntimeException("El dominio '{$hostSinPuerto}' no está registrado para ninguna organización activa (404 Not Found).");
         }
 
         // 3. Fallback controlado para desarrollo local / pruebas automatizadas

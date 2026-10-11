@@ -1150,9 +1150,10 @@ class FachadaPortalPublicoServicio
     }
 
     /**
-     * Valida la firma criptográfica y la vigencia del derecho de acceso de un boleto QR.
+     * Valida la firma criptográfica, la vigencia y el estado de ingreso de un boleto QR.
+     * Previene reutilización, capturas de pantalla y accesos posteriores a cancelaciones o reembolsos.
      */
-    public function validarTokenBoletoQr(int $organizacionId, string $tokenQr): array
+    public function validarTokenBoletoQr(int $organizacionId, string $tokenQr, bool $marcarUso = false): array
     {
         $partes = explode('.', $tokenQr);
         if (count($partes) !== 2) {
@@ -1177,9 +1178,10 @@ class FachadaPortalPublicoServicio
             return ['valido' => false, 'motivo' => 'Estructura interna del boleto inválida.'];
         }
 
-        // Validar vigencia real en base de datos (Anti-revocación / cancelaciones tardías)
+        // 1. Validar vigencia real en base de datos (Anti-revocación / cancelaciones tardías)
         $stmt = $this->pdo->prepare("
-            SELECT r.estado as reserva_estado, v.estado as venta_estado, v.estado_financiero
+            SELECT r.id, r.edicion_id, r.estado as reserva_estado, r.notas_operativas,
+                   v.estado as venta_estado, v.estado_financiero
             FROM `reservas` r
             JOIN `ventas` v ON r.venta_id = v.id
             WHERE r.id = :r_id AND r.organizacion_id = :org_id
@@ -1192,11 +1194,47 @@ class FachadaPortalPublicoServicio
         }
 
         if ($row['reserva_estado'] !== EstadoReserva::CONFIRMADA->value) {
-            return ['valido' => false, 'motivo' => "El derecho de acceso está inactivo (estado de reserva: {$row['reserva_estado']})."];
+            return ['valido' => false, 'motivo' => "El derecho de acceso está inactivo o cancelado (estado: {$row['reserva_estado']})."];
         }
 
         if ($row['venta_estado'] !== EstadoVenta::CONFIRMADA->value || !in_array($row['estado_financiero'], [EstadoFinancieroVenta::PAGADA_TOTAL->value, EstadoFinancieroVenta::SOBREPAGADA->value], true)) {
             return ['valido' => false, 'motivo' => "El derecho de acceso ha sido revocado por falta de pago verificado."];
+        }
+
+        // 2. Validar ciclo de vida de la edición (No permitir acceso a ediciones concluidas)
+        $stmtEd = $this->pdo->prepare("SELECT estado FROM `ediciones_candelaria` WHERE id = :ed_id");
+        $stmtEd->execute(['ed_id' => (int) $row['edicion_id']]);
+        $edEstado = (string) $stmtEd->fetchColumn();
+        if ($edEstado === 'CERRADA') {
+            return ['valido' => false, 'motivo' => 'El evento oficial ha concluido (Edición CERRADA).'];
+        }
+
+        // 3. Política Anti-Reutilización (Anti-Replay / Captura de pantalla)
+        $notasOp = (string) ($row['notas_operativas'] ?? '');
+        $yaIngresado = str_contains($notasOp, '[CHECKIN_QR_REGISTRADO');
+
+        if ($marcarUso) {
+            if ($yaIngresado) {
+                return [
+                    'valido' => false,
+                    'motivo' => 'Boleto QR duplicado: este acceso ya fue canjeado previamente.',
+                    'datos'  => $datos,
+                ];
+            }
+
+            $timestampUso = date('Y-m-d H:i:s');
+            $notaCheckin = " [CHECKIN_QR_REGISTRADO: {$timestampUso}]";
+            $this->pdo->prepare("
+                UPDATE `reservas`
+                SET `notas_operativas` = CONCAT(COALESCE(`notas_operativas`, ''), :nota)
+                WHERE `id` = :id
+            ")->execute(['nota' => $notaCheckin, 'id' => (int) $row['id']]);
+        } elseif ($yaIngresado) {
+            return [
+                'valido' => false,
+                'motivo' => 'El boleto ya fue utilizado para ingreso previamente.',
+                'datos'  => $datos,
+            ];
         }
 
         return [

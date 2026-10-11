@@ -82,7 +82,7 @@ class ReservaBloqueoTemporalRepositorio
             FROM `reserva_bloqueos_temporales`
             WHERE `organizacion_id` = :org_id
               AND `item_comercial_id` = :item_id
-              AND `estado` IN ('" . ReservaBloqueoTemporal::ESTADO_ACTIVO . "', '" . ReservaBloqueoTemporal::ESTADO_RETENCION_VOUCHER . "')
+              AND `estado` = '" . ReservaBloqueoTemporal::ESTADO_ACTIVO . "'
               AND `expira_en` > NOW()
         ";
         $params = [

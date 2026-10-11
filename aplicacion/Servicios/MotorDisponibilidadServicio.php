@@ -102,8 +102,8 @@ class MotorDisponibilidadServicio
 
         $capacidadBase = ($capRef !== false && $capRef !== null) ? (int) $capRef : 100;
 
-        // Descontar prestaciones de reservas formalmente CONFIRMADAS
-        // (Las reservas provisionales REGISTRADA/PENDIENTE_DATOS están respaldadas por bloqueos en RETENCION_VOUCHER para evitar doble descuento)
+        // Descontar prestaciones de todas las reservas formalmente activas (CONFIRMADA, REGISTRADA, PENDIENTE_DATOS)
+        // Reservas CANCELADA se omiten para liberar aforo automáticamente.
         $stmtReservados = $this->pdo->prepare("
             SELECT COALESCE(SUM(rp.cantidad), 0)
             FROM `reserva_prestaciones` rp
@@ -111,7 +111,7 @@ class MotorDisponibilidadServicio
             WHERE r.organizacion_id = :org_id
               AND r.edicion_id = :edicion_id
               AND rp.item_comercial_id = :item_id
-              AND r.estado = '" . EstadoReserva::CONFIRMADA->value . "'
+              AND r.estado IN ('" . EstadoReserva::CONFIRMADA->value . "', '" . EstadoReserva::REGISTRADA->value . "', '" . EstadoReserva::PENDIENTE_DATOS->value . "')
         ");
         $stmtReservados->execute([
             'org_id'     => $organizacionId,
@@ -120,7 +120,7 @@ class MotorDisponibilidadServicio
         ]);
         $reservados = (int) $stmtReservados->fetchColumn();
 
-        // Descontar bloqueos temporales activos y retenciones de voucher vigentes (Cero doble descuento)
+        // Descontar bloqueos temporales en carrito previos a la formalización (estado ACTIVO)
         $bloqueados = $this->bloqueoRepo->sumarCuposBloqueadosActivos($organizacionId, $itemComercialId, null, $fechaServicio);
 
         $disponible = $capacidadBase - $reservados - $bloqueados;
@@ -150,14 +150,14 @@ class MotorDisponibilidadServicio
 
         $capacidadMaxima = (int) ($salida['capacidad_maxima'] ?? 0);
 
-        // Pasajeros en esta salida de reservas formalmente CONFIRMADAS
+        // Pasajeros en esta salida de reservas formalmente activas (CONFIRMADA, REGISTRADA, PENDIENTE_DATOS)
         $stmtOcupados = $this->pdo->prepare("
             SELECT COALESCE(SUM(osp.cantidad_pasajeros), 0)
             FROM `operacion_salida_prestaciones` osp
             JOIN `reserva_prestaciones` rp ON osp.prestacion_id = rp.id
             JOIN `reservas` r ON rp.reserva_id = r.id
             WHERE osp.salida_id = :salida_id
-              AND r.estado = '" . EstadoReserva::CONFIRMADA->value . "'
+              AND r.estado IN ('" . EstadoReserva::CONFIRMADA->value . "', '" . EstadoReserva::REGISTRADA->value . "', '" . EstadoReserva::PENDIENTE_DATOS->value . "')
         ");
         $stmtOcupados->execute(['salida_id' => $salidaId]);
         $ocupados = (int) $stmtOcupados->fetchColumn();
@@ -239,7 +239,7 @@ class MotorDisponibilidadServicio
         }
 
         try {
-            // 1. Si hay salida asociada, bloquear fila con FOR UPDATE
+            // 1. Exclusión mutua pesimista (FOR UPDATE) para serializar solicitudes concurrentes sobre el último cupo
             if ($salidaId !== null) {
                 $stmtLock = $this->pdo->prepare("
                     SELECT `id` FROM `operacion_salidas`
@@ -247,6 +247,19 @@ class MotorDisponibilidadServicio
                     FOR UPDATE
                 ");
                 $stmtLock->execute(['salida_id' => $salidaId, 'org_id' => $organizacionId]);
+            } else {
+                $stmtLockOferta = $this->pdo->prepare("
+                    SELECT `id` FROM `ofertas_items_edicion`
+                    WHERE `organizacion_id` = :org_id
+                      AND `edicion_id` = :edicion_id
+                      AND `item_comercial_id` = :item_id
+                    FOR UPDATE
+                ");
+                $stmtLockOferta->execute([
+                    'org_id'     => $organizacionId,
+                    'edicion_id' => $edicionId,
+                    'item_id'    => $itemComercialId,
+                ]);
             }
 
             // 2. Comprobar aforo disponible
