@@ -13,6 +13,9 @@ use Aplicacion\Comunicaciones\ModoComunicacion;
 use Aplicacion\Comunicaciones\OutboxWorker;
 use Aplicacion\Comunicaciones\WebhookWhatsAppServicio;
 use Aplicacion\Entidades\ComunicacionPlantilla;
+use Aplicacion\Comunicaciones\AutomatizacionRegla;
+use Aplicacion\Comunicaciones\MotorAutomatizacionesServicio;
+use Aplicacion\Repositorios\ComunicacionAutomatizacionRepositorio;
 use Aplicacion\Repositorios\ComunicacionCampanaRepositorio;
 use Aplicacion\Repositorios\ComunicacionConfigRepositorio;
 use Aplicacion\Repositorios\ComunicacionConsentimientoRepositorio;
@@ -41,6 +44,8 @@ class ComunicacionControlador
     private ComunicacionConsentimientoRepositorio $consentimientoRepo;
     private ComunicacionConfigRepositorio $configRepo;
     private ComunicacionCampanaRepositorio $campanaRepo;
+    private ComunicacionAutomatizacionRepositorio $autRepo;
+    private MotorAutomatizacionesServicio $motorAutomatizaciones;
     private PDO $pdo;
 
     public function __construct(
@@ -60,6 +65,7 @@ class ComunicacionControlador
         $this->consentimientoRepo = new ComunicacionConsentimientoRepositorio($this->pdo);
         $this->configRepo = new ComunicacionConfigRepositorio($this->pdo);
         $this->campanaRepo = new ComunicacionCampanaRepositorio($this->pdo);
+        $this->autRepo = new ComunicacionAutomatizacionRepositorio($this->pdo);
 
         $this->comunicacionServicio = $comunicacionServicio ?? new ComunicacionServicio(
             mensajeRepo: $this->mensajeRepo,
@@ -67,6 +73,15 @@ class ComunicacionControlador
             consentimientoRepo: $this->consentimientoRepo,
             conversacionRepo: $this->conversacionRepo,
             configRepo: $this->configRepo
+        );
+
+        $this->motorAutomatizaciones = new MotorAutomatizacionesServicio(
+            autRepo: $this->autRepo,
+            plantillaRepo: $this->plantillaRepo,
+            consentimientoRepo: $this->consentimientoRepo,
+            conversacionRepo: $this->conversacionRepo,
+            configRepo: $this->configRepo,
+            mensajeRepo: $this->mensajeRepo
         );
 
         $this->webhookServicio = $webhookServicio ?? new WebhookWhatsAppServicio(
@@ -122,6 +137,7 @@ class ComunicacionControlador
             'gestionarPlantillas'     => $this->authzMiddleware->verificarPermiso('comunicaciones.gestionar_plantillas', $contexto, false),
             'configurarProveedor'     => $this->authzMiddleware->verificarPermiso('comunicaciones.configurar_proveedor', $contexto, false),
             'gestionarConsentimientos' => $this->authzMiddleware->verificarPermiso('comunicaciones.gestionar_consentimientos', $contexto, false),
+            'gestionarAutomatizaciones' => $this->authzMiddleware->verificarPermiso('comunicaciones.automatizaciones.gestionar', $contexto, false),
         ];
 
         return Vista::renderizar('comunicaciones/index', [
@@ -932,6 +948,219 @@ class ComunicacionControlador
                 'exito'   => true,
                 'mensaje' => "Campaña #{$id} aprobada formalmente bajo cumplimiento SoD."
             ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    // =========================================================================
+    // 8. AUTOMATIZACIONES Y DISPARADORES WHATSAPP (FASE 3.2 - DT-V11-009)
+    // =========================================================================
+
+    /**
+     * GET /api/v1/comunicaciones/automatizaciones
+     */
+    public function listarAutomatizaciones(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.ver');
+
+        $evento = $_GET['evento'] ?? null;
+        $soloActivos = isset($_GET['solo_activos']) ? filter_var($_GET['solo_activos'], FILTER_VALIDATE_BOOLEAN) : null;
+
+        $reglas = $this->autRepo->listarPorOrganizacion($contexto->organizacionId, $evento, $soloActivos);
+
+        return json_encode([
+            'exito'  => true,
+            'total'  => count($reglas),
+            'reglas' => $reglas
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/automatizaciones
+     */
+    public function crearAutomatizacion(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.automatizaciones.gestionar');
+
+        $cuerpo = file_get_contents('php://input');
+        $datos = json_decode($cuerpo, true);
+
+        if (empty($datos['codigo']) || empty($datos['nombre']) || empty($datos['evento_disparador']) || empty($datos['plantilla_id'])) {
+            $this->setCodigoHttp(422);
+            return json_encode(['exito' => false, 'error' => 'Faltan campos obligatorios (codigo, nombre, evento_disparador, plantilla_id)']);
+        }
+
+        try {
+            $regla = new AutomatizacionRegla(
+                id: null,
+                organizacionId: $contexto->organizacionId,
+                codigo: trim((string)$datos['codigo']),
+                nombre: trim((string)$datos['nombre']),
+                descripcion: isset($datos['descripcion']) ? trim((string)$datos['descripcion']) : null,
+                eventoDisparador: trim((string)$datos['evento_disparador']),
+                plantillaId: (int)$datos['plantilla_id'],
+                tipoComunicacion: ($datos['tipo_comunicacion'] ?? 'TRANSACCIONAL') === 'PROMOCIONAL' ? 'PROMOCIONAL' : 'TRANSACCIONAL',
+                minutosDiferidos: max(0, (int)($datos['minutos_diferidos'] ?? 0)),
+                condicionesJson: isset($datos['condiciones_json']) && is_array($datos['condiciones_json']) ? $datos['condiciones_json'] : null,
+                mapeoParametrosJson: isset($datos['mapeo_parametros_json']) && is_array($datos['mapeo_parametros_json']) ? $datos['mapeo_parametros_json'] : [],
+                activo: isset($datos['activo']) ? (bool)$datos['activo'] : true,
+                creadoPor: $contexto->usuarioId
+            );
+
+            $guardada = $this->autRepo->guardar($regla);
+
+            return json_encode([
+                'exito' => true,
+                'mensaje' => 'Regla de automatización creada exitosamente',
+                'regla' => $guardada->aArreglo()
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * PUT /api/v1/comunicaciones/automatizaciones/{id}
+     */
+    public function actualizarAutomatizacion(int $id): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.automatizaciones.gestionar');
+
+        $regla = $this->autRepo->buscarPorId($id, $contexto->organizacionId);
+        if (!$regla) {
+            $this->setCodigoHttp(404);
+            return json_encode(['exito' => false, 'error' => "Regla {$id} no encontrada."]);
+        }
+
+        $cuerpo = file_get_contents('php://input');
+        $datos = json_decode($cuerpo, true);
+
+        try {
+            if (isset($datos['codigo'])) $regla->codigo = trim((string)$datos['codigo']);
+            if (isset($datos['nombre'])) $regla->nombre = trim((string)$datos['nombre']);
+            if (array_key_exists('descripcion', $datos)) $regla->descripcion = $datos['descripcion'];
+            if (isset($datos['evento_disparador'])) $regla->eventoDisparador = trim((string)$datos['evento_disparador']);
+            if (isset($datos['plantilla_id'])) $regla->plantillaId = (int)$datos['plantilla_id'];
+            if (isset($datos['tipo_comunicacion'])) $regla->tipoComunicacion = $datos['tipo_comunicacion'] === 'PROMOCIONAL' ? 'PROMOCIONAL' : 'TRANSACCIONAL';
+            if (isset($datos['minutos_diferidos'])) $regla->minutosDiferidos = max(0, (int)$datos['minutos_diferidos']);
+            if (array_key_exists('condiciones_json', $datos)) $regla->condicionesJson = $datos['condiciones_json'];
+            if (isset($datos['mapeo_parametros_json']) && is_array($datos['mapeo_parametros_json'])) $regla->mapeoParametrosJson = $datos['mapeo_parametros_json'];
+            if (isset($datos['activo'])) $regla->activo = (bool)$datos['activo'];
+
+            $this->autRepo->actualizar($regla);
+
+            return json_encode([
+                'exito' => true,
+                'mensaje' => 'Regla de automatización actualizada exitosamente',
+                'regla' => $regla->aArreglo()
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/automatizaciones/{id}/estado
+     */
+    public function cambiarEstadoAutomatizacion(int $id): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.automatizaciones.gestionar');
+
+        $cuerpo = file_get_contents('php://input');
+        $datos = json_decode($cuerpo, true);
+        $activo = isset($datos['activo']) ? (bool)$datos['activo'] : true;
+
+        $ok = $this->autRepo->cambiarEstadoActivo($id, $contexto->organizacionId, $activo);
+        if (!$ok) {
+            $this->setCodigoHttp(404);
+            return json_encode(['exito' => false, 'error' => "Regla {$id} no encontrada."]);
+        }
+
+        return json_encode([
+            'exito' => true,
+            'mensaje' => "Estado de automatización #{$id} actualizado a " . ($activo ? 'ACTIVO' : 'INACTIVO')
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/automatizaciones/probar
+     */
+    public function probarAutomatizacion(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.automatizaciones.gestionar');
+
+        $cuerpo = file_get_contents('php://input');
+        $datos = json_decode($cuerpo, true);
+
+        if (empty($datos['regla_id']) || !isset($datos['payload'])) {
+            $this->setCodigoHttp(422);
+            return json_encode(['exito' => false, 'error' => 'Faltan campos obligatorios: regla_id, payload']);
+        }
+
+        try {
+            $resultado = $this->motorAutomatizaciones->probarRegla(
+                $contexto->organizacionId,
+                (int)$datos['regla_id'],
+                (array)$datos['payload'],
+                $contexto
+            );
+
+            return json_encode([
+                'exito' => true,
+                'resultado' => $resultado
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            $this->setCodigoHttp(400);
+            return json_encode(['exito' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * POST /api/v1/comunicaciones/automatizaciones/disparar
+     */
+    public function dispararEventoAutomatizacion(): string
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $contexto = $this->autenticarYAutorizar('comunicaciones.automatizaciones.gestionar');
+
+        $cuerpo = file_get_contents('php://input');
+        $datos = json_decode($cuerpo, true);
+
+        if (empty($datos['evento']) || !isset($datos['payload'])) {
+            $this->setCodigoHttp(422);
+            return json_encode(['exito' => false, 'error' => 'Faltan campos obligatorios: evento, payload']);
+        }
+
+        try {
+            $resultado = $this->motorAutomatizaciones->dispararEvento(
+                $contexto->organizacionId,
+                (string)$datos['evento'],
+                (array)$datos['payload'],
+                $contexto
+            );
+
+            return json_encode($resultado, JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             $this->setCodigoHttp(400);
             return json_encode(['exito' => false, 'error' => $e->getMessage()]);

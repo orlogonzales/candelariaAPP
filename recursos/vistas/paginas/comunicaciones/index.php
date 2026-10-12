@@ -115,6 +115,11 @@
             <i class="fa-solid fa-sliders me-2"></i> Configuración & Simulador Sandbox
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-automatizaciones-link" data-bs-toggle="tab" data-bs-target="#tab-automatizaciones" type="button" role="tab">
+            <i class="fa-solid fa-robot me-2"></i> Automatizaciones & Disparadores
+        </button>
+    </li>
 </ul>
 
 <!-- Contenido de las Pestañas -->
@@ -550,6 +555,57 @@
                         </div>
                     </div>
                 </div>
+    <!-- =========================================================================
+         TAB 7: AUTOMATIZACIONES Y DISPARADORES WHATSAPP (FASE 3.2 - DT-V11-009)
+    ========================================================================== -->
+    <div class="tab-pane fade" id="tab-automatizaciones" role="tabpanel">
+        <div class="card border-0 shadow-sm b-r-12">
+            <div class="card-header bg-white border-bottom py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                    <h5 class="f-w-700 text-dark mb-0">
+                        <i class="fa-solid fa-robot text-primary me-2"></i> Reglas de Automatización de Negocio
+                    </h5>
+                    <small class="text-muted">Disparadores automáticos desacoplados para eventos de reservas, cobranzas y turnos folclóricos.</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <select class="form-select form-select-sm" id="filtroEventoAutomatizacion" style="width: 220px;">
+                        <option value="">Todos los eventos</option>
+                        <option value="reserva.confirmada">reserva.confirmada</option>
+                        <option value="reserva.cancelada">reserva.cancelada</option>
+                        <option value="recibo.emitido">recibo.emitido</option>
+                        <option value="folclore.turno.recordatorio">folclore.turno.recordatorio</option>
+                        <option value="folclore.turno.actualizado">folclore.turno.actualizado</option>
+                    </select>
+                    <?php if (!empty($permisos['gestionarAutomatizaciones'])): ?>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnNuevaAutomatizacion">
+                        <i class="fa-solid fa-plus me-1"></i> Nueva Regla
+                    </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaAutomatizaciones">
+                        <thead class="bg-light f-s-12 text-uppercase text-muted">
+                            <tr>
+                                <th>Código / Nombre</th>
+                                <th>Evento Disparador</th>
+                                <th>Plantilla Meta / Tipo</th>
+                                <th>Programación</th>
+                                <th class="text-center">Disparos</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-end pe-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyAutomatizaciones">
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Cargando reglas de automatización...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -858,3 +914,166 @@
         </div>
     </div>
 </div>
+
+<!-- Modal 7: Crear / Editar Regla de Automatización -->
+<div class="modal fade" id="modalCrearAutomatizacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title f-w-700" id="tituloModalAutomatizacion">
+                    <i class="fa-solid fa-robot text-primary me-2"></i> Nueva Regla de Automatización
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formAutomatizacion">
+                <input type="hidden" id="autId" name="id">
+                <div class="modal-body p-4">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Código Único <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="autCodigo" name="codigo" placeholder="ej. AUT_RESERVA_CONFIRMADA" required>
+                            <div class="form-text f-s-11">Identificador en mayúsculas sin espacios.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Nombre Descriptivo <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="autNombre" name="nombre" placeholder="ej. Confirmación Inmediata de Reserva" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label f-w-600">Descripción Funcional</label>
+                        <textarea class="form-control" id="autDescripcion" name="descripcion" rows="2" placeholder="Explique el propósito y contexto de este disparador automático..."></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Evento de Negocio Disparador <span class="text-danger">*</span></label>
+                            <select class="form-select" id="autEvento" name="evento_disparador" required>
+                                <option value="">Seleccione evento...</option>
+                                <option value="reserva.confirmada">reserva.confirmada (Reserva pagada o confirmada)</option>
+                                <option value="reserva.cancelada">reserva.cancelada (Reserva anulada o expirada)</option>
+                                <option value="recibo.emitido">recibo.emitido (Cobranza y recibo generado)</option>
+                                <option value="folclore.turno.recordatorio">folclore.turno.recordatorio (Aviso preventivo de turno)</option>
+                                <option value="folclore.turno.actualizado">folclore.turno.actualizado (Cambio de orden o retraso)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Plantilla Meta WhatsApp <span class="text-danger">*</span></label>
+                            <select class="form-select" id="autPlantillaId" name="plantilla_id" required>
+                                <option value="">Seleccione plantilla oficial...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Tipo de Comunicación</label>
+                            <select class="form-select" id="autTipoComunicacion" name="tipo_comunicacion">
+                                <option value="TRANSACCIONAL">TRANSACCIONAL (Operativo / Legal)</option>
+                                <option value="PROMOCIONAL">PROMOCIONAL (Marketing / Campaña)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Programación / Espera Diferida (Minutos)</label>
+                            <input type="number" class="form-control" id="autMinutosDiferidos" name="minutos_diferidos" value="0" min="0">
+                            <div class="form-text f-s-11">0 = Encolado inmediato. >0 = Espera antes del despacho.</div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Condiciones JSON (Filtros Opcionales)</label>
+                            <textarea class="form-control font-monospace f-s-12" id="autCondicionesJson" name="condiciones_json" rows="3" placeholder='{"estado": "CONFIRMADA"}'></textarea>
+                            <div class="form-text f-s-11">Formato JSON válido. Dejar vacío si aplica a todos los casos.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label f-w-600">Mapeo de Variables a Plantilla (JSON) <span class="text-danger">*</span></label>
+                            <textarea class="form-control font-monospace f-s-12" id="autMapeoParametrosJson" name="mapeo_parametros_json" rows="3" placeholder='{"1": "cliente_nombre", "2": "codigo_reserva"}' required></textarea>
+                            <div class="form-text f-s-11">Mapea los placeholders {{1}}, {{2}} a claves del evento.</div>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="autActivo" name="activo" checked>
+                        <label class="form-check-label f-w-600" for="autActivo">Regla Activa para Ejecución Automática</label>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnGuardarAutomatizacion">
+                        <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Regla
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 8: Probar Regla de Automatización (Pre-flight Simulado) -->
+<div class="modal fade" id="modalProbarAutomatizacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title f-w-700">
+                    <i class="fa-solid fa-vial me-2"></i> Simulación Pre-flight de Automatización
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="probarReglaId">
+                <div class="alert alert-light border mb-3 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <h6 class="f-w-700 text-dark mb-0" id="probarReglaNombre">Cargando regla...</h6>
+                        <span class="badge bg-secondary" id="probarReglaEvento">evento</span>
+                    </div>
+                    <p class="f-s-12 text-muted mb-0" id="probarReglaDescripcion">Verificando configuración pre-flight...</p>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label f-w-600 mb-0">Payload del Evento Simulado (JSON)</label>
+                    <button type="button" class="btn btn-xs btn-outline-secondary" id="btnCargarPayloadEjemplo">
+                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Cargar Datos de Ejemplo
+                    </button>
+                </div>
+                <textarea class="form-control font-monospace f-s-12 mb-3" id="probarPayloadJson" rows="6"></textarea>
+
+                <div class="d-grid mb-3">
+                    <button type="button" class="btn btn-primary" id="btnEjecutarPruebaPreflight">
+                        <i class="fa-solid fa-play me-2"></i> Ejecutar Verificación Pre-flight
+                    </button>
+                </div>
+
+                <!-- Resultados de Simulación -->
+                <div id="probarResultadosContainer" class="d-none">
+                    <hr>
+                    <h6 class="f-w-700 text-dark mb-3"><i class="fa-solid fa-square-poll-vertical me-2 text-primary"></i> Resultado de la Simulación</h6>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <div class="p-2 border b-r-8 bg-light">
+                                <span class="f-s-11 text-muted d-block">Evaluación de Condiciones</span>
+                                <span class="badge" id="probarBadgeCondiciones">--</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-2 border b-r-8 bg-light">
+                                <span class="f-s-11 text-muted d-block">Idempotency Key Prevista</span>
+                                <code class="f-s-11 text-truncate d-block" id="probarIdempotencyKey">--</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label f-w-600 f-s-12">Mensaje WhatsApp Renderizado (Vista Previa)</label>
+                        <div class="p-3 bg-success-subtle border border-success-subtle b-r-8 f-s-13 text-dark font-monospace" id="probarMensajeRenderizado">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label f-w-600 f-s-12">Parámetros Extraídos para la Plantilla</label>
+                        <pre class="bg-light p-2 border b-r-8 f-s-11 mb-0" id="probarParametrosMapeados">{}</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+

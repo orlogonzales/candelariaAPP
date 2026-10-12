@@ -450,6 +450,14 @@ Enrutador::post('/api/v1/comunicaciones/configuracion', [\Aplicacion\Controlador
 Enrutador::post('/api/v1/comunicaciones/simulador/recibir', [\Aplicacion\Controladores\ComunicacionControlador::class, 'simularMensajeEntrante']);
 Enrutador::post('/api/v1/comunicaciones/outbox/procesar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'procesarOutboxManual']);
 
+// AUTOMATIZACIONES Y DISPARADORES WHATSAPP (FASE 3.2 - DT-V11-009)
+Enrutador::get('/api/v1/comunicaciones/automatizaciones', [\Aplicacion\Controladores\ComunicacionControlador::class, 'listarAutomatizaciones']);
+Enrutador::post('/api/v1/comunicaciones/automatizaciones', [\Aplicacion\Controladores\ComunicacionControlador::class, 'crearAutomatizacion']);
+Enrutador::put('/api/v1/comunicaciones/automatizaciones/{id}', [\Aplicacion\Controladores\ComunicacionControlador::class, 'actualizarAutomatizacion']);
+Enrutador::post('/api/v1/comunicaciones/automatizaciones/{id}/estado', [\Aplicacion\Controladores\ComunicacionControlador::class, 'cambiarEstadoAutomatizacion']);
+Enrutador::post('/api/v1/comunicaciones/automatizaciones/probar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'probarAutomatizacion']);
+Enrutador::post('/api/v1/comunicaciones/automatizaciones/disparar', [\Aplicacion\Controladores\ComunicacionControlador::class, 'dispararEventoAutomatizacion']);
+
 // ==============================================================================
 // PORTAL PÚBLICO, CATÁLOGO, COTIZADOR, CHECKOUT Y ESPACIO CLIENTE (FASE 2.9B)
 // ==============================================================================

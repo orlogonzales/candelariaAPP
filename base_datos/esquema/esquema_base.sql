@@ -2352,6 +2352,32 @@ CREATE TABLE `comunicacion_campanas` (
     CONSTRAINT `uk_comunicacion_campanas_compuesta` UNIQUE (`id`, `organizacion_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Campañas masivas desacopladas con control SoD';
 
+-- 66B. TABLA `comunicacion_automatizacion_reglas` (REGLAS Y DISPARADORES WHATSAPP)
+DROP TABLE IF EXISTS `comunicacion_automatizacion_reglas`;
+CREATE TABLE `comunicacion_automatizacion_reglas` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `codigo` VARCHAR(60) NOT NULL COMMENT 'Identificador único de regla por tenant',
+    `nombre` VARCHAR(150) NOT NULL COMMENT 'Nombre descriptivo de la automatización',
+    `descripcion` VARCHAR(255) NULL,
+    `evento_disparador` VARCHAR(80) NOT NULL COMMENT 'Código del evento de negocio disparador',
+    `plantilla_id` INT UNSIGNED NOT NULL COMMENT 'Plantilla de WhatsApp a enviar',
+    `tipo_comunicacion` ENUM('TRANSACCIONAL', 'PROMOCIONAL') NOT NULL DEFAULT 'TRANSACCIONAL',
+    `minutos_diferidos` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Minutos de espera tras el evento (0 = inmediato)',
+    `condiciones_json` JSON NULL COMMENT 'Filtros adicionales sobre el payload del evento',
+    `mapeo_parametros_json` JSON NOT NULL COMMENT 'Mapeo de variables de evento a placeholders de plantilla',
+    `activo` TINYINT(1) NOT NULL DEFAULT 1,
+    `total_disparados` INT UNSIGNED NOT NULL DEFAULT 0,
+    `ultimo_disparo_en` DATETIME NULL,
+    `creado_por` INT UNSIGNED NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_aut_reglas_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_aut_reglas_plantilla` FOREIGN KEY (`plantilla_id`, `organizacion_id`) REFERENCES `comunicacion_plantillas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `uk_aut_reglas_org_codigo` UNIQUE (`organizacion_id`, `codigo`),
+    KEY `idx_aut_reglas_evento` (`organizacion_id`, `evento_disparador`, `activo`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Reglas de automatización y disparadores de WhatsApp';
+
 -- 67. TABLA `comunicacion_mensajes` (OUTBOX TRANSACCIONAL)
 DROP TABLE IF EXISTS `comunicacion_mensajes`;
 CREATE TABLE `comunicacion_mensajes` (
@@ -2368,6 +2394,7 @@ CREATE TABLE `comunicacion_mensajes` (
     `venta_id` BIGINT UNSIGNED NULL,
     `reserva_id` BIGINT UNSIGNED NULL,
     `plantilla_id` INT UNSIGNED NULL,
+    `automatizacion_regla_id` INT UNSIGNED NULL,
     `contenido_texto` TEXT NOT NULL COMMENT 'Texto formateado minimizado',
     `parametros_enviados_json` JSON NULL COMMENT 'Valores de variables no sensibles',
     `estado` ENUM('ENCOLADO', 'EN_PROCESO', 'REINTENTO_PROGRAMADO', 'ENVIADO', 'ENTREGADO', 'LEIDO', 'FALLIDO', 'CANCELADO') NOT NULL DEFAULT 'ENCOLADO',
@@ -2391,10 +2418,12 @@ CREATE TABLE `comunicacion_mensajes` (
     CONSTRAINT `fk_mensajes_campana` FOREIGN KEY (`campana_id`, `organizacion_id`) REFERENCES `comunicacion_campanas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
     CONSTRAINT `fk_mensajes_cliente` FOREIGN KEY (`cliente_id`, `organizacion_id`) REFERENCES `clientes` (`id`, `organizacion_id`) ON DELETE RESTRICT,
     CONSTRAINT `fk_mensajes_plantilla` FOREIGN KEY (`plantilla_id`, `organizacion_id`) REFERENCES `comunicacion_plantillas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_mensajes_aut_regla` FOREIGN KEY (`automatizacion_regla_id`) REFERENCES `comunicacion_automatizacion_reglas` (`id`) ON DELETE SET NULL,
     CONSTRAINT `uk_mensajes_idempotencia_org` UNIQUE (`organizacion_id`, `idempotency_key`),
     CONSTRAINT `uk_comunicacion_mensajes_compuesta` UNIQUE (`id`, `organizacion_id`),
     KEY `idx_mensajes_outbox` (`organizacion_id`, `estado`, `proximo_intento_en`),
-    KEY `idx_mensajes_wamid` (`wamid`)
+    KEY `idx_mensajes_wamid` (`wamid`),
+    KEY `idx_mensajes_aut_regla` (`automatizacion_regla_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Outbox e historial de mensajería con integridad multitenant compuesta';
 
 -- 68. TABLA `comunicacion_intentos_envio` (INTENTOS Y TELEMETRÍA)
@@ -2964,7 +2993,8 @@ INSERT INTO `migraciones_control` (`migracion`, `lote`) VALUES
 ('2026_10_11_000023_crear_permisos_reportes_y_dashboard_f212bc.sql', 23),
 ('2026_10_11_000024_crear_nucleo_programacion_folclorica_f31a.sql', 24),
 ('2026_10_12_000025_agregar_segregacion_aprobacion_folclore.sql', 25),
-('2026_10_12_000026_incorporar_concurrencia_y_retrasos_seguimiento_folclore.sql', 26)
+('2026_10_12_000026_incorporar_concurrencia_y_retrasos_seguimiento_folclore.sql', 26),
+('2026_10_12_000027_crear_modulo_automatizaciones_whatsapp.sql', 27)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 -- ------------------------------------------------------------------------------
@@ -3194,6 +3224,7 @@ CREATE TABLE `folclore_orden_presentacion` (
 
 -- Permisos RBAC del Módulo 07
 INSERT INTO `permisos` (`modulo_id`, `codigo`, `nombre`, `descripcion`) VALUES
+(12, 'comunicaciones.automatizaciones.gestionar', 'Gestionar Automatizaciones WhatsApp', 'Permite configurar disparadores y reglas de comunicacion automatica'),
 (7, 'folclore.tipos_danza.ver', 'Ver Tipos de Danza', 'Permite consultar el catálogo de tipos y géneros folclóricos'),
 (7, 'folclore.tipos_danza.gestionar', 'Gestionar Tipos de Danza', 'Permite crear y editar tipos de danza folclórica'),
 (7, 'folclore.conjuntos.ver', 'Ver Conjuntos Folclóricos', 'Permite consultar las agrupaciones y comparsas registradas'),

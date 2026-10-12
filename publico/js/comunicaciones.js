@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const URL_API_CONFIG = BASE_URL + 'api/v1/comunicaciones/configuracion';
     const URL_API_SIMULADOR = BASE_URL + 'api/v1/comunicaciones/simulador/recibir';
     const URL_API_OUTBOX = BASE_URL + 'api/v1/comunicaciones/outbox/procesar';
+    const URL_API_AUT = BASE_URL + 'api/v1/comunicaciones/automatizaciones';
+    const URL_API_AUT_PROBAR = BASE_URL + 'api/v1/comunicaciones/automatizaciones/probar';
 
     const CSRF_TOKEN = window.CANDELARIA_CSRF_TOKEN || '';
 
@@ -107,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function () {
     cargarConsentimientos();
     cargarCampanas();
     cargarConfiguracion();
+    cargarAutomatizaciones();
 
     // Eventos Globales
     if (btnRecargarTodo) {
@@ -117,8 +120,30 @@ document.addEventListener('DOMContentLoaded', function () {
             cargarHistorialMensajes();
             cargarConsentimientos();
             cargarCampanas();
+            cargarAutomatizaciones();
             mostrarToast('Datos sincronizados', 'info');
         });
+    }
+
+    // Auto-activación de tab o modal vía URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'automatizaciones') {
+        const tabAutLink = document.getElementById('tab-automatizaciones-link');
+        if (tabAutLink && typeof bootstrap !== 'undefined') {
+            const bsTab = new bootstrap.Tab(tabAutLink);
+            bsTab.show();
+        }
+    }
+    const modalParam = urlParams.get('modal');
+    if (modalParam === 'automatizacion') {
+        setTimeout(() => abrirModalNuevaAutomatizacion(), 400);
+    } else if (modalParam === 'probar') {
+        setTimeout(() => {
+            if (cacheAutomatizaciones.length > 0) {
+                abrirModalProbarAutomatizacion(cacheAutomatizaciones[0].id);
+            }
+        }, 600);
     }
 
     // =========================================================================
@@ -1201,6 +1226,474 @@ document.addEventListener('DOMContentLoaded', function () {
             default:
                 return '<i class="fa-regular fa-clock opacity-50" title="En cola"></i>';
         }
+    }
+
+    // =========================================================================
+    // 8. AUTOMATIZACIONES Y DISPARADORES WHATSAPP (FASE 3.2 - DT-V11-009)
+    // =========================================================================
+    let cacheAutomatizaciones = [];
+    const tbodyAutomatizaciones = document.getElementById('tbodyAutomatizaciones');
+    const filtroEventoAutomatizacion = document.getElementById('filtroEventoAutomatizacion');
+    const btnNuevaAutomatizacion = document.getElementById('btnNuevaAutomatizacion');
+    const modalCrearAutomatizacionEl = document.getElementById('modalCrearAutomatizacion');
+    const modalCrearAutomatizacion = modalCrearAutomatizacionEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(modalCrearAutomatizacionEl) : null;
+    const formAutomatizacion = document.getElementById('formAutomatizacion');
+    const autPlantillaSelect = document.getElementById('autPlantillaId');
+    const modalProbarAutomatizacionEl = document.getElementById('modalProbarAutomatizacion');
+    const modalProbarAutomatizacion = modalProbarAutomatizacionEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(modalProbarAutomatizacionEl) : null;
+    const btnEjecutarPruebaPreflight = document.getElementById('btnEjecutarPruebaPreflight');
+    const btnCargarPayloadEjemplo = document.getElementById('btnCargarPayloadEjemplo');
+
+    if (filtroEventoAutomatizacion) {
+        filtroEventoAutomatizacion.addEventListener('change', function () {
+            cargarAutomatizaciones(this.value);
+        });
+    }
+
+    if (btnNuevaAutomatizacion) {
+        btnNuevaAutomatizacion.addEventListener('click', function () {
+            abrirModalNuevaAutomatizacion();
+        });
+    }
+
+    if (formAutomatizacion) {
+        formAutomatizacion.addEventListener('submit', guardarAutomatizacion);
+    }
+
+    if (btnCargarPayloadEjemplo) {
+        btnCargarPayloadEjemplo.addEventListener('click', function () {
+            const reglaId = document.getElementById('probarReglaId').value;
+            const regla = cacheAutomatizaciones.find(r => r.id == reglaId);
+            if (regla) {
+                const ejemplo = obtenerPayloadEjemplo(regla.evento_disparador);
+                document.getElementById('probarPayloadJson').value = JSON.stringify(ejemplo, null, 2);
+            }
+        });
+    }
+
+    if (btnEjecutarPruebaPreflight) {
+        btnEjecutarPruebaPreflight.addEventListener('click', ejecutarPruebaPreflight);
+    }
+
+    function cargarAutomatizaciones(eventoFiltro = '') {
+        if (!tbodyAutomatizaciones) return;
+        tbodyAutomatizaciones.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-4 text-muted">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Cargando reglas de automatización...
+                </td>
+            </tr>
+        `;
+
+        let url = URL_API_AUT;
+        if (eventoFiltro) {
+            url += '?evento=' + encodeURIComponent(eventoFiltro);
+        }
+
+        fetch(url, { headers: jsonHeaders })
+            .then(res => res.json())
+            .then(data => {
+                if (data.exito && Array.isArray(data.reglas)) {
+                    cacheAutomatizaciones = data.reglas;
+                    renderizarTablaAutomatizaciones(cacheAutomatizaciones);
+                } else {
+                    tbodyAutomatizaciones.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error: ${data.error || 'No se pudieron cargar las reglas'}</td></tr>`;
+                }
+            })
+            .catch(err => {
+                console.error('Error cargando automatizaciones:', err);
+                tbodyAutomatizaciones.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error de conexión al cargar automatizaciones</td></tr>`;
+            });
+    }
+
+    function renderizarTablaAutomatizaciones(reglas) {
+        if (!tbodyAutomatizaciones) return;
+
+        if (reglas.length === 0) {
+            tbodyAutomatizaciones.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-robot f-s-32 mb-2 d-block text-secondary opacity-50"></i>
+                        No se encontraron reglas de automatización configuradas.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        let html = '';
+        reglas.forEach(r => {
+            const badgeTipo = r.tipo_comunicacion === 'TRANSACCIONAL'
+                ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle">TRANSACCIONAL</span>'
+                : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle">PROMOCIONAL</span>';
+
+            const badgeEvento = obtenerBadgeEvento(r.evento_disparador);
+
+            const badgeEstado = r.activo
+                ? '<span class="badge bg-success-subtle text-success border border-success-subtle">ACTIVO</span>'
+                : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">INACTIVO</span>';
+
+            const esperaTexto = r.minutos_diferidos > 0
+                ? `<span class="badge bg-light text-dark border"><i class="fa-regular fa-clock me-1"></i>+${r.minutos_diferidos} min</span>`
+                : '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fa-solid fa-bolt me-1"></i>Inmediato</span>';
+
+            html += `
+                <tr>
+                    <td>
+                        <strong class="text-dark d-block">${escaparHtml(r.nombre)}</strong>
+                        <code class="f-s-11 text-muted">${escaparHtml(r.codigo)}</code>
+                    </td>
+                    <td>${badgeEvento}</td>
+                    <td>
+                        <span class="d-block f-w-600 f-s-13">${escaparHtml(r.plantilla_nombre || 'Plantilla #' + r.plantilla_id)}</span>
+                        <div class="mt-1">${badgeTipo}</div>
+                    </td>
+                    <td>${esperaTexto}</td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-dark border f-s-12">${r.total_disparados}</span>
+                        <div class="f-s-10 text-muted mt-1">${r.ultimo_disparo_en ? formatearFechaHora(r.ultimo_disparo_en) : 'Sin disparos'}</div>
+                    </td>
+                    <td class="text-center">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input switch-estado-aut" type="checkbox" role="switch" data-id="${r.id}" ${r.activo ? 'checked' : ''}>
+                        </div>
+                        <div class="mt-1">${badgeEstado}</div>
+                    </td>
+                    <td class="text-end pe-3">
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-info btn-probar-aut" data-id="${r.id}" title="Simulación Pre-flight">
+                                <i class="fa-solid fa-vial"></i> Probar
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-editar-aut" data-id="${r.id}" title="Editar Regla">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbodyAutomatizaciones.innerHTML = html;
+
+        // Listeners para switches de estado
+        tbodyAutomatizaciones.querySelectorAll('.switch-estado-aut').forEach(sw => {
+            sw.addEventListener('change', function () {
+                const id = this.getAttribute('data-id');
+                const nuevoEstado = this.checked;
+                toggleEstadoAutomatizacion(id, nuevoEstado);
+            });
+        });
+
+        // Listeners para botón Probar
+        tbodyAutomatizaciones.querySelectorAll('.btn-probar-aut').forEach(b => {
+            b.addEventListener('click', function () {
+                const id = this.getAttribute('data-id');
+                abrirModalProbarAutomatizacion(id);
+            });
+        });
+
+        // Listeners para botón Editar
+        tbodyAutomatizaciones.querySelectorAll('.btn-editar-aut').forEach(b => {
+            b.addEventListener('click', function () {
+                const id = this.getAttribute('data-id');
+                abrirModalEditarAutomatizacion(id);
+            });
+        });
+    }
+
+    function obtenerBadgeEvento(evento) {
+        switch (evento) {
+            case 'reserva.confirmada':
+                return '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fa-solid fa-ticket me-1"></i>reserva.confirmada</span>';
+            case 'reserva.cancelada':
+                return '<span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="fa-solid fa-ban me-1"></i>reserva.cancelada</span>';
+            case 'recibo.emitido':
+                return '<span class="badge bg-info-subtle text-info border border-info-subtle"><i class="fa-solid fa-receipt me-1"></i>recibo.emitido</span>';
+            case 'folclore.turno.recordatorio':
+                return '<span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="fa-solid fa-bell me-1"></i>folclore.turno.recordatorio</span>';
+            case 'folclore.turno.actualizado':
+                return '<span class="badge bg-dark-subtle text-dark border border-dark-subtle"><i class="fa-solid fa-clock-rotate-left me-1"></i>folclore.turno.actualizado</span>';
+            default:
+                return `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">${escaparHtml(evento)}</span>`;
+        }
+    }
+
+    function poblarSelectPlantillasAutomatizacion(plantillaSeleccionadaId = null) {
+        if (!autPlantillaSelect) return;
+        autPlantillaSelect.innerHTML = '<option value="">Seleccione plantilla oficial...</option>';
+
+        cachePlantillas.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.nombre} (${p.idioma}) - [${p.categoria}]`;
+            if (plantillaSeleccionadaId && p.id == plantillaSeleccionadaId) {
+                opt.selected = true;
+            }
+            autPlantillaSelect.appendChild(opt);
+        });
+    }
+
+    function abrirModalNuevaAutomatizacion() {
+        if (!formAutomatizacion || !modalCrearAutomatizacion) return;
+        formAutomatizacion.reset();
+        document.getElementById('autId').value = '';
+        document.getElementById('tituloModalAutomatizacion').innerHTML = '<i class="fa-solid fa-robot text-primary me-2"></i> Nueva Regla de Automatización';
+        document.getElementById('autCondicionesJson').value = '';
+        document.getElementById('autMapeoParametrosJson').value = JSON.stringify({ "1": "cliente_nombre", "2": "codigo_reserva" }, null, 2);
+        document.getElementById('autActivo').checked = true;
+
+        poblarSelectPlantillasAutomatizacion();
+        modalCrearAutomatizacion.show();
+    }
+
+    function abrirModalEditarAutomatizacion(id) {
+        const regla = cacheAutomatizaciones.find(r => r.id == id);
+        if (!regla || !modalCrearAutomatizacion) return;
+
+        document.getElementById('autId').value = regla.id;
+        document.getElementById('tituloModalAutomatizacion').innerHTML = `<i class="fa-solid fa-pen-to-square text-primary me-2"></i> Editar Regla #${regla.id} (${escaparHtml(regla.codigo)})`;
+        document.getElementById('autCodigo').value = regla.codigo;
+        document.getElementById('autNombre').value = regla.nombre;
+        document.getElementById('autDescripcion').value = regla.descripcion || '';
+        document.getElementById('autEvento').value = regla.evento_disparador;
+        document.getElementById('autTipoComunicacion').value = regla.tipo_comunicacion;
+        document.getElementById('autMinutosDiferidos').value = regla.minutos_diferidos || 0;
+        document.getElementById('autCondicionesJson').value = regla.condiciones_json ? JSON.stringify(regla.condiciones_json, null, 2) : '';
+        document.getElementById('autMapeoParametrosJson').value = regla.mapeo_parametros_json ? JSON.stringify(regla.mapeo_parametros_json, null, 2) : '';
+        document.getElementById('autActivo').checked = !!regla.activo;
+
+        poblarSelectPlantillasAutomatizacion(regla.plantilla_id);
+        modalCrearAutomatizacion.show();
+    }
+
+    function guardarAutomatizacion(e) {
+        e.preventDefault();
+        const id = document.getElementById('autId').value;
+        const codigo = document.getElementById('autCodigo').value.trim();
+        const nombre = document.getElementById('autNombre').value.trim();
+        const descripcion = document.getElementById('autDescripcion').value.trim();
+        const eventoDisparador = document.getElementById('autEvento').value;
+        const plantillaId = parseInt(document.getElementById('autPlantillaId').value, 10);
+        const tipoComunicacion = document.getElementById('autTipoComunicacion').value;
+        const minutosDiferidos = parseInt(document.getElementById('autMinutosDiferidos').value || '0', 10);
+        const condicionesTexto = document.getElementById('autCondicionesJson').value.trim();
+        const mapeoTexto = document.getElementById('autMapeoParametrosJson').value.trim();
+        const activo = document.getElementById('autActivo').checked;
+
+        let condicionesJson = null;
+        if (condicionesTexto) {
+            try {
+                condicionesJson = JSON.parse(condicionesTexto);
+            } catch (err) {
+                mostrarToast('El campo Condiciones no es un JSON válido', 'error');
+                return;
+            }
+        }
+
+        let mapeoParametrosJson = {};
+        if (mapeoTexto) {
+            try {
+                mapeoParametrosJson = JSON.parse(mapeoTexto);
+            } catch (err) {
+                mostrarToast('El campo Mapeo de Parámetros no es un JSON válido', 'error');
+                return;
+            }
+        }
+
+        const payload = {
+            codigo,
+            nombre,
+            descripcion: descripcion || null,
+            evento_disparador: eventoDisparador,
+            plantilla_id: plantillaId,
+            tipo_comunicacion: tipoComunicacion,
+            minutos_diferidos: minutosDiferidos,
+            condiciones_json: condicionesJson,
+            mapeo_parametros_json: mapeoParametrosJson,
+            activo
+        };
+
+        const esEdicion = !!id;
+        const url = esEdicion ? `${URL_API_AUT}/${id}` : URL_API_AUT;
+        const method = esEdicion ? 'PUT' : 'POST';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                ...jsonHeaders,
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.exito) {
+                mostrarToast(data.mensaje || 'Regla guardada con éxito', 'success');
+                if (modalCrearAutomatizacion) modalCrearAutomatizacion.hide();
+                cargarAutomatizaciones();
+            } else {
+                mostrarToast(data.error || 'No se pudo guardar la regla', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error al guardar automatización:', err);
+            mostrarToast('Error de conexión al guardar la regla', 'error');
+        });
+    }
+
+    function toggleEstadoAutomatizacion(id, activo) {
+        fetch(`${URL_API_AUT}/${id}/estado`, {
+            method: 'POST',
+            headers: {
+                ...jsonHeaders,
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify({ activo })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.exito) {
+                mostrarToast(data.mensaje, 'success');
+                cargarAutomatizaciones();
+            } else {
+                mostrarToast(data.error || 'Error al cambiar estado', 'error');
+                cargarAutomatizaciones();
+            }
+        })
+        .catch(err => {
+            console.error('Error al actualizar estado:', err);
+            mostrarToast('Error de conexión', 'error');
+            cargarAutomatizaciones();
+        });
+    }
+
+    function abrirModalProbarAutomatizacion(id) {
+        const regla = cacheAutomatizaciones.find(r => r.id == id);
+        if (!regla || !modalProbarAutomatizacion) return;
+
+        document.getElementById('probarReglaId').value = regla.id;
+        document.getElementById('probarReglaNombre').textContent = `${regla.nombre} (${regla.codigo})`;
+        document.getElementById('probarReglaEvento').textContent = regla.evento_disparador;
+        document.getElementById('probarReglaDescripcion').textContent = regla.descripcion || 'Sin descripción';
+
+        const ejemplo = obtenerPayloadEjemplo(regla.evento_disparador);
+        document.getElementById('probarPayloadJson').value = JSON.stringify(ejemplo, null, 2);
+
+        document.getElementById('probarResultadosContainer').classList.add('d-none');
+        modalProbarAutomatizacion.show();
+    }
+
+    function obtenerPayloadEjemplo(evento) {
+        switch (evento) {
+            case 'reserva.confirmada':
+                return {
+                    "destinatario_telefono": "+51951234567",
+                    "destinatario_nombre": "Carlos Mamani",
+                    "codigo_reserva": "RES-2027-0091",
+                    "monto_total": "S/ 350.00",
+                    "estado": "CONFIRMADA",
+                    "entidad_id": 91
+                };
+            case 'reserva.cancelada':
+                return {
+                    "destinatario_telefono": "+51951234567",
+                    "destinatario_nombre": "Carlos Mamani",
+                    "codigo_reserva": "RES-2027-0091",
+                    "motivo": "Expiración de plazo de pago",
+                    "estado": "CANCELADA",
+                    "entidad_id": 91
+                };
+            case 'recibo.emitido':
+                return {
+                    "destinatario_telefono": "+51951234567",
+                    "destinatario_nombre": "Carlos Mamani",
+                    "numero_recibo": "REC-2026-00045",
+                    "monto_pagado": "S/ 200.00",
+                    "saldo_pendiente": "S/ 150.00",
+                    "entidad_id": 45
+                };
+            case 'folclore.turno.recordatorio':
+                return {
+                    "destinatario_telefono": "+51951888999",
+                    "destinatario_nombre": "Directiva Morenada Central",
+                    "conjunto_nombre": "Morenada Central Puno",
+                    "hora_partida": "09:30 AM",
+                    "punto_partida": "Arco Deustua",
+                    "entidad_id": 12
+                };
+            case 'folclore.turno.actualizado':
+                return {
+                    "destinatario_telefono": "+51951888999",
+                    "destinatario_nombre": "Directiva Morenada Central",
+                    "conjunto_nombre": "Morenada Central Puno",
+                    "nuevo_horario": "10:15 AM",
+                    "retraso_minutos": 45,
+                    "entidad_id": 12
+                };
+            default:
+                return {
+                    "destinatario_telefono": "+51951234567",
+                    "destinatario_nombre": "Usuario Prueba",
+                    "entidad_id": 1
+                };
+        }
+    }
+
+    function ejecutarPruebaPreflight() {
+        const reglaId = document.getElementById('probarReglaId').value;
+        const payloadTexto = document.getElementById('probarPayloadJson').value.trim();
+
+        let payloadJson = {};
+        try {
+            payloadJson = JSON.parse(payloadTexto);
+        } catch (err) {
+            mostrarToast('El payload debe ser un JSON válido', 'error');
+            return;
+        }
+
+        fetch(URL_API_AUT_PROBAR, {
+            method: 'POST',
+            headers: {
+                ...jsonHeaders,
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                regla_id: parseInt(reglaId, 10),
+                payload: payloadJson
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.exito && data.resultado) {
+                const res = data.resultado;
+                const container = document.getElementById('probarResultadosContainer');
+                container.classList.remove('d-none');
+
+                const badgeCond = document.getElementById('probarBadgeCondiciones');
+                if (res.cumple_condiciones) {
+                    badgeCond.className = 'badge bg-success';
+                    badgeCond.innerHTML = '<i class="fa-solid fa-check me-1"></i> Cumple Filtros';
+                } else {
+                    badgeCond.className = 'badge bg-danger';
+                    badgeCond.innerHTML = '<i class="fa-solid fa-xmark me-1"></i> No Cumple Filtros';
+                }
+
+                document.getElementById('probarIdempotencyKey').textContent = res.idempotency_key_prevista;
+                document.getElementById('probarMensajeRenderizado').textContent = res.texto_renderizado;
+                document.getElementById('probarParametrosMapeados').textContent = JSON.stringify(res.parametros_extraidos, null, 2);
+
+                mostrarToast('Prueba pre-flight ejecutada', 'success');
+            } else {
+                mostrarToast(data.error || 'Error al ejecutar prueba', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Error ejecutando prueba preflight:', err);
+            mostrarToast('Error de conexión al ejecutar prueba', 'error');
+        });
     }
 
     function formatearHora(fechaStr) {
