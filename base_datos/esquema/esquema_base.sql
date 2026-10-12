@@ -2065,47 +2065,52 @@ CREATE TABLE `pagos` (
     `edicion_id` INT UNSIGNED NOT NULL,
     `venta_id` BIGINT UNSIGNED NOT NULL,
     `correlativo` VARCHAR(35) NOT NULL COMMENT 'PAG-AAAA-000001',
-    `metodo_pago` ENUM('EFECTIVO', 'TRANSFERENCIA_BANCARIA', 'TARJETA_CREDITO', 'TARJETA_DEBITO', 'BILLETERA_DIGITAL', 'PASARELA_ONLINE', 'DEPOSITO_VENTANILLA') NOT NULL,
+    `metodo_pago` ENUM('EFECTIVO', 'TRANSFERENCIA_BANCARIA', 'BILLETERA_DIGITAL', 'TARJETA_PASARELA', 'POS_FISICO') NOT NULL,
     `estado` ENUM('PENDIENTE_VERIFICACION', 'APROBADO', 'RECHAZADO', 'ANULADO') NOT NULL DEFAULT 'PENDIENTE_VERIFICACION',
     `moneda` CHAR(3) NOT NULL DEFAULT 'PEN',
 
-    `monto_cobrado_cliente` DECIMAL(12,2) NOT NULL,
-    `monto_comision_pasarela` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-    `monto_neto_recibido` DECIMAL(12,2) NOT NULL,
-    `monto_aplicado_venta` DECIMAL(12,2) NOT NULL,
-    `monto_excedente` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-    `monto_reembolsado_acumulado` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    -- Desglose Financiero Estricto de 4 Importes + Excedente
+    `monto_cobrado_cliente` DECIMAL(12,2) NOT NULL COMMENT 'Monto total desembolsado por el cliente',
+    `comision_porcentaje_aplicada` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    `comision_fija_aplicada` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    `comision_pasarela` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Costo financiero deducido por pasarela/canal',
+    `monto_neto_recibido` DECIMAL(12,2) NOT NULL COMMENT 'Monto líquido acreditado a la organización',
+    `monto_aplicado_venta` DECIMAL(12,2) NOT NULL COMMENT 'Monto que amortiza la deuda comercial de la venta',
+    `monto_excedente` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Sobrepago a favor del cliente',
+    `comision_asumida_por` ENUM('ORGANIZACION', 'CLIENTE') NOT NULL DEFAULT 'ORGANIZACION',
 
+    -- Control Append-Only de Reembolsos Ejecutados
+    `monto_reembolsado_acumulado` DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT 'Suma de reembolsos con estado EJECUTADO',
+
+    `fecha_pago` DATETIME NOT NULL,
     `cuenta_bancaria_id` INT UNSIGNED NULL,
     `organizacion_pasarela_id` INT UNSIGNED NULL,
-    `transaccion_externa_id` VARCHAR(150) NULL,
-    `numero_operacion_bancaria` VARCHAR(60) NULL,
-    `boucher_archivo_url` VARCHAR(255) NULL,
-    `fecha_pago` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `verificado_por` INT UNSIGNED NULL,
-    `verificado_en` DATETIME NULL,
+    `numero_operacion_bancaria` VARCHAR(60) NULL COMMENT 'Número de operación / boucher de transferencia',
+    `boucher_comprobante_url` VARCHAR(255) NULL COMMENT 'Ruta relativa segura a la captura del boucher',
     `notas_operativas` TEXT NULL,
-    `clave_idempotencia` VARCHAR(150) NULL,
+    `clave_idempotencia` VARCHAR(64) NULL COMMENT 'Hash SHA-256 para evitar doble cobro',
     `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
+    `verificado_por` INT UNSIGNED NULL COMMENT 'Usuario que verificó el depósito bancario',
+    `verificado_en` DATETIME NULL,
     `creado_por` INT UNSIGNED NOT NULL,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    CONSTRAINT `fk_pagos_org` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
-    CONSTRAINT `fk_pagos_edicion` FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
-    CONSTRAINT `fk_pagos_venta` FOREIGN KEY (`venta_id`, `organizacion_id`, `edicion_id`)
+    -- Integridad Relacional y Multitenant con RESTRICT
+    CONSTRAINT `fk_pagos_organizacion` FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_venta_org_edic` FOREIGN KEY (`venta_id`, `organizacion_id`, `edicion_id`)
         REFERENCES `ventas` (`id`, `organizacion_id`, `edicion_id`) ON DELETE RESTRICT,
-    CONSTRAINT `fk_pagos_cuenta` FOREIGN KEY (`cuenta_bancaria_id`, `organizacion_id`)
+    CONSTRAINT `fk_pagos_cuenta_bancaria` FOREIGN KEY (`cuenta_bancaria_id`, `organizacion_id`)
         REFERENCES `cuentas_bancarias_organizacion` (`id`, `organizacion_id`) ON DELETE RESTRICT,
     CONSTRAINT `fk_pagos_org_pasarela` FOREIGN KEY (`organizacion_pasarela_id`, `organizacion_id`)
         REFERENCES `organizacion_pasarelas` (`id`, `organizacion_id`) ON DELETE RESTRICT,
-    CONSTRAINT `fk_pagos_verificador` FOREIGN KEY (`verificado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
-    CONSTRAINT `fk_pagos_creador` FOREIGN KEY (`creado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_verificado_por` FOREIGN KEY (`verificado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    CONSTRAINT `fk_pagos_creado_por` FOREIGN KEY (`creado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
 
-    CONSTRAINT `uk_pagos_correlativo` UNIQUE (`organizacion_id`, `correlativo`),
+    CONSTRAINT `uk_pagos_correlativo_org` UNIQUE (`organizacion_id`, `correlativo`),
     CONSTRAINT `uk_pagos_idempotencia` UNIQUE (`organizacion_id`, `clave_idempotencia`),
     CONSTRAINT `uk_pagos_compuesta` UNIQUE (`id`, `organizacion_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Libro mayor inmutable de pagos y cobros de ventas';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Libro mayor inmutable de cobros financieros';
 
 -- ------------------------------------------------------------------------------
 -- 58. TABLA `pago_intentos_pasarela` (TRAZABILIDAD DE WEBHOOKS Y SESIONES CHECKOUT)
