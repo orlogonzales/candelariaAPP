@@ -2963,7 +2963,8 @@ INSERT INTO `migraciones_control` (`migracion`, `lote`) VALUES
 ('2026_10_11_000022_crear_modulo_cierre_edicion_f212a.sql', 22),
 ('2026_10_11_000023_crear_permisos_reportes_y_dashboard_f212bc.sql', 23),
 ('2026_10_11_000024_crear_nucleo_programacion_folclorica_f31a.sql', 24),
-('2026_10_12_000025_agregar_segregacion_aprobacion_folclore.sql', 25)
+('2026_10_12_000025_agregar_segregacion_aprobacion_folclore.sql', 25),
+('2026_10_12_000026_incorporar_concurrencia_y_retrasos_seguimiento_folclore.sql', 26)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 -- ------------------------------------------------------------------------------
@@ -3180,6 +3181,8 @@ CREATE TABLE `folclore_orden_presentacion` (
     `hora_real_partida` DATETIME NULL,
     `hora_real_fin` DATETIME NULL,
     `observaciones` VARCHAR(255) NULL,
+    `version_bloqueo` INT UNSIGNED NOT NULL DEFAULT 1,
+    `retraso_minutos` INT NULL DEFAULT 0,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

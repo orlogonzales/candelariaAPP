@@ -112,6 +112,11 @@
                         <i class="fa-solid fa-route me-2"></i> Salidas de Operación
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link f-w-600 text-danger" id="tab-seguimiento-btn" data-bs-toggle="pill" data-bs-target="#tab-seguimiento" type="button" role="tab" aria-selected="false">
+                        <i class="fa-solid fa-tower-broadcast me-2"></i> Tablero de Seguimiento
+                    </button>
+                </li>
             </ul>
             <div class="d-flex align-items-center gap-2">
                 <label for="selectorEdicionTrabajo" class="f-s-12 text-muted text-nowrap f-w-600 mb-0">Edición:</label>
@@ -313,6 +318,110 @@
                                 <th>Conjunto / Danza</th>
                                 <th>Estado Salida</th>
                                 <th class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Inyectado dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ==============================================================================
+                 PESTAÑA 5: TABLERO DE SEGUIMIENTO Y COBERTURA AUDIOVISUAL (FASE 3.1C)
+            ============================================================================== -->
+            <div class="tab-pane fade" id="tab-seguimiento" role="tabpanel" aria-labelledby="tab-seguimiento-btn">
+                <!-- Tarjetas KPI del Tablero Operativo -->
+                <div class="row g-2 mb-3">
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="card border border-secondary-subtle shadow-none b-r-10 p-2 text-center bg-light">
+                            <span class="f-s-11 text-muted text-uppercase f-w-600">Total Conjuntos</span>
+                            <h4 class="f-w-700 text-dark mb-0 mt-1" id="kpiSegTotal">0</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="card border border-secondary-subtle shadow-none b-r-10 p-2 text-center bg-light">
+                            <span class="f-s-11 text-muted text-uppercase f-w-600">Pendientes</span>
+                            <h4 class="f-w-700 text-secondary mb-0 mt-1" id="kpiSegPendientes">0</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="card border border-primary-subtle shadow-none b-r-10 p-2 text-center bg-primary-subtle">
+                            <span class="f-s-11 text-primary text-uppercase f-w-600">En Curso</span>
+                            <h4 class="f-w-700 text-primary mb-0 mt-1" id="kpiSegEnCurso">0</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="card border border-success-subtle shadow-none b-r-10 p-2 text-center bg-success-subtle">
+                            <span class="f-s-11 text-success text-uppercase f-w-600">Finalizados</span>
+                            <h4 class="f-w-700 text-success mb-0 mt-1" id="kpiSegFinalizados">0</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="card border border-danger-subtle shadow-none b-r-10 p-2 text-center bg-danger-subtle">
+                            <span class="f-s-11 text-danger text-uppercase f-w-600">Con Retraso</span>
+                            <h4 class="f-w-700 text-danger mb-0 mt-1" id="kpiSegRetrasados">0</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="card border border-warning-subtle shadow-none b-r-10 p-2 text-center bg-warning-subtle">
+                            <span class="f-s-11 text-warning-emphasis text-uppercase f-w-600">Sin Cobertura</span>
+                            <h4 class="f-w-700 text-warning-emphasis mb-0 mt-1" id="kpiSegSinCobertura">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros Interactivos -->
+                <div class="row g-2 align-items-center mb-3 p-3 bg-light b-r-12 border">
+                    <div class="col-md-3">
+                        <label class="form-label f-s-12 f-w-600 text-muted mb-1">Actividad:</label>
+                        <select id="selectSegActividad" class="form-select form-select-sm b-r-8">
+                            <!-- Inyectado dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label f-s-12 f-w-600 text-muted mb-1">Estado Operativo:</label>
+                        <select id="selectSegEstado" class="form-select form-select-sm b-r-8">
+                            <option value="">-- Todos los estados --</option>
+                            <option value="PROGRAMADO">Pendiente</option>
+                            <option value="EN_PREPARACION">En Preparación</option>
+                            <option value="EN_RUTA">En Desplazamiento</option>
+                            <option value="EN_ESCENARIO">En Presentación</option>
+                            <option value="FINALIZADO">Finalizado</option>
+                            <option value="NO_PRESENTO">No Presentado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label f-s-12 f-w-600 text-muted mb-1">Buscar Conjunto / Danza:</label>
+                        <input type="text" class="form-control form-control-sm b-r-8" id="inputSegBusqueda" placeholder="Nombre o Danza...">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label f-s-12 f-w-600 text-muted mb-1">Personal Asignado:</label>
+                        <select id="selectSegPersonal" class="form-select form-select-sm b-r-8">
+                            <option value="">-- Todo el personal --</option>
+                            <!-- Inyectado dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100 b-r-8" id="btnRefrescarSeguimiento" title="Actualizar tablero">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla del Tablero Operativo -->
+                <div class="table-responsive">
+                    <table id="tablaTableroSeguimiento" class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 70px;">Turno</th>
+                                <th>Conjunto Folclórico</th>
+                                <th>Horario Programado</th>
+                                <th>Estado Operativo</th>
+                                <th>Horas Reales & Retraso</th>
+                                <th>Cobertura Audiovisual</th>
+                                <th>Incidencias</th>
+                                <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -812,3 +921,84 @@
         </div>
     </div>
 </div>
+
+<!-- ==============================================================================
+     MODAL 10: CONTROL OPERATIVO Y ESTADO DE TURNO (FASE 3.1C)
+============================================================================== -->
+<div class="modal fade" id="modalActualizarEstadoOperativo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content b-r-16 border-0 shadow">
+            <div class="modal-header bg-danger text-white b-r-top-16 py-3">
+                <h5 class="modal-title f-w-600">
+                    <i class="fa-solid fa-stopwatch-20 me-2"></i> Control Operativo de Turno
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formActualizarEstadoOperativo" novalidate>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="segTurnoId" name="turno_id">
+                    <input type="hidden" id="segVersionBloqueo" name="version_bloqueo">
+
+                    <div class="p-3 mb-3 bg-light b-r-10 border border-secondary-subtle">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="badge bg-secondary mb-1" id="segBadgeSorteo">Turno #--</span>
+                                <h6 class="f-w-700 mb-0 text-dark" id="segNombreConjunto">Cargando comparsa...</h6>
+                                <span class="f-s-12 text-muted" id="segNombreDanza">Danza</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="f-s-11 text-muted d-block">Programado:</span>
+                                <span class="f-s-13 f-w-700 text-primary" id="segHorarioEstimado">--:--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label f-s-13 f-w-600">Estado Operativo <span class="text-danger">*</span></label>
+                        <select class="form-select b-r-8" id="segEstadoTurno" name="estado_turno" required>
+                            <option value="PROGRAMADO">Pendiente (En espera de turno)</option>
+                            <option value="EN_PREPARACION">En Preparación (Zona de concentración)</option>
+                            <option value="EN_RUTA">En Desplazamiento (Avanzando en pasacalle)</option>
+                            <option value="EN_ESCENARIO">En Presentación (Frente a estrado/veneración)</option>
+                            <option value="FINALIZADO">Finalizado (Culminó participación)</option>
+                            <option value="NO_PRESENTO">No Presentado (Ausente / Descalificado)</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label f-s-12 f-w-600">Hora Real de Inicio / Partida</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control b-r-left-8" id="segHoraRealPartida" name="hora_real_partida" placeholder="YYYY-MM-DD HH:MM:SS">
+                                <button type="button" class="btn btn-outline-secondary" id="btnHoraPartidaAhora" title="Establecer hora actual">Ahora</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label f-s-12 f-w-600">Hora Real de Finalización</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" class="form-control b-r-left-8" id="segHoraRealFin" name="hora_real_fin" placeholder="YYYY-MM-DD HH:MM:SS">
+                                <button type="button" class="btn btn-outline-secondary" id="btnHoraFinAhora" title="Establecer hora actual">Ahora</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label f-s-13 f-w-600">Retraso Operativo Estimado (en minutos)</label>
+                        <input type="number" class="form-control b-r-8" id="segRetrasoMinutos" name="retraso_minutos" min="0" placeholder="0">
+                        <span class="f-s-11 text-muted">Si se deja vacío, el sistema calculará el retraso automáticamente respecto a la hora programada.</span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label f-s-13 f-w-600">Bitácora de Incidencias / Observaciones</label>
+                        <textarea class="form-control b-r-8" id="segObservaciones" name="observaciones" rows="3" placeholder="Detalle cualquier demora, condición climática, incidente logístico o contingencia de campo..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-3 bg-light b-r-bottom-16">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-4" id="btnGuardarEstadoOperativo">Actualizar Estado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+

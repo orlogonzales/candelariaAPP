@@ -536,5 +536,9 @@ Enrutador::delete('/api/v1/folclore/turnos/{id}', [\Aplicacion\Controladores\Fol
 
 Enrutador::post('/api/v1/folclore/turnos/{id}/vincular-salida', [\Aplicacion\Controladores\FolcloreControlador::class, 'vincularSalidaOperativa']);
 
+// Seguimiento Operativo y Cobertura Audiovisual (Fase 3.1C - DT-V11-008)
+Enrutador::get('/api/v1/folclore/seguimiento/tablero', [\Aplicacion\Controladores\FolcloreControlador::class, 'obtenerTableroOperativo']);
+Enrutador::put('/api/v1/folclore/seguimiento/turnos/{id}/estado', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarEstadoOperativoTurno']);
+
 
 

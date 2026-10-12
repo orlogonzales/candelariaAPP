@@ -7,6 +7,7 @@ namespace Aplicacion\Controladores;
 use Aplicacion\Autorizacion\AutorizacionServicio;
 use Aplicacion\Ediciones\ContextoEdicionResolver;
 use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
+use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use Aplicacion\Folclore\CategoriaDanza;
 use Aplicacion\Folclore\EstadoActividadFolclorica;
 use Aplicacion\Folclore\EstadoConfirmacionProgramacion;
@@ -756,6 +757,104 @@ class FolcloreControlador
             return $this->responderError($e->getMessage(), 422);
         } catch (Throwable $e) {
             return $this->responderError('Error al vincular salida operativa: ' . $e->getMessage(), 500);
+        }
+    }
+
+    // ==============================================================================
+    // API: SEGUIMIENTO OPERATIVO Y COBERTURA AUDIOVISUAL (FASE 3.1C - DT-V11-008)
+    // ==============================================================================
+
+    public function obtenerTableroOperativo(): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('folclore.programacion.ver');
+
+            $edicionId = isset($_GET['edicion_id']) && is_numeric($_GET['edicion_id'])
+                ? (int)$_GET['edicion_id']
+                : null;
+
+            if ($edicionId === null || $edicionId <= 0) {
+                $edicionActiva = $this->edicionRepo->obtenerEdicionActiva($contexto->organizacionId);
+                $edicionId = $edicionActiva?->id ?? 0;
+            }
+
+            if ($edicionId <= 0) {
+                return $this->responderError('No se especificó una edición válida ni existe una edición activa configurada.', 400);
+            }
+
+            $actividadId = isset($_GET['actividad_id']) && is_numeric($_GET['actividad_id'])
+                ? (int)$_GET['actividad_id'] : null;
+            $conjuntoId = isset($_GET['conjunto_id']) && is_numeric($_GET['conjunto_id'])
+                ? (int)$_GET['conjunto_id'] : null;
+            $filtroEstado = isset($_GET['estado']) && !empty($_GET['estado'])
+                ? (string)$_GET['estado'] : null;
+            $personaId = isset($_GET['persona_id']) && is_numeric($_GET['persona_id'])
+                ? (int)$_GET['persona_id'] : null;
+
+            $datos = $this->folcloreServicio->obtenerTableroOperativo(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $edicionId,
+                actividadId: $actividadId,
+                conjuntoId: $conjuntoId,
+                filtroEstado: $filtroEstado,
+                personaAsignadaId: $personaId,
+                contexto: $contexto
+            );
+
+            return $this->responderExito($datos);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al obtener datos del tablero operativo: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function actualizarEstadoOperativoTurno(int $id): string
+    {
+        try {
+            $contexto = $this->verificarSesionYPermiso('folclore.programacion.gestionar');
+            $this->validarCsrf($contexto);
+            $datos = $this->obtenerPayloadJson();
+
+            $nuevoEstado = (string)($datos['estado_turno'] ?? $datos['estado'] ?? '');
+            if (empty($nuevoEstado)) {
+                return $this->responderError('Debe especificar un estado operativo válido.', 422);
+            }
+
+            $horaRealPartida = isset($datos['hora_real_partida']) && !empty($datos['hora_real_partida'])
+                ? (string)$datos['hora_real_partida'] : null;
+            $horaRealFin = isset($datos['hora_real_fin']) && !empty($datos['hora_real_fin'])
+                ? (string)$datos['hora_real_fin'] : null;
+            $observaciones = isset($datos['observaciones'])
+                ? (string)$datos['observaciones'] : null;
+            $retrasoMinutos = isset($datos['retraso_minutos']) && is_numeric($datos['retraso_minutos'])
+                ? (int)$datos['retraso_minutos'] : null;
+            $versionBloqueo = isset($datos['version_bloqueo']) && is_numeric($datos['version_bloqueo'])
+                ? (int)$datos['version_bloqueo'] : 1;
+
+            $actualizado = $this->folcloreServicio->actualizarEstadoOperativoTurno(
+                organizacionId: $contexto->organizacionId,
+                turnoId: $id,
+                nuevoEstadoEntrada: $nuevoEstado,
+                horaRealPartida: $horaRealPartida,
+                horaRealFin: $horaRealFin,
+                observaciones: $observaciones,
+                retrasoMinutos: $retrasoMinutos,
+                versionBloqueo: $versionBloqueo,
+                contexto: $contexto
+            );
+
+            return $this->responderExito($actualizado->aArreglo(), 'Estado operativo del turno actualizado exitosamente.');
+        } catch (ConflictoConcurrenciaExcepcion $e) {
+            return $this->responderError($e->getMessage(), 409);
+        } catch (AccesoDenegadoExcepcion $e) {
+            return $this->responderError($e->getMessage(), 403);
+        } catch (InvalidArgumentException $e) {
+            return $this->responderError($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->responderError('Error al actualizar estado operativo del turno: ' . $e->getMessage(), 500);
         }
     }
 

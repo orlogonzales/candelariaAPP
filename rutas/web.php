@@ -254,5 +254,6 @@ Enrutador::get('/dashboard-ejecutivo', [\Aplicacion\Controladores\DashboardContr
 // PROGRAMACIÓN FOLCLÓRICA Y CONJUNTOS (FASE 3.1B — DT-V11-004)
 // ==============================================================================
 Enrutador::get('/folclore', [\Aplicacion\Controladores\FolcloreControlador::class, 'index']);
+Enrutador::get('/folclore/tablero', [\Aplicacion\Controladores\FolcloreControlador::class, 'index']);
 
 

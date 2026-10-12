@@ -36,6 +36,9 @@ class ModuloFolclore {
         this.versiones = [];
         this.turnos = [];
         this.salidas = [];
+        this.tableroTurnos = [];
+        this.tableroKpis = {};
+        this.personalOperativo = [];
 
         this.instanciasFlatpickr = {};
         this.init();
@@ -69,7 +72,8 @@ class ModuloFolclore {
                 if (modalParam === 'conjunto') this.abrirModalConjunto();
                 if (modalParam === 'inscripcion') this.abrirModalInscripcion();
                 if (modalParam === 'turno') this.abrirModalTurno();
-            }, 300);
+                if (modalParam === 'control' || modalParam === 'estado') this.abrirModalControlOperativo();
+            }, 600);
         }
     }
 
@@ -180,6 +184,24 @@ class ModuloFolclore {
         document.getElementById('formTurno')?.addEventListener('submit', (e) => this.guardarTurno(e));
         document.getElementById('formVincularSalida')?.addEventListener('submit', (e) => this.guardarVinculoSalida(e));
         document.getElementById('btnDesvincularSalida')?.addEventListener('click', () => this.guardarVinculoSalida(null, true));
+
+        // Eventos del Tablero de Seguimiento Operativo (Fase 3.1C)
+        document.getElementById('selectSegActividad')?.addEventListener('change', () => this.cargarTableroSeguimiento());
+        document.getElementById('selectSegEstado')?.addEventListener('change', () => this.cargarTableroSeguimiento());
+        document.getElementById('selectSegPersonal')?.addEventListener('change', () => this.cargarTableroSeguimiento());
+        document.getElementById('btnRefrescarSeguimiento')?.addEventListener('click', () => this.cargarTableroSeguimiento());
+        document.getElementById('inputSegBusqueda')?.addEventListener('input', () => this.renderizarTableroSeguimiento());
+        document.getElementById('tab-seguimiento-btn')?.addEventListener('shown.bs.tab', () => this.cargarTableroSeguimiento());
+
+        document.getElementById('formActualizarEstadoOperativo')?.addEventListener('submit', (e) => this.guardarEstadoOperativo(e));
+        document.getElementById('btnHoraPartidaAhora')?.addEventListener('click', () => {
+            const input = document.getElementById('segHoraRealPartida');
+            if (input) input.value = this.obtenerHoraLimaActual();
+        });
+        document.getElementById('btnHoraFinAhora')?.addEventListener('click', () => {
+            const input = document.getElementById('segHoraRealFin');
+            if (input) input.value = this.obtenerHoraLimaActual();
+        });
     }
 
     async recargarTodo() {
@@ -233,6 +255,7 @@ class ModuloFolclore {
         await this.cargarInscripciones();
         await this.cargarActividades();
         await this.cargarSalidasOperativas();
+        await this.cargarTableroSeguimiento();
     }
 
     async cargarTiposDanza() {
@@ -709,6 +732,16 @@ class ModuloFolclore {
                 opt.value = a.id;
                 opt.textContent = `${a.titulo} (${a.codigo})`;
                 selModalVer.appendChild(opt);
+            });
+        }
+        const selSeg = document.getElementById('selectSegActividad');
+        if (selSeg) {
+            selSeg.innerHTML = '<option value="">-- Todas las actividades --</option>';
+            this.actividades.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = `${a.titulo} (${a.codigo})`;
+                selSeg.appendChild(opt);
             });
         }
     }
@@ -1358,6 +1391,328 @@ class ModuloFolclore {
         } catch (err) {
             this.notificar('Error en la comunicación con el servidor.', 'danger');
         }
+    }
+
+    // ==============================================================================
+    // SEGUIMIENTO OPERATIVO Y COBERTURA AUDIOVISUAL (FASE 3.1C - DT-V11-008)
+    // ==============================================================================
+
+    async cargarTableroSeguimiento() {
+        if (!this.edicionActualId) return;
+
+        const selAct = document.getElementById('selectSegActividad')?.value;
+        const selEst = document.getElementById('selectSegEstado')?.value;
+        const selPers = document.getElementById('selectSegPersonal')?.value;
+
+        let url = `${this.baseUrl}/api/v1/folclore/seguimiento/tablero?edicion_id=${this.edicionActualId}`;
+        if (selAct) url += `&actividad_id=${encodeURIComponent(selAct)}`;
+        if (selEst) url += `&estado=${encodeURIComponent(selEst)}`;
+        if (selPers) url += `&persona_id=${encodeURIComponent(selPers)}`;
+
+        try {
+            const resp = await fetch(url, { credentials: 'same-origin', headers: this.obtenerHeaders() });
+            const data = await resp.json();
+
+            if (data.exito && data.datos) {
+                this.tableroTurnos = data.datos.turnos || [];
+                this.tableroKpis = data.datos.kpis || {};
+
+                // Actualizar contadores KPI
+                const kpis = this.tableroKpis;
+                const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                setTxt('kpiSegTotal', kpis.total_turnos || 0);
+                setTxt('kpiSegPendientes', kpis.pendientes || 0);
+                setTxt('kpiSegEnCurso', kpis.en_curso || 0);
+                setTxt('kpiSegFinalizados', kpis.finalizados || 0);
+                setTxt('kpiSegRetrasados', kpis.con_retraso || 0);
+                setTxt('kpiSegSinCobertura', kpis.sin_cobertura || 0);
+
+                this.actualizarSelectorPersonalSeguimiento();
+                this.renderizarTableroSeguimiento();
+            }
+        } catch (err) {
+            console.error('Error al cargar datos del tablero de seguimiento:', err);
+        }
+    }
+
+    actualizarSelectorPersonalSeguimiento() {
+        const sel = document.getElementById('selectSegPersonal');
+        if (!sel) return;
+
+        const personalMap = new Map();
+        this.tableroTurnos.forEach(t => {
+            (t.salidas_cobertura || []).forEach(s => {
+                (s.personal || []).forEach(p => {
+                    if (p.persona_id && !personalMap.has(p.persona_id)) {
+                        personalMap.set(p.persona_id, `${p.nombre_completo} (${p.rol_operativo})`);
+                    }
+                });
+            });
+        });
+
+        const valorActual = sel.value;
+        sel.innerHTML = '<option value="">-- Todo el personal --</option>';
+        personalMap.forEach((nombre, id) => {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = nombre;
+            if (String(id) === String(valorActual)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    renderizarTableroSeguimiento() {
+        const tbody = document.querySelector('#tablaTableroSeguimiento tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        const filtroTexto = (document.getElementById('inputSegBusqueda')?.value || '').toLowerCase().trim();
+
+        const turnosFiltrados = this.tableroTurnos.filter(t => {
+            if (!filtroTexto) return true;
+            const conjunto = (t.conjunto_nombre || '').toLowerCase();
+            const danza = (t.tipo_danza_nombre || '').toLowerCase();
+            const orden = String(t.orden_sorteo);
+            return conjunto.includes(filtroTexto) || danza.includes(filtroTexto) || orden.includes(filtroTexto);
+        });
+
+        if (turnosFiltrados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fa-solid fa-masks-theater f-s-24 d-block mb-2 text-secondary"></i>No hay conjuntos en seguimiento que coincidan con los filtros seleccionados.</td></tr>';
+            return;
+        }
+
+        turnosFiltrados.forEach(t => {
+            const tr = document.createElement('tr');
+
+            // 1. Sorteo
+            const tdSorteo = `<span class="badge bg-secondary f-s-13 f-w-700 px-2 py-1">#${t.orden_sorteo}</span>`;
+
+            // 2. Conjunto y Danza
+            const emblema = t.conjunto_emblema_url
+                ? `<img src="${this.escapar(t.conjunto_emblema_url)}" class="rounded-circle me-2" width="32" height="32" style="object-fit:cover;">`
+                : `<div class="w-32 h-32 rounded-circle bg-danger-subtle text-danger d-inline-flex align-items-center justify-content-center me-2 f-s-12 f-w-700">${(t.conjunto_nombre || 'C').charAt(0)}</div>`;
+            const bloqueInfo = t.bloque_nombre ? `<span class="badge bg-light text-dark border ms-1 f-s-10">${this.escapar(t.bloque_nombre)}</span>` : '';
+            const tdConjunto = `
+                <div class="d-flex align-items-center">
+                    ${emblema}
+                    <div>
+                        <span class="f-w-700 text-dark d-block">${this.escapar(t.conjunto_nombre)} ${bloqueInfo}</span>
+                        <span class="f-s-11 text-muted"><i class="fa-solid fa-feather me-1"></i>${this.escapar(t.tipo_danza_nombre)}</span>
+                    </div>
+                </div>
+            `;
+
+            // 3. Horario Programado
+            const tdHorarioProg = `
+                <div>
+                    <span class="f-w-600 text-dark"><i class="fa-regular fa-clock me-1 text-primary"></i>${t.hora_estimada_partida.substring(0, 5)}</span>
+                    ${t.hora_estimada_llegada ? `<span class="f-s-11 text-muted d-block">Est. Fin: ${t.hora_estimada_llegada.substring(0, 5)}</span>` : ''}
+                </div>
+            `;
+
+            // 4. Estado Operativo
+            const badgeClase = t.color_badge || 'secondary';
+            const tdEstado = `
+                <span class="badge bg-${badgeClase}-subtle text-${badgeClase} f-s-12 px-2 py-1">
+                    <i class="fa-solid fa-circle f-s-8 me-1"></i>${this.escapar(t.estado_operativo_etiqueta)}
+                </span>
+            `;
+
+            // 5. Horas Reales & Retraso
+            let retrasoBadge = '';
+            if (t.retraso_minutos > 0) {
+                retrasoBadge = `<span class="badge bg-danger-subtle text-danger f-s-11 mt-1 d-inline-block"><i class="fa-solid fa-triangle-exclamation me-1"></i>+${t.retraso_minutos} min</span>`;
+            } else if (t.estado_turno === 'FINALIZADO' || t.hora_real_partida) {
+                retrasoBadge = `<span class="badge bg-success-subtle text-success f-s-11 mt-1 d-inline-block"><i class="fa-solid fa-check me-1"></i>A tiempo</span>`;
+            }
+            const horaPartida = t.hora_real_partida ? t.hora_real_partida.substring(11, 16) : '--:--';
+            const horaFin = t.hora_real_fin ? t.hora_real_fin.substring(11, 16) : '--:--';
+            const tdTiempos = `
+                <div class="f-s-12">
+                    <div><span class="text-muted">Inicio:</span> <strong>${horaPartida}</strong> | <span class="text-muted">Fin:</span> <strong>${horaFin}</strong></div>
+                    ${retrasoBadge}
+                </div>
+            `;
+
+            // 6. Cobertura Audiovisual & Personal
+            let coberturaHtml = '';
+            const salidas = t.salidas_cobertura || [];
+            if (salidas.length === 0) {
+                coberturaHtml = `<span class="badge bg-warning-subtle text-warning-emphasis"><i class="fa-solid fa-video-slash me-1"></i>Sin Cuadrilla</span>`;
+            } else {
+                coberturaHtml = salidas.map(s => {
+                    const personalChips = (s.personal || []).map(p =>
+                        `<span class="badge bg-light text-dark border me-1 mb-1 f-s-10" title="${this.escapar(p.rol_operativo)}"><i class="fa-solid fa-user me-1 text-primary"></i>${this.escapar(p.nombre_completo)}</span>`
+                    ).join('');
+                    return `
+                        <div class="mb-1">
+                            <span class="badge bg-primary-subtle text-primary f-w-600 f-s-11 me-1"><i class="fa-solid fa-camera me-1"></i>${this.escapar(s.correlativo)}</span>
+                            <div class="mt-1">${personalChips || '<span class="f-s-10 text-muted">Sin operador asignado</span>'}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // 7. Incidencias
+            const tdIncidencias = t.observaciones
+                ? `<div class="f-s-12 text-secondary text-truncate" style="max-width: 180px;" title="${this.escapar(t.observaciones)}"><i class="fa-solid fa-comment-dots text-danger me-1"></i>${this.escapar(t.observaciones)}</div>`
+                : `<span class="f-s-11 text-muted">Sin incidencias</span>`;
+
+            // 8. Acciones
+            const tdAcciones = `
+                <div class="text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger me-1 btn-control-operativo" data-id="${t.id}" title="Actualizar estado operativo y tiempos">
+                        <i class="fa-solid fa-pen-to-square me-1"></i> Estado
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary btn-vincular-cobertura" data-id="${t.id}" title="Vincular salida audiovisual">
+                        <i class="fa-solid fa-link"></i>
+                    </button>
+                </div>
+            `;
+
+            tr.innerHTML = `
+                <td>${tdSorteo}</td>
+                <td>${tdConjunto}</td>
+                <td>${tdHorarioProg}</td>
+                <td>${tdEstado}</td>
+                <td>${tdTiempos}</td>
+                <td>${coberturaHtml}</td>
+                <td>${tdIncidencias}</td>
+                <td>${tdAcciones}</td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+        // Vincular eventos de botones de fila
+        tbody.querySelectorAll('.btn-control-operativo').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.getAttribute('data-id'), 10);
+                this.abrirModalControlOperativo(id);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-vincular-cobertura').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.getAttribute('data-id'), 10);
+                this.abrirModalVincularSalidaDesdeTablero(id);
+            });
+        });
+    }
+
+    abrirModalControlOperativo(turnoId) {
+        let turno = null;
+        if (turnoId) {
+            turno = this.tableroTurnos.find(t => t.id === turnoId);
+        } else if (this.tableroTurnos && this.tableroTurnos.length > 0) {
+            turno = this.tableroTurnos[0];
+        }
+        if (!turno) return;
+
+        document.getElementById('segTurnoId').value = turno.id;
+        document.getElementById('segVersionBloqueo').value = turno.version_bloqueo || 1;
+        document.getElementById('segBadgeSorteo').textContent = `Turno #${turno.orden_sorteo}`;
+        document.getElementById('segNombreConjunto').textContent = turno.conjunto_nombre || 'Comparsa';
+        document.getElementById('segNombreDanza').textContent = turno.tipo_danza_nombre || 'Danza';
+        document.getElementById('segHorarioEstimado').textContent = `${turno.hora_estimada_partida.substring(0, 5)} - ${turno.hora_estimada_llegada ? turno.hora_estimada_llegada.substring(0, 5) : '--:--'}`;
+
+        document.getElementById('segEstadoTurno').value = turno.estado_turno || 'PROGRAMADO';
+        document.getElementById('segHoraRealPartida').value = turno.hora_real_partida || '';
+        document.getElementById('segHoraRealFin').value = turno.hora_real_fin || '';
+        document.getElementById('segRetrasoMinutos').value = turno.retraso_minutos ?? 0;
+        document.getElementById('segObservaciones').value = turno.observaciones || '';
+
+        const modalEl = document.getElementById('modalActualizarEstadoOperativo');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    }
+
+    abrirModalVincularSalidaDesdeTablero(turnoId) {
+        const turno = this.tableroTurnos.find(t => t.id === turnoId);
+        const selTurno = document.getElementById('vincularTurnoId');
+        if (selTurno && turno) {
+            selTurno.value = turno.id;
+        }
+
+        const modalEl = document.getElementById('modalVincularSalida');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    }
+
+    async guardarEstadoOperativo(e) {
+        e.preventDefault();
+        const turnoId = parseInt(document.getElementById('segTurnoId').value, 10);
+        const versionBloqueo = parseInt(document.getElementById('segVersionBloqueo').value, 10) || 1;
+        const estadoTurno = document.getElementById('segEstadoTurno').value;
+        const horaPartida = document.getElementById('segHoraRealPartida').value.trim();
+        const horaFin = document.getElementById('segHoraRealFin').value.trim();
+        const retrasoVal = document.getElementById('segRetrasoMinutos').value;
+        const observaciones = document.getElementById('segObservaciones').value.trim();
+
+        const payload = {
+            estado_turno: estadoTurno,
+            hora_real_partida: horaPartida || null,
+            hora_real_fin: horaFin || null,
+            retraso_minutos: retrasoVal !== '' ? parseInt(retrasoVal, 10) : null,
+            observaciones: observaciones || null,
+            version_bloqueo: versionBloqueo
+        };
+
+        const btn = document.getElementById('btnGuardarEstadoOperativo');
+        if (btn) btn.disabled = true;
+
+        try {
+            const resp = await fetch(`${this.baseUrl}/api/v1/folclore/seguimiento/turnos/${turnoId}/estado`, {
+                method: 'PUT',
+                headers: this.obtenerHeaders(),
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+
+            if (resp.status === 409) {
+                // Conflicto de concurrencia optimista
+                if (typeof Swal !== 'undefined') {
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Conflicto de Concurrencia (409)',
+                        text: data.mensaje || 'El turno fue modificado concurrentemente por otro operador. Se recargarán los datos actualizados.',
+                        confirmButtonText: 'Entendido y Recargar'
+                    });
+                } else {
+                    alert(data.mensaje || 'Conflicto de concurrencia: El turno fue modificado por otro operador.');
+                }
+                bootstrap.Modal.getInstance(document.getElementById('modalActualizarEstadoOperativo'))?.hide();
+                await this.cargarTableroSeguimiento();
+                return;
+            }
+
+            if (data.exito) {
+                bootstrap.Modal.getInstance(document.getElementById('modalActualizarEstadoOperativo'))?.hide();
+                await this.cargarTableroSeguimiento();
+                await this.actualizarVistaRolYTurnos();
+                this.notificar(data.mensaje || 'Estado operativo actualizado con éxito.', 'success');
+            } else {
+                this.notificar(data.mensaje || 'Error al actualizar estado operativo.', 'danger');
+            }
+        } catch (err) {
+            console.error('Error al guardar estado operativo:', err);
+            this.notificar('Error de comunicación con el servidor.', 'danger');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    obtenerHoraLimaActual() {
+        const ahora = new Date();
+        const y = ahora.getFullYear();
+        const m = String(ahora.getMonth() + 1).padStart(2, '0');
+        const d = String(ahora.getDate()).padStart(2, '0');
+        const hh = String(ahora.getHours()).padStart(2, '0');
+        const mm = String(ahora.getMinutes()).padStart(2, '0');
+        const ss = String(ahora.getSeconds()).padStart(2, '0');
+        return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
     }
 
     // ==============================================================================

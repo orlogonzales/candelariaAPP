@@ -801,6 +801,129 @@ class ProgramacionFolcloricaServicio
         return $this->programacionRepo->listarTurnosPorProgramacion($programacionId);
     }
 
+    /**
+     * Actualiza el estado operativo y tiempos reales de un turno en el Tablero de Seguimiento (Fase 3.1C).
+     * Aplica la máquina de estados, control de concurrencia optimista (HTTP 409) y auditoría inmutable.
+     */
+    public function actualizarEstadoOperativoTurno(
+        int $organizacionId,
+        int $turnoId,
+        string|EstadoTurnoPresentacion $nuevoEstadoEntrada,
+        ?string $horaRealPartida = null,
+        ?string $horaRealFin = null,
+        ?string $observaciones = null,
+        ?int $retrasoMinutos = null,
+        int $versionBloqueo = 1,
+        ?ContextoOperacion $contexto = null
+    ): OrdenPresentacionFolclorico {
+        $this->validarPermiso('folclore.programacion.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->programacionRepo->buscarTurnoPorId($turnoId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("El turno folclórico especificado (#{$turnoId}) no existe.");
+        }
+
+        $prog = $this->programacionRepo->buscarProgramacionPorId($existente->programacionOficialId, $organizacionId);
+        if ($prog === null) {
+            throw new InvalidArgumentException("Violación de alcance tenant: El turno no pertenece a esta organización.");
+        }
+
+        // 1. Normalización de estado y validación de máquina de estados
+        $estadoActual = $existente->estadoTurno;
+        $nuevoEstado = EstadoTurnoPresentacion::normalizar($nuevoEstadoEntrada);
+
+        if (!$estadoActual->puedeTransicionarA($nuevoEstado)) {
+            throw new InvalidArgumentException(
+                "Transición de estado operativa no permitida: No se puede cambiar de '{$estadoActual->etiquetaOperativa()}' ({$estadoActual->value}) a '{$nuevoEstado->etiquetaOperativa()}' ({$nuevoEstado->value})."
+            );
+        }
+
+        // 2. Coherencia cronológica en zona horaria America/Lima
+        $ahoraLima = (new \DateTimeImmutable('now', new \DateTimeZone('America/Lima')))->format('Y-m-d H:i:s');
+
+        // Si pasa a estado activo y no se definió hora de partida, asignar automáticamente si estaba en null
+        if (in_array($nuevoEstado, [EstadoTurnoPresentacion::EN_PREPARACION, EstadoTurnoPresentacion::EN_RUTA, EstadoTurnoPresentacion::EN_ESCENARIO], true)) {
+            if ($horaRealPartida === null && $existente->horaRealPartida === null) {
+                $horaRealPartida = $ahoraLima;
+            } elseif ($horaRealPartida === null) {
+                $horaRealPartida = $existente->horaRealPartida;
+            }
+        }
+
+        // Si pasa a FINALIZADO y no se definió hora fin, asignar automáticamente si estaba en null
+        if ($nuevoEstado === EstadoTurnoPresentacion::FINALIZADO) {
+            if ($horaRealFin === null && $existente->horaRealFin === null) {
+                $horaRealFin = $ahoraLima;
+            } elseif ($horaRealFin === null) {
+                $horaRealFin = $existente->horaRealFin;
+            }
+        }
+
+        if ($horaRealPartida !== null && $horaRealFin !== null) {
+            if (strtotime($horaRealFin) < strtotime($horaRealPartida)) {
+                throw new InvalidArgumentException("Incoherencia cronológica: La hora de finalización ({$horaRealFin}) no puede ser anterior a la hora de partida ({$horaRealPartida}).");
+            }
+        }
+
+        // 3. Ejecutar actualización con control de concurrencia optimista
+        $this->programacionRepo->actualizarEstadoOperativoTurno(
+            turnoId: $turnoId,
+            nuevoEstado: $nuevoEstado,
+            horaRealPartida: $horaRealPartida,
+            horaRealFin: $horaRealFin,
+            observaciones: $observaciones ?? $existente->observaciones,
+            retrasoMinutos: $retrasoMinutos ?? $existente->retrasoMinutos,
+            versionBloqueoEsperada: $versionBloqueo
+        );
+
+        $actualizado = $this->programacionRepo->buscarTurnoPorId($turnoId);
+
+        // 4. Registro de auditoría
+        $this->registrarAuditoria($contexto, 'TURNO_ESTADO_OPERATIVO_ACTUALIZADO', 'folclore_orden_presentacion', $turnoId, [
+            'estado_anterior'   => $estadoActual->value,
+            'estado_nuevo'      => $nuevoEstado->value,
+            'hora_real_partida' => $horaRealPartida,
+            'hora_real_fin'     => $horaRealFin,
+            'retraso_minutos'   => $retrasoMinutos,
+            'version_bloqueo'   => $actualizado?->versionBloqueo,
+        ]);
+
+        return $actualizado;
+    }
+
+    /**
+     * Obtiene los datos consolidados y métricas para el Tablero Operativo de Seguimiento (Fase 3.1C).
+     *
+     * @return array{turnos: array, kpis: array}
+     */
+    public function obtenerTableroOperativo(
+        int $organizacionId,
+        int $edicionId,
+        ?int $actividadId = null,
+        ?int $conjuntoId = null,
+        string|EstadoTurnoPresentacion|null $filtroEstado = null,
+        ?int $personaAsignadaId = null,
+        ?ContextoOperacion $contexto = null
+    ): array {
+        $this->validarPermiso('folclore.programacion.ver', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $estadoEnum = null;
+        if ($filtroEstado !== null && $filtroEstado !== '') {
+            $estadoEnum = EstadoTurnoPresentacion::normalizar($filtroEstado);
+        }
+
+        return $this->programacionRepo->obtenerDatosTableroSeguimiento(
+            organizacionId: $organizacionId,
+            edicionId: $edicionId,
+            actividadId: $actividadId,
+            conjuntoId: $conjuntoId,
+            filtroEstado: $estadoEnum,
+            personaAsignadaId: $personaAsignadaId
+        );
+    }
+
     // --- INTEGRACIÓN OPCIONAL CON RESERVAS Y OPERACIONES ---
 
     /**

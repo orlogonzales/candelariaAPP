@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Aplicacion\Repositorios;
 
+use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use Aplicacion\Folclore\ActividadFolcloricaEdicion;
 use Aplicacion\Folclore\EstadoConfirmacionProgramacion;
+use Aplicacion\Folclore\EstadoTurnoPresentacion;
 use Aplicacion\Folclore\OrdenPresentacionFolclorico;
 use Aplicacion\Folclore\ProgramacionOficialEdicion;
 use PDO;
@@ -319,7 +321,9 @@ class ProgramacionFolcloricaRepositorio
                 `estado_turno` = :estado,
                 `hora_real_partida` = :real_partida,
                 `hora_real_fin` = :real_fin,
-                `observaciones` = :obs
+                `observaciones` = :obs,
+                `version_bloqueo` = `version_bloqueo` + 1,
+                `retraso_minutos` = :retraso
             WHERE `id` = :id
         ");
 
@@ -333,7 +337,309 @@ class ProgramacionFolcloricaRepositorio
             'real_partida' => $turno->horaRealPartida,
             'real_fin'     => $turno->horaRealFin,
             'obs'          => $turno->observaciones,
+            'retraso'      => $turno->retrasoMinutos ?? 0,
         ]);
+    }
+
+    /**
+     * Actualiza el estado operativo y horarios reales del turno implementando control de concurrencia optimista (HTTP 409).
+     */
+    public function actualizarEstadoOperativoTurno(
+        int $turnoId,
+        EstadoTurnoPresentacion $nuevoEstado,
+        ?string $horaRealPartida,
+        ?string $horaRealFin,
+        ?string $observaciones,
+        ?int $retrasoMinutos,
+        int $versionBloqueoEsperada
+    ): bool {
+        $stmt = $this->pdo->prepare("
+            UPDATE `folclore_orden_presentacion`
+            SET `estado_turno` = :estado,
+                `hora_real_partida` = :real_partida,
+                `hora_real_fin` = :real_fin,
+                `observaciones` = :observaciones,
+                `retraso_minutos` = :retraso,
+                `version_bloqueo` = `version_bloqueo` + 1
+            WHERE `id` = :id AND `version_bloqueo` = :version_esperada
+        ");
+
+        $stmt->execute([
+            'id'               => $turnoId,
+            'estado'           => $nuevoEstado->value,
+            'real_partida'     => $horaRealPartida,
+            'real_fin'         => $horaRealFin,
+            'observaciones'    => $observaciones,
+            'retraso'          => $retrasoMinutos,
+            'version_esperada' => $versionBloqueoEsperada,
+        ]);
+
+        if ($stmt->rowCount() === 0) {
+            // Verificar si el registro existe para detectar colisión de concurrencia optimista
+            $stmtCheck = $this->pdo->prepare("SELECT version_bloqueo FROM `folclore_orden_presentacion` WHERE id = :id");
+            $stmtCheck->execute(['id' => $turnoId]);
+            $fila = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+            if ($fila !== false) {
+                throw new ConflictoConcurrenciaExcepcion(
+                    "Conflicto de concurrencia (HTTP 409): El turno folclórico (#{$turnoId}) fue modificado por otro operador (versión en base de datos: {$fila['version_bloqueo']}, versión enviada: {$versionBloqueoEsperada}). Recargue el tablero para visualizar los datos actualizados."
+                );
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Obtiene los turnos enriquecidos con información del conjunto, danza, salidas de cobertura
+     * asignadas y métricas para el Tablero Operativo de Seguimiento Folclórico (Fase 3.1C).
+     *
+     * @return array{turnos: array, kpis: array}
+     */
+    public function obtenerDatosTableroSeguimiento(
+        int $organizacionId,
+        int $edicionId,
+        ?int $actividadId = null,
+        ?int $conjuntoId = null,
+        ?EstadoTurnoPresentacion $filtroEstado = null,
+        ?int $personaAsignadaId = null
+    ): array {
+        $sql = "
+            SELECT o.*,
+                   c.id as conjunto_id,
+                   c.nombre as conjunto_nombre,
+                   c.color_emblematico_hex as conjunto_color,
+                   c.sigla as conjunto_sigla,
+                   t.nombre as tipo_danza_nombre,
+                   t.categoria_origen as categoria_danza,
+                   a.id as actividad_id,
+                   a.titulo as actividad_titulo,
+                   a.fecha_inicio as actividad_fecha,
+                   p.id as programacion_oficial_id,
+                   p.version_numero as programacion_version,
+                   p.etiqueta_version as programacion_etiqueta,
+                    (SELECT GROUP_CONCAT(b.nombre SEPARATOR ', ') FROM `bloques_conjunto` b WHERE b.conjunto_id = c.id AND b.activo = 1) as bloque_nombre
+            FROM `folclore_orden_presentacion` o
+            JOIN `folclore_programaciones_oficiales` p ON o.programacion_oficial_id = p.id
+            JOIN `folclore_actividades_edicion` a ON p.actividad_id = a.id
+            JOIN `edicion_conjunto_inscripciones` i ON o.conjunto_edicion_id = i.id
+            JOIN `conjuntos_folcloricos` c ON i.conjunto_id = c.id
+            JOIN `tipos_danza` t ON c.tipo_danza_id = t.id
+            WHERE a.organizacion_id = :org_id
+              AND a.edicion_id = :edicion_id
+              AND p.es_version_activa = 1
+        ";
+
+        $params = [
+            'org_id'     => $organizacionId,
+            'edicion_id' => $edicionId,
+        ];
+
+        if ($actividadId !== null && $actividadId > 0) {
+            $sql .= " AND a.id = :actividad_id";
+            $params['actividad_id'] = $actividadId;
+        }
+
+        if ($conjuntoId !== null && $conjuntoId > 0) {
+            $sql .= " AND c.id = :conjunto_id";
+            $params['conjunto_id'] = $conjuntoId;
+        }
+
+        if ($filtroEstado !== null) {
+            $sql .= " AND o.estado_turno = :estado_turno";
+            $params['estado_turno'] = $filtroEstado->value;
+        }
+
+        $sql .= " ORDER BY o.orden_sorteo ASC";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $turnosFilas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($turnosFilas)) {
+            return [
+                'turnos' => [],
+                'kpis'   => [
+                    'total_turnos'      => 0,
+                    'pendientes'        => 0,
+                    'en_preparacion'    => 0,
+                    'en_desplazamiento' => 0,
+                    'en_presentacion'   => 0,
+                    'en_curso'          => 0,
+                    'finalizados'       => 0,
+                    'no_presentados'    => 0,
+                    'con_retraso'       => 0,
+                    'sin_cobertura'     => 0,
+                    'cobertura_activa'  => 0,
+                ],
+            ];
+        }
+
+        $turnoIds = array_column($turnosFilas, 'id');
+        $placeholders = implode(',', array_fill(0, count($turnoIds), '?'));
+
+        // Obtener salidas de cobertura vinculadas y su personal
+        $sqlSalidas = "
+            SELECT s.id as salida_id,
+                   s.correlativo,
+                   s.titulo,
+                   s.estado as estado_salida,
+                   s.fecha_salida,
+                   s.hora_salida,
+                   s.orden_presentacion_id,
+                   r.id as recurso_asignacion_id,
+                   r.rol_operativo,
+                   p.id as persona_id,
+                   p.nombres as persona_nombres,
+                   p.apellidos as persona_apellidos
+            FROM `operacion_salidas` s
+            LEFT JOIN `operacion_salida_recursos` r ON s.id = r.salida_id
+            LEFT JOIN `personas` p ON r.persona_id = p.id
+            WHERE s.organizacion_id = ?
+              AND s.orden_presentacion_id IN ({$placeholders})
+            ORDER BY s.id ASC
+        ";
+
+        $stmtSalidas = $this->pdo->prepare($sqlSalidas);
+        $stmtSalidas->execute(array_merge([$organizacionId], $turnoIds));
+        $salidasFilas = $stmtSalidas->fetchAll(PDO::FETCH_ASSOC);
+
+        // Agrupar salidas y recursos por orden_presentacion_id
+        $coberturaPorTurno = [];
+        foreach ($salidasFilas as $sf) {
+            $tId = (int)$sf['orden_presentacion_id'];
+            $sId = (int)$sf['salida_id'];
+
+            if (!isset($coberturaPorTurno[$tId][$sId])) {
+                $coberturaPorTurno[$tId][$sId] = [
+                    'salida_id'     => $sId,
+                    'correlativo'   => $sf['correlativo'],
+                    'titulo'        => $sf['titulo'],
+                    'estado_salida' => $sf['estado_salida'],
+                    'hora_salida'   => $sf['hora_salida'],
+                    'personal'      => [],
+                ];
+            }
+
+            if (!empty($sf['persona_id'])) {
+                $coberturaPorTurno[$tId][$sId]['personal'][] = [
+                    'persona_id'      => (int)$sf['persona_id'],
+                    'nombre_completo' => trim(($sf['persona_nombres'] ?? '') . ' ' . ($sf['persona_apellidos'] ?? '')),
+                    'rol_operativo'   => $sf['rol_operativo'],
+                ];
+            }
+        }
+
+        // Zona horaria de la festividad (America/Lima)
+        $ahora = new \DateTimeImmutable('now', new \DateTimeZone('America/Lima'));
+
+        $turnosResultado = [];
+        $kpis = [
+            'total_turnos'      => 0,
+            'pendientes'        => 0,
+            'en_preparacion'    => 0,
+            'en_desplazamiento' => 0,
+            'en_presentacion'   => 0,
+            'en_curso'          => 0,
+            'finalizados'       => 0,
+            'no_presentados'    => 0,
+            'con_retraso'       => 0,
+            'sin_cobertura'     => 0,
+            'cobertura_activa'  => 0,
+        ];
+
+        foreach ($turnosFilas as $f) {
+            $tId = (int)$f['id'];
+            $salidas = isset($coberturaPorTurno[$tId]) ? array_values($coberturaPorTurno[$tId]) : [];
+
+            // Si hay filtro por persona asignada, verificar si está presente en alguna salida
+            if ($personaAsignadaId !== null && $personaAsignadaId > 0) {
+                $personaEncontrada = false;
+                foreach ($salidas as $sal) {
+                    foreach ($sal['personal'] as $pers) {
+                        if ($pers['persona_id'] === $personaAsignadaId) {
+                            $personaEncontrada = true;
+                            break 2;
+                        }
+                    }
+                }
+                if (!$personaEncontrada) {
+                    continue;
+                }
+            }
+
+            // Cálculo determinista de retraso en minutos
+            $retrasoCalculado = 0;
+            $fechaActividad = $f['actividad_fecha'] ?? date('Y-m-d');
+            $horaEstimada = $f['hora_estimada_partida'];
+
+            try {
+                $dtEstimada = new \DateTimeImmutable("{$fechaActividad} {$horaEstimada}", new \DateTimeZone('America/Lima'));
+
+                if (!empty($f['hora_real_partida'])) {
+                    $dtReal = new \DateTimeImmutable($f['hora_real_partida'], new \DateTimeZone('America/Lima'));
+                    $difSegundos = $dtReal->getTimestamp() - $dtEstimada->getTimestamp();
+                    $retrasoCalculado = max(0, (int)floor($difSegundos / 60));
+                } elseif ($f['estado_turno'] === 'PROGRAMADO') {
+                    // Retraso en curso si ya pasó la hora estimada en la misma fecha
+                    if ($ahora > $dtEstimada && $ahora->format('Y-m-d') === $fechaActividad) {
+                        $difSegundos = $ahora->getTimestamp() - $dtEstimada->getTimestamp();
+                        $retrasoCalculado = max(0, (int)floor($difSegundos / 60));
+                    }
+                }
+            } catch (\Throwable) {
+                $retrasoCalculado = 0;
+            }
+
+            // Si en BD ya se grabó un retraso manual superior, prevalece
+            $retrasoFinal = max((int)($f['retraso_minutos'] ?? 0), $retrasoCalculado);
+
+            $f['salidas_cobertura'] = $salidas;
+            $f['retraso_minutos']   = $retrasoFinal;
+
+            $turnoObj = OrdenPresentacionFolclorico::desdeArreglo($f);
+            $datosTurno = $turnoObj->aArreglo();
+            $datosTurno['actividad_id']         = (int)$f['actividad_id'];
+            $datosTurno['actividad_titulo']     = $f['actividad_titulo'];
+            $datosTurno['actividad_fecha']      = $f['actividad_fecha'];
+            $datosTurno['conjunto_emblema_url'] = $f['conjunto_emblema_url'] ?? null;
+            $datosTurno['categoria_danza']      = $f['categoria_danza'] ?? null;
+
+            $turnosResultado[] = $datosTurno;
+
+            // Acumular KPIs
+            $kpis['total_turnos']++;
+            match ($f['estado_turno']) {
+                'PROGRAMADO'     => $kpis['pendientes']++,
+                'EN_PREPARACION' => $kpis['en_preparacion']++,
+                'EN_RUTA'        => $kpis['en_desplazamiento']++,
+                'EN_ESCENARIO'   => $kpis['en_presentacion']++,
+                'FINALIZADO'     => $kpis['finalizados']++,
+                'NO_PRESENTO'    => $kpis['no_presentados']++,
+                default          => null,
+            };
+
+            if (in_array($f['estado_turno'], ['EN_PREPARACION', 'EN_RUTA', 'EN_ESCENARIO'], true)) {
+                $kpis['en_curso']++;
+            }
+
+            if ($retrasoFinal > 0) {
+                $kpis['con_retraso']++;
+            }
+
+            if (empty($salidas)) {
+                $kpis['sin_cobertura']++;
+            } else {
+                $kpis['cobertura_activa']++;
+            }
+        }
+
+        return [
+            'turnos' => $turnosResultado,
+            'kpis'   => $kpis,
+        ];
     }
 
     public function eliminarTurno(int $turnoId): bool
@@ -342,3 +648,4 @@ class ProgramacionFolcloricaRepositorio
         return $stmt->execute(['id' => $turnoId]);
     }
 }
+
