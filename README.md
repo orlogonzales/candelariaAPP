@@ -23,7 +23,7 @@ El alcance funcional se encuentra **estrictamente congelado** a fin de garantiza
 
 ## 🚀 Arquitectura y Capacidades
 
-- **Backend:** PHP 8.2+ Nativo, Arquitectura Limpia Multicapa (Controladores, Servicios, Repositorios, Entidades).
+- **Backend:** PHP 8.3 Nativo (Versión oficial de referencia certificada), Arquitectura Limpia Multicapa (Controladores, Servicios, Repositorios, Entidades).
 - **Base de Datos:** MySQL 8.0+ en InnoDB con 97 tablas relacionales y 23 migraciones versionadas.
 - **Seguridad:** RBAC granular con 104 capacidades, protección estricta contra inyección SQL, CSRF, IDOR y fórmula injection en exportaciones OpenXML.
 - **Integridad Transaccional:** Desglose financiero estricto de 4 importes, libro mayor inmutable y actas de cierre con checksums criptográficos SHA-256.

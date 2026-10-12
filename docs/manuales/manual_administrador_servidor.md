@@ -23,12 +23,12 @@
   - `mod_headers` (para cabeceras de seguridad HSTS, X-Content-Type-Options, etc.)
   - `mod_ssl` (para terminación TLS 1.3 obligatoria)
 - **Motor de Base de Datos:** MySQL 8.0.30+ (o MariaDB 10.11+) con soporte de `utf8mb4` y transacciones ACID en InnoDB.
-- **Intérprete PHP:** PHP 8.2 o superior (8.3 recomendado).
+- **Intérprete PHP:** PHP 8.3 (Versión oficial de referencia certificada para CandelariaAPP V1).
 
-### 1.2 Extensiones PHP Obligatorias
+### 1.2 Extensiones PHP 8.3 Obligatorias
 ```bash
-sudo apt-get install -y php8.2 php8.2-fpm php8.2-mysql php8.2-mbstring \
-                        php8.2-xml php8.2-curl php8.2-zip php8.2-gd php8.2-bcmath
+sudo apt-get install -y php8.3 php8.3-fpm php8.3-mysql php8.3-mbstring \
+                        php8.3-xml php8.3-curl php8.3-zip php8.3-gd php8.3-bcmath
 ```
 
 ---
