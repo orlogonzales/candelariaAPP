@@ -139,6 +139,7 @@ try {
     $stmtOrg2->execute();
 
     // Edición 1 para Org 10000 (es_actual = 1)
+    $pdo->exec("UPDATE `ediciones_candelaria` SET `es_actual` = 0 WHERE `organizacion_id` = 10000");
     $ed1Org1Id = $edicionRepo->crear(new Edicion(
         id: null, organizacionId: 10000, codigo: 'candelaria-2026-test', nombre: 'Candelaria 2026 Test',
         anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,

@@ -129,6 +129,7 @@ try {
     echo "\n--- BLOQUE 2: MATRIZ EXHAUSTIVA DE RESOLUCIÓN Y COMPORTAMIENTO FAIL-CLOSED ---\n";
 
     // Sembrar dos ediciones en Org 10000 (Edición A actual=1, Edición B actual=0)
+    $pdo->exec("UPDATE `ediciones_candelaria` SET `es_actual` = 0 WHERE `organizacion_id` = 10000");
     $edAId = $edicionRepo->crear(new Edicion(
         id: null, organizacionId: 10000, codigo: 'candelaria-2026-hard', nombre: 'CANDELARIA 2026 HARDENING',
         anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,

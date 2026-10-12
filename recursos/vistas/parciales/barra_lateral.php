@@ -41,12 +41,14 @@ if ($contextoBarra !== null && $contextoBarra->usuarioId !== null) {
     $puedeVerComunicaciones = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'comunicaciones.ver');
     $puedeVerPostproduccion = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'postproduccion.proyectos.ver');
     $puedeVerDashboardEjecutivo = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'dashboard.ejecutivo.ver');
+    $puedeVerFolclore = $authzBarra->tienePermiso($contextoBarra->usuarioId, 'folclore.programacion.ver')
+        || $authzBarra->tienePermiso($contextoBarra->usuarioId, 'folclore.conjuntos.ver');
 }
 $seccionActual = $seccionActiva ?? 'dashboard';
 $esConfig = in_array($seccionActual, ['usuarios', 'organizacion', 'configuracion_general'], true);
 $esClientesCrm = in_array($seccionActual, ['clientes', 'crm_oportunidades', 'crm_origenes', 'cotizaciones', 'ventas'], true);
 $esCatalogo = in_array($seccionActual, ['catalogo_items', 'catalogo_paquetes', 'catalogo_ofertas'], true);
-$esOperaciones = in_array($seccionActual, ['reservas', 'operaciones', 'recursos', 'entregas'], true);
+$esOperaciones = in_array($seccionActual, ['reservas', 'operaciones', 'recursos', 'entregas', 'folclore'], true);
 $esPagos = in_array($seccionActual, ['pagos', 'pagos_cuentas', 'pagos_pasarelas'], true);
 $esComunicaciones = in_array($seccionActual, ['comunicaciones'], true);
 $esPostproduccion = in_array($seccionActual, ['postproduccion'], true);
@@ -310,6 +312,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                             </a>
                         </li>
                         <?php endif; ?>
+                        <?php if ($puedeVerFolclore): ?>
+                        <li class="no-sub">
+                            <a href="<?= url_base('folclore') ?>" class="<?= $seccionActual === 'folclore' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-masks-theater me-2 text-danger"></i> Programación Folclórica
+                            </a>
+                        </li>
+                        <?php endif; ?>
                     </ul>
 
                     <!-- Menú: Agenda -->
@@ -317,9 +326,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                         <li class="no-sub">
                             <a href="#"><i class="fa-solid fa-calendar-days me-2 text-secondary"></i> Citas y Reuniones Puno</a>
                         </li>
+                        <?php if ($puedeVerFolclore): ?>
                         <li class="no-sub">
-                            <a href="#"><i class="fa-solid fa-masks-theater me-2 text-secondary"></i> Cronograma Folclórico</a>
+                            <a href="<?= url_base('folclore') ?>" class="<?= $seccionActual === 'folclore' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-masks-theater me-2 text-secondary"></i> Cronograma Folclórico
+                            </a>
                         </li>
+                        <?php endif; ?>
                     </ul>
 
                     <!-- Menú: Pagos (F2.7E) -->

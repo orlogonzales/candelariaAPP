@@ -229,4 +229,96 @@ class ConjuntoFolcloricoRepositorio
 
         return array_map(fn($f) => InscripcionConjuntoEdicion::desdeArreglo($f), $filas);
     }
+
+    public function actualizar(ConjuntoFolclorico $conjunto): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `conjuntos_folcloricos`
+            SET `tipo_danza_id` = :tipo_id,
+                `nombre` = :nombre,
+                `sigla` = :sigla,
+                `fecha_fundacion` = :fecha_fundacion,
+                `nombre_presidente` = :nombre_presidente,
+                `telefono_contacto` = :telefono_contacto,
+                `color_emblematico_hex` = :color_hex,
+                `resena_historica` = :resena,
+                `activo` = :activo
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+
+        return $stmt->execute([
+            'id'                => $conjunto->id,
+            'org_id'            => $conjunto->organizacionId,
+            'tipo_id'           => $conjunto->tipoDanzaId,
+            'nombre'            => strtoupper(trim($conjunto->nombre)),
+            'sigla'             => $conjunto->sigla,
+            'fecha_fundacion'   => $conjunto->fechaFundacion,
+            'nombre_presidente' => $conjunto->nombrePresidente,
+            'telefono_contacto' => $conjunto->telefonoContacto,
+            'color_hex'         => $conjunto->colorEmblematicoHex,
+            'resena'            => $conjunto->resenaHistorica,
+            'activo'            => $conjunto->activo ? 1 : 0,
+        ]);
+    }
+
+    public function buscarBloquePorId(int $id, int $organizacionId): ?BloqueConjunto
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM `bloques_conjunto`
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+            LIMIT 1
+        ");
+        $stmt->execute(['id' => $id, 'org_id' => $organizacionId]);
+        $fila = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $fila ? BloqueConjunto::desdeArreglo($fila) : null;
+    }
+
+    public function actualizarBloque(BloqueConjunto $bloque): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `bloques_conjunto`
+            SET `nombre` = :nombre,
+                `responsable_nombre` = :responsable,
+                `telefono_contacto` = :telefono,
+                `activo` = :activo
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+
+        return $stmt->execute([
+            'id'          => $bloque->id,
+            'org_id'      => $bloque->organizacionId,
+            'nombre'      => strtoupper(trim($bloque->nombre)),
+            'responsable' => $bloque->responsableNombre,
+            'telefono'    => $bloque->telefonoContacto,
+            'activo'      => $bloque->activo ? 1 : 0,
+        ]);
+    }
+
+    public function actualizarInscripcion(InscripcionConjuntoEdicion $inscripcion): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `edicion_conjunto_inscripciones`
+            SET `numero_registro_oficial` = :registro,
+                `nombre_delegado_edicion` = :delegado,
+                `telefono_delegado_edicion` = :telefono,
+                `cantidad_estimada_danzarines` = :danzarines,
+                `cantidad_bandas` = :bandas,
+                `estado` = :estado,
+                `observaciones` = :obs
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+
+        return $stmt->execute([
+            'id'         => $inscripcion->id,
+            'org_id'     => $inscripcion->organizacionId,
+            'registro'   => $inscripcion->numeroRegistroOficial,
+            'delegado'   => $inscripcion->nombreDelegadoEdicion,
+            'telefono'   => $inscripcion->telefonoDelegadoEdicion,
+            'danzarines' => $inscripcion->cantidadEstimadaDanzarines,
+            'bandas'     => $inscripcion->cantidadBandas,
+            'estado'     => $inscripcion->estado->value,
+            'obs'        => $inscripcion->observaciones,
+        ]);
+    }
 }

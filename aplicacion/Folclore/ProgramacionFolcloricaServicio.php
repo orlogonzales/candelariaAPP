@@ -78,6 +78,44 @@ class ProgramacionFolcloricaServicio
         return $this->tipoDanzaRepo->listarPorOrganizacion($organizacionId);
     }
 
+    public function actualizarTipoDanza(
+        int $organizacionId,
+        int $id,
+        string $nombre,
+        CategoriaDanza $categoria,
+        ?string $descripcion = null,
+        bool $activo = true,
+        ?ContextoOperacion $contexto = null
+    ): TipoDanza {
+        $this->validarPermiso('folclore.tipos_danza.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->tipoDanzaRepo->buscarPorId($id, $organizacionId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("El tipo de danza (#{$id}) no existe en esta organización.");
+        }
+
+        $tipoActualizado = new TipoDanza(
+            id: $id,
+            organizacionId: $organizacionId,
+            codigo: $existente->codigo,
+            nombre: strtoupper(trim($nombre)),
+            categoriaOrigen: $categoria,
+            descripcion: $descripcion,
+            activo: $activo
+        );
+
+        $this->tipoDanzaRepo->actualizar($tipoActualizado);
+
+        $this->registrarAuditoria($contexto, 'TIPO_DANZA_ACTUALIZADO', 'tipos_danza', $id, [
+            'nombre' => $tipoActualizado->nombre,
+            'categoria' => $tipoActualizado->categoriaOrigen->value,
+            'activo' => $activo
+        ]);
+
+        return $tipoActualizado;
+    }
+
     // --- CONJUNTOS FOLCLÓRICOS (HISTÓRICOS) ---
 
     public function registrarConjunto(
@@ -144,6 +182,65 @@ class ProgramacionFolcloricaServicio
         return $this->conjuntoRepo->listarPorOrganizacion($organizacionId, $tipoDanzaId);
     }
 
+    public function obtenerConjuntoPorId(int $id, int $organizacionId, ?ContextoOperacion $contexto = null): ?ConjuntoFolclorico
+    {
+        $this->validarPermiso('folclore.conjuntos.ver', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        return $this->conjuntoRepo->buscarPorId($id, $organizacionId);
+    }
+
+    public function actualizarConjunto(
+        int $organizacionId,
+        int $id,
+        int $tipoDanzaId,
+        string $nombre,
+        ?string $descripcion = null,
+        ?int $anioFundacion = null,
+        ?string $ciudadSede = null,
+        bool $activo = true,
+        ?ContextoOperacion $contexto = null
+    ): ConjuntoFolclorico {
+        $this->validarPermiso('folclore.conjuntos.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->conjuntoRepo->buscarPorId($id, $organizacionId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("El conjunto folclórico (#{$id}) no existe en esta organización.");
+        }
+
+        $tipo = $this->tipoDanzaRepo->buscarPorId($tipoDanzaId, $organizacionId);
+        if ($tipo === null) {
+            throw new InvalidArgumentException("El tipo de danza especificado (#{$tipoDanzaId}) no existe.");
+        }
+
+        $conjuntoActualizado = new ConjuntoFolclorico(
+            id: $id,
+            organizacionId: $organizacionId,
+            tipoDanzaId: $tipoDanzaId,
+            codigo: $existente->codigo,
+            nombre: strtoupper(trim($nombre)),
+            sigla: $existente->sigla,
+            fechaFundacion: $existente->fechaFundacion,
+            nombrePresidente: $existente->nombrePresidente,
+            telefonoContacto: $existente->telefonoContacto,
+            colorEmblematicoHex: $existente->colorEmblematicoHex,
+            resenaHistorica: $descripcion ?? $existente->resenaHistorica,
+            activo: $activo,
+            creadoPor: $existente->creadoPor
+        );
+
+        $this->conjuntoRepo->actualizar($conjuntoActualizado);
+
+        $this->registrarAuditoria($contexto, 'CONJUNTO_ACTUALIZADO', 'conjuntos_folcloricos', $id, [
+            'nombre' => $conjuntoActualizado->nombre,
+            'tipo_danza_id' => $tipoDanzaId,
+            'activo' => $activo
+        ]);
+
+        return $conjuntoActualizado;
+    }
+
     // --- BLOQUES DE DANZARINES ---
 
     public function registrarBloque(
@@ -194,6 +291,44 @@ class ProgramacionFolcloricaServicio
         $this->validarAlcanceTenant($organizacionId, $contexto);
 
         return $this->conjuntoRepo->listarBloquesPorConjunto($conjuntoId, $organizacionId);
+    }
+
+    public function actualizarBloque(
+        int $organizacionId,
+        int $id,
+        string $nombre,
+        ?string $responsableNombre = null,
+        ?string $telefonoContacto = null,
+        bool $activo = true,
+        ?ContextoOperacion $contexto = null
+    ): BloqueConjunto {
+        $this->validarPermiso('folclore.conjuntos.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->conjuntoRepo->buscarBloquePorId($id, $organizacionId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("El bloque folclórico (#{$id}) no existe en esta organización.");
+        }
+
+        $bloqueActualizado = new BloqueConjunto(
+            id: $id,
+            organizacionId: $organizacionId,
+            conjuntoId: $existente->conjuntoId,
+            codigo: $existente->codigo,
+            nombre: strtoupper(trim($nombre)),
+            responsableNombre: $responsableNombre,
+            telefonoContacto: $telefonoContacto,
+            activo: $activo
+        );
+
+        $this->conjuntoRepo->actualizarBloque($bloqueActualizado);
+
+        $this->registrarAuditoria($contexto, 'BLOQUE_ACTUALIZADO', 'bloques_conjunto', $id, [
+            'nombre' => $bloqueActualizado->nombre,
+            'activo' => $activo
+        ]);
+
+        return $bloqueActualizado;
     }
 
     // --- INSCRIPCIÓN / PARTICIPACIÓN POR EDICIÓN ---
@@ -265,6 +400,51 @@ class ProgramacionFolcloricaServicio
         return $this->conjuntoRepo->listarInscritosPorEdicion($edicionId, $organizacionId);
     }
 
+    public function actualizarInscripcion(
+        int $organizacionId,
+        int $id,
+        ?string $numeroRegistro = null,
+        ?string $delegado = null,
+        ?string $telefono = null,
+        int $danzarines = 0,
+        int $bandas = 1,
+        EstadoInscripcionConjunto $estado = EstadoInscripcionConjunto::INSCRITO,
+        ?string $observaciones = null,
+        ?ContextoOperacion $contexto = null
+    ): InscripcionConjuntoEdicion {
+        $this->validarPermiso('folclore.inscripciones.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->conjuntoRepo->buscarInscripcionPorId($id, $organizacionId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("La inscripción (#{$id}) no existe en esta organización.");
+        }
+
+        $inscripcionActualizada = new InscripcionConjuntoEdicion(
+            id: $id,
+            organizacionId: $organizacionId,
+            edicionId: $existente->edicionId,
+            conjuntoId: $existente->conjuntoId,
+            numeroRegistroOficial: $numeroRegistro,
+            nombreDelegadoEdicion: $delegado,
+            telefonoDelegadoEdicion: $telefono,
+            cantidadEstimadaDanzarines: max(0, $danzarines),
+            cantidadBandas: max(1, $bandas),
+            estado: $estado,
+            observaciones: $observaciones,
+            creadoPor: $existente->creadoPor
+        );
+
+        $this->conjuntoRepo->actualizarInscripcion($inscripcionActualizada);
+
+        $this->registrarAuditoria($contexto, 'INSCRIPCION_ACTUALIZADA', 'edicion_conjunto_inscripciones', $id, [
+            'estado' => $estado->value,
+            'registro' => $numeroRegistro,
+        ]);
+
+        return $inscripcionActualizada;
+    }
+
     // --- ACTIVIDADES FOLCLÓRICAS DE LA EDICIÓN ---
 
     public function registrarActividad(
@@ -303,6 +483,46 @@ class ProgramacionFolcloricaServicio
         return $creado;
     }
 
+    public function actualizarActividad(
+        int $organizacionId,
+        int $id,
+        string $titulo,
+        string $fechaInicio,
+        string $fechaFin,
+        string $lugarPrincipal,
+        EstadoActividadFolclorica $estado = EstadoActividadFolclorica::PROGRAMADA,
+        ?ContextoOperacion $contexto = null
+    ): ActividadFolcloricaEdicion {
+        $this->validarPermiso('folclore.programacion.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->programacionRepo->buscarActividadPorId($id, $organizacionId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("La actividad folclórica (#{$id}) no existe en esta organización.");
+        }
+
+        $actividadActualizada = new ActividadFolcloricaEdicion(
+            id: $id,
+            organizacionId: $organizacionId,
+            edicionId: $existente->edicionId,
+            codigo: $existente->codigo,
+            titulo: strtoupper(trim($titulo)),
+            fechaInicio: $fechaInicio,
+            fechaFin: $fechaFin,
+            lugarPrincipal: $lugarPrincipal,
+            estado: $estado
+        );
+
+        $this->programacionRepo->actualizarActividad($actividadActualizada);
+
+        $this->registrarAuditoria($contexto, 'ACTIVIDAD_FOLCLORICA_ACTUALIZADA', 'folclore_actividades_edicion', $id, [
+            'titulo' => $actividadActualizada->titulo,
+            'estado' => $estado->value,
+        ]);
+
+        return $actividadActualizada;
+    }
+
     // --- PROGRAMACIÓN OFICIAL (CON PROCEDENCIA Y VERSIONES) ---
 
     public function publicarProgramacionOficial(
@@ -323,6 +543,10 @@ class ProgramacionFolcloricaServicio
         $actividad = $this->programacionRepo->buscarActividadPorId($actividadId, $organizacionId);
         if ($actividad === null) {
             throw new InvalidArgumentException("La actividad folclórica especificada (#{$actividadId}) no existe.");
+        }
+
+        if ($actividad->edicionId !== $edicionId) {
+            throw new InvalidArgumentException("Incompatibilidad de ámbito: La actividad folclórica (#{$actividadId}) no pertenece a la edición #{$edicionId}.");
         }
 
         $ultimaVersion = $this->programacionRepo->obtenerUltimaVersionNumero($actividadId);
@@ -356,6 +580,43 @@ class ProgramacionFolcloricaServicio
         return $creado;
     }
 
+    /**
+     * @return array<ProgramacionOficialEdicion>
+     */
+    public function listarVersionesProgramacion(int $organizacionId, int $actividadId, ?ContextoOperacion $contexto = null): array
+    {
+        $this->validarPermiso('folclore.programacion.ver', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        return $this->programacionRepo->listarVersionesPorActividad($actividadId, $organizacionId);
+    }
+
+    public function oficializarVersionExistente(
+        int $organizacionId,
+        int $programacionId,
+        ?ContextoOperacion $contexto = null
+    ): bool {
+        $this->validarPermiso('folclore.programacion.aprobar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $prog = $this->programacionRepo->buscarProgramacionPorId($programacionId, $organizacionId);
+        if ($prog === null) {
+            throw new InvalidArgumentException("La programación oficial (#{$programacionId}) no existe.");
+        }
+
+        $exito = $this->programacionRepo->oficializarVersion($programacionId, $organizacionId);
+
+        if ($exito) {
+            $this->registrarAuditoria($contexto, 'PROGRAMACION_OFICIAL_CONFIRMADA', 'folclore_programaciones_oficiales', $programacionId, [
+                'actividad_id'   => $prog->actividadId,
+                'version_numero' => $prog->versionNumero,
+                'nuevo_estado'   => EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO->value,
+            ]);
+        }
+
+        return $exito;
+    }
+
     public function asignarTurnoPresentacion(
         int $organizacionId,
         int $programacionOficialId,
@@ -375,9 +636,19 @@ class ProgramacionFolcloricaServicio
             throw new InvalidArgumentException("La programación oficial (#{$programacionOficialId}) no existe.");
         }
 
+        $actividad = $this->programacionRepo->buscarActividadPorId($prog->actividadId, $organizacionId);
+        if ($actividad === null) {
+            throw new InvalidArgumentException("La actividad asociada a la programación oficial no existe.");
+        }
+
         $conjuntoEdicion = $this->conjuntoRepo->buscarInscripcionPorId($conjuntoEdicionId, $organizacionId);
         if ($conjuntoEdicion === null) {
             throw new InvalidArgumentException("La inscripción del conjunto (#{$conjuntoEdicionId}) no existe en su organización.");
+        }
+
+        // Blindaje estricto de ámbito: la inscripción debe pertenecer a la misma edición de la actividad
+        if ($conjuntoEdicion->edicionId !== $actividad->edicionId) {
+            throw new InvalidArgumentException("Incompatibilidad de edición: La inscripción (#{$conjuntoEdicionId}) pertenece a la edición #{$conjuntoEdicion->edicionId}, distinta a la edición #{$actividad->edicionId} de la actividad folclórica.");
         }
 
         $turno = new OrdenPresentacionFolclorico(
@@ -401,6 +672,83 @@ class ProgramacionFolcloricaServicio
         ]);
 
         return $creado;
+    }
+
+    public function actualizarTurno(
+        int $organizacionId,
+        int $turnoId,
+        int $ordenSorteo,
+        string $horaEstimadaPartida,
+        ?string $horaEstimadaLlegada = null,
+        ?string $puntoPartida = null,
+        EstadoTurnoPresentacion $estadoTurno = EstadoTurnoPresentacion::PROGRAMADO,
+        ?string $horaRealPartida = null,
+        ?string $horaRealFin = null,
+        ?string $observaciones = null,
+        ?ContextoOperacion $contexto = null
+    ): OrdenPresentacionFolclorico {
+        $this->validarPermiso('folclore.programacion.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->programacionRepo->buscarTurnoPorId($turnoId);
+        if ($existente === null) {
+            throw new InvalidArgumentException("El turno de presentación (#{$turnoId}) no existe.");
+        }
+
+        $prog = $this->programacionRepo->buscarProgramacionPorId($existente->programacionOficialId, $organizacionId);
+        if ($prog === null) {
+            throw new InvalidArgumentException("Violación de alcance: El turno no pertenece a esta organización.");
+        }
+
+        $turnoActualizado = new OrdenPresentacionFolclorico(
+            id: $turnoId,
+            programacionOficialId: $existente->programacionOficialId,
+            conjuntoEdicionId: $existente->conjuntoEdicionId,
+            ordenSorteo: $ordenSorteo,
+            horaEstimadaPartida: $horaEstimadaPartida,
+            horaEstimadaLlegada: $horaEstimadaLlegada,
+            puntoPartidaEspecifico: $puntoPartida,
+            estadoTurno: $estadoTurno,
+            horaRealPartida: $horaRealPartida,
+            horaRealFin: $horaRealFin,
+            observaciones: $observaciones
+        );
+
+        $this->programacionRepo->actualizarTurno($turnoActualizado);
+
+        $this->registrarAuditoria($contexto, 'TURNO_PRESENTACION_ACTUALIZADO', 'folclore_orden_presentacion', $turnoId, [
+            'orden_sorteo' => $ordenSorteo,
+            'estado'       => $estadoTurno->value,
+        ]);
+
+        return $turnoActualizado;
+    }
+
+    public function eliminarTurno(int $organizacionId, int $turnoId, ?ContextoOperacion $contexto = null): bool
+    {
+        $this->validarPermiso('folclore.programacion.gestionar', $contexto);
+        $this->validarAlcanceTenant($organizacionId, $contexto);
+
+        $existente = $this->programacionRepo->buscarTurnoPorId($turnoId);
+        if ($existente === null) {
+            return false;
+        }
+
+        $prog = $this->programacionRepo->buscarProgramacionPorId($existente->programacionOficialId, $organizacionId);
+        if ($prog === null) {
+            throw new InvalidArgumentException("Violación de alcance: El turno no pertenece a esta organización.");
+        }
+
+        $exito = $this->programacionRepo->eliminarTurno($turnoId);
+
+        if ($exito) {
+            $this->registrarAuditoria($contexto, 'TURNO_PRESENTACION_ELIMINADO', 'folclore_orden_presentacion', $turnoId, [
+                'programacion_id' => $existente->programacionOficialId,
+                'orden_sorteo'    => $existente->ordenSorteo,
+            ]);
+        }
+
+        return $exito;
     }
 
     /**
@@ -437,6 +785,17 @@ class ProgramacionFolcloricaServicio
             }
         }
 
+        // Blindaje de pertenencia de bloque al conjunto
+        if ($bloqueId !== null) {
+            if ($conjuntoId === null) {
+                throw new InvalidArgumentException("No se puede especificar un bloque sin especificar el conjunto correspondiente.");
+            }
+            $bloque = $this->conjuntoRepo->buscarBloquePorId($bloqueId, $organizacionId);
+            if ($bloque === null || $bloque->conjuntoId !== $conjuntoId) {
+                throw new InvalidArgumentException("Incompatibilidad de bloque: El bloque (#{$bloqueId}) no pertenece al conjunto folclórico (#{$conjuntoId}).");
+            }
+        }
+
         if ($this->pdo === null) {
             return false;
         }
@@ -470,6 +829,36 @@ class ProgramacionFolcloricaServicio
 
         if ($this->pdo === null) {
             return false;
+        }
+
+        if ($ordenPresentacionId !== null) {
+            // Verificar existencia y consistencia de tenant y edición
+            $stmtVerif = $this->pdo->prepare("
+                SELECT fpo.organizacion_id, fae.edicion_id
+                FROM `folclore_orden_presentacion` fop
+                JOIN `folclore_programaciones_oficiales` fpo ON fop.programacion_oficial_id = fpo.id
+                JOIN `folclore_actividades_edicion` fae ON fpo.actividad_id = fae.id
+                WHERE fop.id = :orden_id
+            ");
+            $stmtVerif->execute(['orden_id' => $ordenPresentacionId]);
+            $filaTurno = $stmtVerif->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$filaTurno || (int)$filaTurno['organizacion_id'] !== $organizacionId) {
+                throw new InvalidArgumentException("El turno de presentación especificado (#{$ordenPresentacionId}) no existe o no pertenece a esta organización.");
+            }
+
+            // Verificar que la salida operativa pertenezca a la misma edición
+            $stmtSalida = $this->pdo->prepare("SELECT edicion_id FROM `operacion_salidas` WHERE id = :id AND organizacion_id = :org_id");
+            $stmtSalida->execute(['id' => $salidaId, 'org_id' => $organizacionId]);
+            $salida = $stmtSalida->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$salida) {
+                throw new InvalidArgumentException("La salida operativa especificada (#{$salidaId}) no existe en esta organización.");
+            }
+
+            if ((int)$salida['edicion_id'] !== (int)$filaTurno['edicion_id']) {
+                throw new InvalidArgumentException("Incompatibilidad de edición: La salida operativa (#{$salidaId}, edición {$salida['edicion_id']}) y el turno folclórico (edición {$filaTurno['edicion_id']}) pertenecen a ediciones distintas.");
+            }
         }
 
         $stmt = $this->pdo->prepare("

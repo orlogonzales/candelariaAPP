@@ -80,4 +80,25 @@ class TipoDanzaRepositorio
 
         return array_map(fn($f) => TipoDanza::desdeArreglo($f), $filas);
     }
+
+    public function actualizar(TipoDanza $tipo): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `tipos_danza`
+            SET `nombre` = :nombre,
+                `categoria_origen` = :categoria,
+                `descripcion` = :descripcion,
+                `activo` = :activo
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+
+        return $stmt->execute([
+            'id'          => $tipo->id,
+            'org_id'      => $tipo->organizacionId,
+            'nombre'      => strtoupper(trim($tipo->nombre)),
+            'categoria'   => $tipo->categoriaOrigen->value,
+            'descripcion' => $tipo->descripcion,
+            'activo'      => $tipo->activo ? 1 : 0,
+        ]);
+    }
 }

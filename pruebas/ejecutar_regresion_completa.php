@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+set_time_limit(0);
+ini_set('memory_limit', '1024M');
+ob_implicit_flush(true);
+
 $inicioTimestamp = microtime(true);
 $fechaInicio = date('Y-m-d H:i:s T');
 
@@ -14,17 +18,20 @@ $totalFail = 0;
 $resumen = [];
 
 $cabecera = "==============================================================================\n";
-$cabecera .= "CANDELARIAAPP — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (DT-F212D-002)\n";
+$cabecera .= "CANDELARIAAPP V1.1 — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (DT-V11-004)\n";
 $cabecera .= "Fecha y hora de inicio: {$fechaInicio}\n";
 $cabecera .= "PHP Version: " . PHP_VERSION . " | OS: " . PHP_OS . "\n";
 $cabecera .= "Suites detectadas: " . count($archivos) . "\n";
 $cabecera .= "==============================================================================\n\n";
 
 echo $cabecera;
+flush();
+$logFile = $dir . '/registro_regresion_global.log';
+file_put_contents($logFile, $cabecera);
 
 foreach ($archivos as $index => $archivo) {
     $nombre = basename($archivo);
-    $cmd = 'php ' . escapeshellarg($archivo) . ' 2>&1';
+    $cmd = 'php -d memory_limit=512M ' . escapeshellarg($archivo) . ' 2>&1';
     $salida = [];
     $codigoRetorno = 0;
     
@@ -37,7 +44,9 @@ foreach ($archivos as $index => $archivo) {
     $fail = 0;
 
     // Patrones comunes en las suites históricas
-    if (preg_match('/(?:TOTAL PRUEBAS EXITOSAS|PRUEBAS EXITOSAS|EXITOSAS|Exitosos)\s*:\s*(\d+)/i', $textoSalida, $m)) {
+    if (preg_match('/(\d+)\s+PASS\s*\/\s*0\s+FAIL/i', $textoSalida, $m)) {
+        $pass = (int)$m[1];
+    } elseif (preg_match('/(?:TOTAL PRUEBAS EXITOSAS|PRUEBAS EXITOSAS|EXITOSAS|Exitosos)\s*:\s*(\d+)/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
     } elseif (preg_match('/(\d+)\s*(?:\/|\s+de\s+)\s*(\d+)\s+PRUEBAS EXITOSAS/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
@@ -74,11 +83,15 @@ foreach ($archivos as $index => $archivo) {
     $lineaResumen = sprintf("[%02d/%02d] %-30s : %-4s (%3d pass, %2d fail) [%5.2fs]", $index + 1, count($archivos), $nombre, $estado, $pass, $fail, $duracionSuite);
     $resumen[] = $lineaResumen;
     echo $lineaResumen . "\n";
+    file_put_contents($logFile, $lineaResumen . "\n", FILE_APPEND);
 
     if ($estado === 'FAIL') {
-        $resumen[] = "  --> DETALLE: " . substr(trim($textoSalida), 0, 300);
-        echo "  --> DETALLE: " . substr(trim($textoSalida), 0, 300) . "\n";
+        $detalleFail = "  --> DETALLE: " . substr(trim($textoSalida), 0, 300);
+        $resumen[] = $detalleFail;
+        echo $detalleFail . "\n";
+        file_put_contents($logFile, $detalleFail . "\n", FILE_APPEND);
     }
+    flush();
 }
 
 $duracionTotal = round(microtime(true) - $inicioTimestamp, 2);

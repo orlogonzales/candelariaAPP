@@ -501,4 +501,40 @@ Enrutador::post('/api/v1/publico/portal/entregas/{id}/responder', [\Aplicacion\C
 Enrutador::get('/api/v1/dashboard/kpis', [\Aplicacion\Controladores\DashboardControlador::class, 'kpis']);
 Enrutador::get('/api/v1/dashboard/comparativa', [\Aplicacion\Controladores\DashboardControlador::class, 'comparativa']);
 
+// ==============================================================================
+// PROGRAMACIÓN FOLCLÓRICA, CONJUNTOS Y TURNOS (FASE 3.1B — DT-V11-004)
+// ==============================================================================
+Enrutador::get('/api/v1/folclore/tipos-danza', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarTiposDanza']);
+Enrutador::post('/api/v1/folclore/tipos-danza', [\Aplicacion\Controladores\FolcloreControlador::class, 'crearTipoDanza']);
+Enrutador::put('/api/v1/folclore/tipos-danza/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarTipoDanza']);
+
+Enrutador::get('/api/v1/folclore/conjuntos', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarConjuntos']);
+Enrutador::post('/api/v1/folclore/conjuntos', [\Aplicacion\Controladores\FolcloreControlador::class, 'crearConjunto']);
+Enrutador::get('/api/v1/folclore/conjuntos/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'obtenerConjunto']);
+Enrutador::put('/api/v1/folclore/conjuntos/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarConjunto']);
+
+Enrutador::get('/api/v1/folclore/conjuntos/{id}/bloques', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarBloques']);
+Enrutador::post('/api/v1/folclore/conjuntos/{id}/bloques', [\Aplicacion\Controladores\FolcloreControlador::class, 'crearBloque']);
+Enrutador::put('/api/v1/folclore/bloques/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarBloque']);
+
+Enrutador::get('/api/v1/folclore/ediciones/{edicionId}/inscripciones', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarInscripciones']);
+Enrutador::post('/api/v1/folclore/ediciones/{edicionId}/inscripciones', [\Aplicacion\Controladores\FolcloreControlador::class, 'inscribirConjunto']);
+Enrutador::put('/api/v1/folclore/inscripciones/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarInscripcion']);
+
+Enrutador::get('/api/v1/folclore/ediciones/{edicionId}/actividades', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarActividades']);
+Enrutador::post('/api/v1/folclore/ediciones/{edicionId}/actividades', [\Aplicacion\Controladores\FolcloreControlador::class, 'crearActividad']);
+Enrutador::put('/api/v1/folclore/actividades/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarActividad']);
+
+Enrutador::get('/api/v1/folclore/actividades/{actividadId}/versiones', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarVersiones']);
+Enrutador::post('/api/v1/folclore/actividades/{actividadId}/versiones', [\Aplicacion\Controladores\FolcloreControlador::class, 'publicarVersion']);
+Enrutador::post('/api/v1/folclore/programaciones/{id}/oficializar', [\Aplicacion\Controladores\FolcloreControlador::class, 'oficializarVersion']);
+
+Enrutador::get('/api/v1/folclore/programaciones/{id}/turnos', [\Aplicacion\Controladores\FolcloreControlador::class, 'listarTurnos']);
+Enrutador::post('/api/v1/folclore/programaciones/{id}/turnos', [\Aplicacion\Controladores\FolcloreControlador::class, 'asignarTurno']);
+Enrutador::put('/api/v1/folclore/turnos/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'actualizarTurno']);
+Enrutador::delete('/api/v1/folclore/turnos/{id}', [\Aplicacion\Controladores\FolcloreControlador::class, 'eliminarTurno']);
+
+Enrutador::post('/api/v1/folclore/turnos/{id}/vincular-salida', [\Aplicacion\Controladores\FolcloreControlador::class, 'vincularSalidaOperativa']);
+
+
 

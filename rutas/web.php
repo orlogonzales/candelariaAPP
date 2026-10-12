@@ -250,3 +250,9 @@ Enrutador::get('/p/{slug}/mi-espacio', [\Aplicacion\Controladores\PortalPublicoC
 // ==============================================================================
 Enrutador::get('/dashboard-ejecutivo', [\Aplicacion\Controladores\DashboardControlador::class, 'vista']);
 
+// ==============================================================================
+// PROGRAMACIÓN FOLCLÓRICA Y CONJUNTOS (FASE 3.1B — DT-V11-004)
+// ==============================================================================
+Enrutador::get('/folclore', [\Aplicacion\Controladores\FolcloreControlador::class, 'index']);
+
+

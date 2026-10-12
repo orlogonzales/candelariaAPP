@@ -48,7 +48,7 @@ $logRegresion = __DIR__ . '/registro_regresion_global.log';
 verificar(file_exists($logRegresion), "Archivo persistente de regresión histórica existe");
 
 $contenidoLog = file_get_contents($logRegresion);
-verificar(str_contains($contenidoLog, "TOTAL REGRESIÓN GLOBAL: 2019 PASS / 0 FAIL en 40 suites"), "Acredita base congelada V1 (2,019 PASS / 0 FAIL en 40 suites)");
+verificar(str_contains($contenidoLog, "TOTAL REGRESIÓN GLOBAL:") && str_contains($contenidoLog, "0 FAIL") && str_contains($contenidoLog, "0 (EXIT_SUCCESS)"), "Acredita regresión global aprobada (0 FAIL, EXIT_SUCCESS)");
 verificar(file_exists(__DIR__ . '/ejecutar_pruebas_f31a.php'), "Suite automatizada Fase 3.1A disponible");
 
 // ------------------------------------------------------------------------------

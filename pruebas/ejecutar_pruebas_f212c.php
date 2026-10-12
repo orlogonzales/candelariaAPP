@@ -453,9 +453,12 @@ afirmar($post['galerias_creadas'] === 1, "Galerías creadas es 1");
 afirmar(abs($post['almacenamiento_total_mb'] - 10.00) < 0.1, "Almacenamiento total consumido es 10.00 MB (2 archivos de 5MB)");
 
 echo "\n--- GRUPO 6: EMPTY STATE SEGURO (CERO DIVISIONES POR CERO) ---\n";
-// Crear edición vacía
 $codigoEmpty = 'TEST-DASH-EMPTY-' . substr(bin2hex(random_bytes(4)), 0, 8);
+$aniosUsadosEmpty = array_map('intval', $pdo->query("SELECT anio FROM `ediciones_candelaria` WHERE organizacion_id = {$orgId}")->fetchAll(PDO::FETCH_COLUMN));
 $anioEmpty = $anioTest + 1;
+while (in_array($anioEmpty, $aniosUsadosEmpty, true) && $anioEmpty <= 2099) {
+    $anioEmpty++;
+}
 $stmtInsEmpty = $pdo->prepare("
     INSERT INTO `ediciones_candelaria` (
         `organizacion_id`, `codigo`, `nombre`, `anio`, `estado`,

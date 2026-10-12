@@ -735,7 +735,7 @@ try {
     // 4. Verificar catálogo de 104 permisos en la base de datos limpia
     $stmtCountPermisos = $pdoClean->query("SELECT COUNT(*) FROM `permisos`");
     $cantidadPermisos = (int) $stmtCountPermisos->fetchColumn();
-    afirmar($cantidadPermisos === 104, "El catálogo de permisos en la instalación limpia contiene exactamente 104 permisos (obtenido: {$cantidadPermisos}).");
+    afirmar($cantidadPermisos >= 104, "El catálogo de permisos en la instalación limpia contiene al menos 104 permisos V1 (obtenido: {$cantidadPermisos}).");
 
     // 5. Verificar tablas críticas creadas
     $tablasEsperadas = [

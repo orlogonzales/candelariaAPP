@@ -47,19 +47,25 @@ $org = $stmtOrg->fetch(PDO::FETCH_ASSOC);
 $orgId = (int) $org['id'];
 $orgCodigo = (string) $org['codigo'];
 
-$stmtEd = $pdo->prepare("SELECT id, anio, codigo, es_actual, estado FROM ediciones_candelaria WHERE organizacion_id = :org_id ORDER BY id DESC LIMIT 1");
-$stmtEd->execute(['org_id' => $orgId]);
-$ed = $stmtEd->fetch(PDO::FETCH_ASSOC);
-if ($ed) {
-    $edId = (int) $ed['id'];
-    $pdo->prepare("UPDATE ediciones_candelaria SET es_actual = 1 WHERE id = :id")->execute(['id' => $edId]);
+$edicionRepo = new \Aplicacion\Repositorios\EdicionRepositorio($pdo);
+$edActual = $edicionRepo->obtenerActual($orgId);
+if ($edActual) {
+    $edId = (int) $edActual->id;
 } else {
-    $stmtInsEd = $pdo->prepare("
-        INSERT INTO ediciones_candelaria (organizacion_id, codigo, anio, nombre, fecha_inicio, fecha_fin, estado, es_actual)
-        VALUES (:org_id, 'edicion-f29c-test', 2086, 'Edición Test F29C', '2086-01-01', '2086-02-15', 'PREOPERACION', 1)
-    ");
-    $stmtInsEd->execute(['org_id' => $orgId]);
-    $edId = (int) $pdo->lastInsertId();
+    $stmtEd = $pdo->prepare("SELECT id, anio, codigo, es_actual, estado FROM ediciones_candelaria WHERE organizacion_id = :org_id ORDER BY id DESC LIMIT 1");
+    $stmtEd->execute(['org_id' => $orgId]);
+    $ed = $stmtEd->fetch(PDO::FETCH_ASSOC);
+    if ($ed) {
+        $edId = (int) $ed['id'];
+        $pdo->prepare("UPDATE ediciones_candelaria SET es_actual = 1 WHERE id = :id")->execute(['id' => $edId]);
+    } else {
+        $stmtInsEd = $pdo->prepare("
+            INSERT INTO ediciones_candelaria (organizacion_id, codigo, anio, nombre, fecha_inicio, fecha_fin, estado, es_actual)
+            VALUES (:org_id, 'edicion-f29c-test', 2086, 'Edición Test F29C', '2086-01-01', '2086-02-15', 'PREOPERACION', 1)
+        ");
+        $stmtInsEd->execute(['org_id' => $orgId]);
+        $edId = (int) $pdo->lastInsertId();
+    }
 }
 
 // Asegurar paquete y oferta para prueba de ficha

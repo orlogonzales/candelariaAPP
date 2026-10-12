@@ -227,4 +227,111 @@ class ProgramacionFolcloricaRepositorio
 
         return array_map(fn($f) => OrdenPresentacionFolclorico::desdeArreglo($f), $filas);
     }
+
+    /**
+     * @return array<ProgramacionOficialEdicion>
+     */
+    public function listarVersionesPorActividad(int $actividadId, int $organizacionId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT * FROM `folclore_programaciones_oficiales`
+            WHERE `actividad_id` = :act_id AND `organizacion_id` = :org_id
+            ORDER BY `version_numero` DESC
+        ");
+        $stmt->execute(['act_id' => $actividadId, 'org_id' => $organizacionId]);
+        $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(fn($f) => ProgramacionOficialEdicion::desdeArreglo($f), $filas);
+    }
+
+    public function oficializarVersion(int $programacionId, int $organizacionId): bool
+    {
+        $prog = $this->buscarProgramacionPorId($programacionId, $organizacionId);
+        if ($prog === null) {
+            return false;
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            // 1. Inactivar todas las versiones de esta actividad
+            $stmtDesact = $this->pdo->prepare("
+                UPDATE `folclore_programaciones_oficiales`
+                SET `es_version_activa` = 0
+                WHERE `actividad_id` = :act_id AND `organizacion_id` = :org_id
+            ");
+            $stmtDesact->execute(['act_id' => $prog->actividadId, 'org_id' => $organizacionId]);
+
+            // 2. Activar y marcar como oficial confirmada la versión seleccionada
+            $stmtAct = $this->pdo->prepare("
+                UPDATE `folclore_programaciones_oficiales`
+                SET `es_version_activa` = 1,
+                    `estado_confirmacion` = 'OFICIAL_CONFIRMADO'
+                WHERE `id` = :id AND `organizacion_id` = :org_id
+            ");
+            $stmtAct->execute(['id' => $programacionId, 'org_id' => $organizacionId]);
+
+            $this->pdo->commit();
+            return true;
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    public function actualizarActividad(ActividadFolcloricaEdicion $actividad): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `folclore_actividades_edicion`
+            SET `titulo` = :titulo,
+                `fecha_inicio` = :inicio,
+                `fecha_fin` = :fin,
+                `lugar_principal` = :lugar,
+                `estado` = :estado
+            WHERE `id` = :id AND `organizacion_id` = :org_id
+        ");
+
+        return $stmt->execute([
+            'id'     => $actividad->id,
+            'org_id' => $actividad->organizacionId,
+            'titulo' => strtoupper(trim($actividad->titulo)),
+            'inicio' => $actividad->fechaInicio,
+            'fin'    => $actividad->fechaFin,
+            'lugar'  => $actividad->lugarPrincipal,
+            'estado' => $actividad->estado->value,
+        ]);
+    }
+
+    public function actualizarTurno(OrdenPresentacionFolclorico $turno): bool
+    {
+        $stmt = $this->pdo->prepare("
+            UPDATE `folclore_orden_presentacion`
+            SET `orden_sorteo` = :sorteo,
+                `hora_estimada_partida` = :partida,
+                `hora_estimada_llegada` = :llegada,
+                `punto_partida_especifico` = :punto,
+                `estado_turno` = :estado,
+                `hora_real_partida` = :real_partida,
+                `hora_real_fin` = :real_fin,
+                `observaciones` = :obs
+            WHERE `id` = :id
+        ");
+
+        return $stmt->execute([
+            'id'           => $turno->id,
+            'sorteo'       => $turno->ordenSorteo,
+            'partida'      => $turno->horaEstimadaPartida,
+            'llegada'      => $turno->horaEstimadaLlegada,
+            'punto'        => $turno->puntoPartidaEspecifico,
+            'estado'       => $turno->estadoTurno->value,
+            'real_partida' => $turno->horaRealPartida,
+            'real_fin'     => $turno->horaRealFin,
+            'obs'          => $turno->observaciones,
+        ]);
+    }
+
+    public function eliminarTurno(int $turnoId): bool
+    {
+        $stmt = $this->pdo->prepare("DELETE FROM `folclore_orden_presentacion` WHERE `id` = :id");
+        return $stmt->execute(['id' => $turnoId]);
+    }
 }
