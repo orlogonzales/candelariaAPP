@@ -87,8 +87,8 @@ verificar($permisosLimpio === $permisosProd, "Catálogo de permisos en esquema l
 // Migraciones en limpio
 $migracionesLimpio = (int) $pdoClean->query("SELECT COUNT(*) FROM migraciones_control")->fetchColumn();
 $migracionesProd = (int) $pdo->query("SELECT COUNT(*) FROM migraciones_control")->fetchColumn();
-verificar($migracionesLimpio === 24, "Trazabilidad de migraciones en limpio acredita 24 migraciones registradas");
-verificar($migracionesLimpio === $migracionesProd, "Registro de migraciones coincide con base canónica (24 == {$migracionesProd})");
+verificar($migracionesLimpio === 25, "Trazabilidad de migraciones en limpio acredita 25 migraciones registradas");
+verificar($migracionesLimpio === $migracionesProd, "Registro de migraciones coincide con base canónica (25 == {$migracionesProd})");
 
 // Módulos
 $modulosLimpio = (int) $pdoClean->query("SELECT COUNT(*) FROM modulos")->fetchColumn();
@@ -137,7 +137,7 @@ $migracionesRestauradas = (int) $pdoRestore->query("SELECT COUNT(*) FROM migraci
 
 verificar(count($tablasRestauradas) === 104, "Restauración en entorno aislado recrea exactamente 104 tablas");
 verificar($permisosRestaurados === 112, "Restauración en entorno aislado preserva los 112 permisos RBAC");
-verificar($migracionesRestauradas === 24, "Restauración en entorno aislado preserva las 24 migraciones registradas");
+verificar($migracionesRestauradas === 25, "Restauración en entorno aislado preserva las 25 migraciones registradas");
 
 // Destrucción limpia
 $pdo->exec("DROP DATABASE IF EXISTS `{$dbClean}`");

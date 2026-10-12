@@ -244,7 +244,7 @@ class ProgramacionFolcloricaRepositorio
         return array_map(fn($f) => ProgramacionOficialEdicion::desdeArreglo($f), $filas);
     }
 
-    public function oficializarVersion(int $programacionId, int $organizacionId): bool
+    public function oficializarVersion(int $programacionId, int $organizacionId, ?int $aprobadorId = null, ?string $aprobadoEn = null): bool
     {
         $prog = $this->buscarProgramacionPorId($programacionId, $organizacionId);
         if ($prog === null) {
@@ -261,14 +261,21 @@ class ProgramacionFolcloricaRepositorio
             ");
             $stmtDesact->execute(['act_id' => $prog->actividadId, 'org_id' => $organizacionId]);
 
-            // 2. Activar y marcar como oficial confirmada la versión seleccionada
+            // 2. Activar y marcar como oficial confirmada la versión seleccionada con trazabilidad de aprobador
             $stmtAct = $this->pdo->prepare("
                 UPDATE `folclore_programaciones_oficiales`
                 SET `es_version_activa` = 1,
-                    `estado_confirmacion` = 'OFICIAL_CONFIRMADO'
+                    `estado_confirmacion` = 'OFICIAL_CONFIRMADO',
+                    `aprobado_por` = :aprobador_id,
+                    `aprobado_en` = :aprobado_en
                 WHERE `id` = :id AND `organizacion_id` = :org_id
             ");
-            $stmtAct->execute(['id' => $programacionId, 'org_id' => $organizacionId]);
+            $stmtAct->execute([
+                'id'           => $programacionId,
+                'org_id'       => $organizacionId,
+                'aprobador_id' => $aprobadorId,
+                'aprobado_en'  => $aprobadoEn ?? date('Y-m-d H:i:s'),
+            ]);
 
             $this->pdo->commit();
             return true;

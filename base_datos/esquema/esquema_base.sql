@@ -2962,7 +2962,8 @@ INSERT INTO `migraciones_control` (`migracion`, `lote`) VALUES
 ('2026_10_11_000021_hardening_postproduccion_f211d.sql', 21),
 ('2026_10_11_000022_crear_modulo_cierre_edicion_f212a.sql', 22),
 ('2026_10_11_000023_crear_permisos_reportes_y_dashboard_f212bc.sql', 23),
-('2026_10_11_000024_crear_nucleo_programacion_folclorica_f31a.sql', 24)
+('2026_10_11_000024_crear_nucleo_programacion_folclorica_f31a.sql', 24),
+('2026_10_12_000025_agregar_segregacion_aprobacion_folclore.sql', 25)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 -- ------------------------------------------------------------------------------
@@ -3148,6 +3149,8 @@ CREATE TABLE `folclore_programaciones_oficiales` (
     `es_version_activa` TINYINT(1) NOT NULL DEFAULT 1,
     `notas_version` TEXT NULL,
     `creado_por` INT UNSIGNED NOT NULL,
+    `aprobado_por` INT UNSIGNED NULL,
+    `aprobado_en` DATETIME NULL,
     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -3155,8 +3158,10 @@ CREATE TABLE `folclore_programaciones_oficiales` (
     FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
     FOREIGN KEY (`actividad_id`) REFERENCES `folclore_actividades_edicion` (`id`) ON DELETE RESTRICT,
     FOREIGN KEY (`creado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`aprobado_por`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
     UNIQUE KEY `uk_programacion_version` (`actividad_id`, `version_numero`),
-    KEY `idx_programacion_activa` (`actividad_id`, `es_version_activa`)
+    KEY `idx_programacion_activa` (`actividad_id`, `es_version_activa`),
+    KEY `idx_prog_aprobado_por` (`aprobado_por`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Versiones y procedencia de la programación folclórica oficial';
 
 -- ------------------------------------------------------------------------------

@@ -1,56 +1,56 @@
 ==============================================================================
 CANDELARIAAPP V1.1 — REGRESIÓN GLOBAL DE SUITES DE PRUEBAS (DT-V11-004)
-Fecha y hora de inicio: 2026-10-12 01:48:14 UTC
+Fecha y hora de inicio: 2026-10-12 04:00:37 UTC
 PHP Version: 8.3.30 | OS: WINNT
 Suites detectadas: 42
 ==============================================================================
 
 [01/42] ejecutar_pruebas_f11a.php      : PASS ( 15 pass,  0 fail) [ 0.25s]
-[02/42] ejecutar_pruebas_f11b.php      : PASS ( 26 pass,  0 fail) [ 1.05s]
-[03/42] ejecutar_pruebas_f11c.php      : PASS ( 11 pass,  0 fail) [ 0.28s]
-[04/42] ejecutar_pruebas_f11d.php      : PASS ( 17 pass,  0 fail) [ 0.68s]
+[02/42] ejecutar_pruebas_f11b.php      : PASS ( 26 pass,  0 fail) [ 1.08s]
+[03/42] ejecutar_pruebas_f11c.php      : PASS ( 11 pass,  0 fail) [ 0.26s]
+[04/42] ejecutar_pruebas_f11d.php      : PASS ( 17 pass,  0 fail) [ 0.67s]
 [05/42] ejecutar_pruebas_f11e.php      : PASS ( 25 pass,  0 fail) [ 0.50s]
-[06/42] ejecutar_pruebas_f12a.php      : PASS ( 25 pass,  0 fail) [ 0.11s]
-[07/42] ejecutar_pruebas_f12b.php      : PASS ( 28 pass,  0 fail) [ 0.29s]
+[06/42] ejecutar_pruebas_f12a.php      : PASS ( 25 pass,  0 fail) [ 0.09s]
+[07/42] ejecutar_pruebas_f12b.php      : PASS ( 28 pass,  0 fail) [ 0.27s]
 [08/42] ejecutar_pruebas_f12c.php      : PASS ( 26 pass,  0 fail) [ 0.49s]
-[09/42] ejecutar_pruebas_f12d.php      : PASS ( 20 pass,  0 fail) [ 0.21s]
+[09/42] ejecutar_pruebas_f12d.php      : PASS ( 20 pass,  0 fail) [ 0.24s]
 [10/42] ejecutar_pruebas_f12e.php      : PASS ( 26 pass,  0 fail) [ 0.28s]
-[11/42] ejecutar_pruebas_f210.php      : PASS ( 59 pass,  0 fail) [ 2.08s]
-[12/42] ejecutar_pruebas_f211.php      : PASS ( 45 pass,  0 fail) [ 0.26s]
+[11/42] ejecutar_pruebas_f210.php      : PASS ( 59 pass,  0 fail) [ 2.00s]
+[12/42] ejecutar_pruebas_f211.php      : PASS ( 45 pass,  0 fail) [ 0.23s]
 [13/42] ejecutar_pruebas_f211d.php     : PASS ( 44 pass,  0 fail) [ 0.21s]
-[14/42] ejecutar_pruebas_f212a.php     : PASS ( 45 pass,  0 fail) [ 0.44s]
-[15/42] ejecutar_pruebas_f212b.php     : PASS ( 72 pass,  0 fail) [ 0.96s]
-[16/42] ejecutar_pruebas_f212c.php     : PASS ( 52 pass,  0 fail) [ 0.41s]
-[17/42] ejecutar_pruebas_f212d.php     : PASS ( 45 pass,  0 fail) [ 9.50s]
-[18/42] ejecutar_pruebas_f21a.php      : PASS ( 29 pass,  0 fail) [ 0.45s]
-[19/42] ejecutar_pruebas_f21b.php      : PASS ( 55 pass,  0 fail) [ 0.27s]
-[20/42] ejecutar_pruebas_f21c.php      : PASS ( 56 pass,  0 fail) [ 9.05s]
-[21/42] ejecutar_pruebas_f22a.php      : PASS ( 73 pass,  0 fail) [ 8.92s]
-[22/42] ejecutar_pruebas_f22b.php      : PASS ( 83 pass,  0 fail) [ 9.01s]
+[14/42] ejecutar_pruebas_f212a.php     : PASS ( 45 pass,  0 fail) [ 0.46s]
+[15/42] ejecutar_pruebas_f212b.php     : PASS ( 72 pass,  0 fail) [ 0.88s]
+[16/42] ejecutar_pruebas_f212c.php     : PASS ( 52 pass,  0 fail) [ 0.38s]
+[17/42] ejecutar_pruebas_f212d.php     : PASS ( 45 pass,  0 fail) [ 9.45s]
+[18/42] ejecutar_pruebas_f21a.php      : PASS ( 29 pass,  0 fail) [ 0.44s]
+[19/42] ejecutar_pruebas_f21b.php      : PASS ( 55 pass,  0 fail) [ 0.23s]
+[20/42] ejecutar_pruebas_f21c.php      : PASS ( 56 pass,  0 fail) [ 8.95s]
+[21/42] ejecutar_pruebas_f22a.php      : PASS ( 73 pass,  0 fail) [ 8.89s]
+[22/42] ejecutar_pruebas_f22b.php      : PASS ( 83 pass,  0 fail) [ 8.86s]
 [23/42] ejecutar_pruebas_f22c.php      : PASS ( 71 pass,  0 fail) [ 0.35s]
-[24/42] ejecutar_pruebas_f23b.php      : PASS ( 84 pass,  0 fail) [ 9.39s]
-[25/42] ejecutar_pruebas_f23c.php      : PASS ( 64 pass,  0 fail) [ 0.60s]
-[26/42] ejecutar_pruebas_f24b.php      : PASS (140 pass,  0 fail) [ 9.18s]
-[27/42] ejecutar_pruebas_f24c.php      : PASS ( 53 pass,  0 fail) [ 0.20s]
-[28/42] ejecutar_pruebas_f25b.php      : PASS ( 68 pass,  0 fail) [ 9.10s]
+[24/42] ejecutar_pruebas_f23b.php      : PASS ( 84 pass,  0 fail) [ 8.93s]
+[25/42] ejecutar_pruebas_f23c.php      : PASS ( 64 pass,  0 fail) [ 0.55s]
+[26/42] ejecutar_pruebas_f24b.php      : PASS (140 pass,  0 fail) [ 9.22s]
+[27/42] ejecutar_pruebas_f24c.php      : PASS ( 53 pass,  0 fail) [ 0.23s]
+[28/42] ejecutar_pruebas_f25b.php      : PASS ( 68 pass,  0 fail) [ 9.09s]
 [29/42] ejecutar_pruebas_f25c.php      : PASS ( 60 pass,  0 fail) [ 0.21s]
-[30/42] ejecutar_pruebas_f26c.php      : PASS ( 89 pass,  0 fail) [ 0.18s]
-[31/42] ejecutar_pruebas_f26d.php      : PASS ( 89 pass,  0 fail) [ 9.62s]
-[32/42] ejecutar_pruebas_f26e.php      : PASS ( 64 pass,  0 fail) [ 0.30s]
+[30/42] ejecutar_pruebas_f26c.php      : PASS ( 89 pass,  0 fail) [ 0.17s]
+[31/42] ejecutar_pruebas_f26d.php      : PASS ( 89 pass,  0 fail) [ 9.13s]
+[32/42] ejecutar_pruebas_f26e.php      : PASS ( 64 pass,  0 fail) [ 0.33s]
 [33/42] ejecutar_pruebas_f27c.php      : PASS ( 60 pass,  0 fail) [ 0.17s]
-[34/42] ejecutar_pruebas_f27d.php      : PASS ( 74 pass,  0 fail) [ 0.18s]
-[35/42] ejecutar_pruebas_f27e.php      : PASS ( 35 pass,  0 fail) [ 0.18s]
+[34/42] ejecutar_pruebas_f27d.php      : PASS ( 74 pass,  0 fail) [ 0.15s]
+[35/42] ejecutar_pruebas_f27e.php      : PASS ( 35 pass,  0 fail) [ 0.15s]
 [36/42] ejecutar_pruebas_f28b.php      : PASS ( 47 pass,  0 fail) [ 0.18s]
-[37/42] ejecutar_pruebas_f28c.php      : PASS ( 53 pass,  0 fail) [ 0.29s]
-[38/42] ejecutar_pruebas_f29b.php      : PASS ( 49 pass,  0 fail) [ 0.92s]
-[39/42] ejecutar_pruebas_f29c.php      : PASS ( 14 pass,  0 fail) [ 0.17s]
-[40/42] ejecutar_pruebas_f29d.php      : PASS ( 28 pass,  0 fail) [ 0.72s]
-[41/42] ejecutar_pruebas_f31a.php      : PASS ( 19 pass,  0 fail) [ 0.32s]
-[42/42] ejecutar_pruebas_f31b.php      : PASS ( 40 pass,  0 fail) [ 0.39s]
+[37/42] ejecutar_pruebas_f28c.php      : PASS ( 53 pass,  0 fail) [ 0.28s]
+[38/42] ejecutar_pruebas_f29b.php      : PASS ( 49 pass,  0 fail) [ 0.99s]
+[39/42] ejecutar_pruebas_f29c.php      : PASS ( 14 pass,  0 fail) [ 0.15s]
+[40/42] ejecutar_pruebas_f29d.php      : PASS ( 28 pass,  0 fail) [ 0.68s]
+[41/42] ejecutar_pruebas_f31a.php      : PASS ( 19 pass,  0 fail) [ 0.29s]
+[42/42] ejecutar_pruebas_f31b.php      : PASS ( 42 pass,  0 fail) [ 0.38s]
 
 ==============================================================================
-TOTAL REGRESIÓN GLOBAL: 2078 PASS / 0 FAIL en 42 suites
-Fecha y hora de finalización: 2026-10-12 01:49:42 UTC
-Duración total de ejecución: 88.36 segundos
+TOTAL REGRESIÓN GLOBAL: 2080 PASS / 0 FAIL en 42 suites
+Fecha y hora de finalización: 2026-10-12 04:02:04 UTC
+Duración total de ejecución: 86.76 segundos
 Código de salida global: 0 (EXIT_SUCCESS)
 ==============================================================================

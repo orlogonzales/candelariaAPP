@@ -306,7 +306,7 @@ $progV2 = $servicio->publicarProgramacionOficial(
     fuenteOrigen: 'Comisión Central de Parada y Veneración FRFCP',
     fechaEmisionFuente: '2026-02-02',
     etiquetaVersion: 'Rol Oficial Definitivo',
-    estado: EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO,
+    estado: EstadoConfirmacionProgramacion::PRELIMINAR,
     notas: 'Rectificación horaria por retraso de bandas y autorización policial',
     contexto: $contextoAdmin
 );

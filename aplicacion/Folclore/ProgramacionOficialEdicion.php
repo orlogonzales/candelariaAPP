@@ -20,6 +20,8 @@ class ProgramacionOficialEdicion
         public bool $esVersionActiva = true,
         public ?string $notasVersion = null,
         public int $creadoPor = 1,
+        public ?int $aprobadoPor = null,
+        public ?string $aprobadoEn = null,
         public ?string $creadoEn = null,
         public ?string $actualizadoEn = null
     ) {
@@ -43,6 +45,8 @@ class ProgramacionOficialEdicion
             esVersionActiva: (bool)($datos['es_version_activa'] ?? true),
             notasVersion: $datos['notas_version'] ?? null,
             creadoPor: (int)($datos['creado_por'] ?? 1),
+            aprobadoPor: isset($datos['aprobado_por']) ? (int)$datos['aprobado_por'] : null,
+            aprobadoEn: $datos['aprobado_en'] ?? null,
             creadoEn: $datos['creado_en'] ?? null,
             actualizadoEn: $datos['actualizado_en'] ?? null
         );
@@ -64,6 +68,8 @@ class ProgramacionOficialEdicion
             'es_version_activa'        => $this->esVersionActiva ? 1 : 0,
             'notas_version'            => $this->notasVersion,
             'creado_por'               => $this->creadoPor,
+            'aprobado_por'             => $this->aprobadoPor,
+            'aprobado_en'              => $this->aprobadoEn,
         ];
     }
 }

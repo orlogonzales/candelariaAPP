@@ -418,9 +418,30 @@ $version2 = $folcloreServicio->publicarProgramacionOficial(
 $versiones = $folcloreServicio->listarVersionesProgramacion($orgId, $actividad->id, $contextoAdmin);
 registrarAsercion("7.2 Historial de versiones recupera todas las versiones registradas", count($versiones) >= 2);
 
-// Oficializar formalmente la versión 2
-$oficializada = $folcloreServicio->oficializarVersionExistente($orgId, $version2->id, $contextoAdmin);
-registrarAsercion("7.3 Versión 2 oficializada y marcada como rol vigente", $oficializada);
+// 7.3 Intentar autoaprobación por el mismo usuario creador ($contextoAdmin / Orlando ID 24)
+$autoaprobacionRechazada = false;
+try {
+    $folcloreServicio->oficializarVersionExistente($orgId, $version2->id, $contextoAdmin);
+} catch (AccesoDenegadoExcepcion $e) {
+    $autoaprobacionRechazada = str_contains($e->getMessage(), 'Cuatro Ojos') || str_contains($e->getMessage(), 'Segregación');
+}
+registrarAsercion("7.3 Segregación de Funciones: Intento de autoaprobación por el creador es rechazado tajantemente (Principio de Cuatro Ojos)", $autoaprobacionRechazada);
+
+// Asegurar segundo usuario con permiso de aprobación formal (ID 77702)
+$segundoUsuarioId = 77702;
+$pdo->prepare("UPDATE `usuarios` SET `es_superadmin_plataforma` = 1, `organizacion_id` = :org_id WHERE `id` = :id")
+    ->execute(['org_id' => $orgId, 'id' => $segundoUsuarioId]);
+
+$contextoAprobador = ContextoOperacion::paraHumano(
+    usuarioId: $segundoUsuarioId,
+    canalId: 1,
+    canalCodigo: 'WEB_ADMIN',
+    organizacionId: $orgId
+);
+
+// 7.4 Oficializar formalmente la versión 2 mediante el segundo usuario (Aprobador Distinto)
+$oficializada = $folcloreServicio->oficializarVersionExistente($orgId, $version2->id, $contextoAprobador);
+registrarAsercion("7.4 Aprobación formal por segundo usuario (Cuatro Ojos) oficializa la versión y activa el rol", $oficializada);
 
 $versionesPost = $folcloreServicio->listarVersionesProgramacion($orgId, $actividad->id, $contextoAdmin);
 $v2Oficial = null;
@@ -429,8 +450,25 @@ foreach ($versionesPost as $v) {
     if ($v->id === $version2->id) $v2Oficial = $v;
     if ($v->id === $version1->id) $v1Desactivada = $v;
 }
-registrarAsercion("7.4 Versión 2 confirmada en base de datos con estado OFICIAL_CONFIRMADO y es_version_activa=true", $v2Oficial !== null && $v2Oficial->estadoConfirmacion === EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO && $v2Oficial->esVersionActiva);
-registrarAsercion("7.5 Versión 1 previa desmarcada como activa para garantizar unicidad", $v1Desactivada !== null && !$v1Desactivada->esVersionActiva);
+
+registrarAsercion("7.5 Trazabilidad y persistencia: version 2 con aprobado_por (#{$segundoUsuarioId}), fecha registrada y estado OFICIAL_CONFIRMADO", 
+    $v2Oficial !== null && 
+    $v2Oficial->estadoConfirmacion === EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO && 
+    $v2Oficial->esVersionActiva &&
+    $v2Oficial->aprobadoPor === $segundoUsuarioId &&
+    !empty($v2Oficial->aprobadoEn)
+);
+
+// 7.6 Inmutabilidad histórica: Intento de reaprobar o alterar programación ya confirmada es bloqueado
+$reaprobacionRechazada = false;
+try {
+    $folcloreServicio->oficializarVersionExistente($orgId, $version2->id, $contextoAprobador);
+} catch (InvalidArgumentException $e) {
+    $reaprobacionRechazada = str_contains($e->getMessage(), 'ya fue formalmente aprobada');
+}
+registrarAsercion("7.6 Inmutabilidad histórica: Intento de reaprobar o modificar programación ya confirmada es rechazado", $reaprobacionRechazada);
+
+registrarAsercion("7.7 Versión 1 previa desmarcada como activa para garantizar unicidad operativa", $v1Desactivada !== null && !$v1Desactivada->esVersionActiva);
 
 // ------------------------------------------------------------------------------
 // SECCIÓN 8: ASIGNACIÓN Y GESTIÓN DE TURNOS DE PRESENTACIÓN
@@ -478,9 +516,9 @@ registrarAsercion("8.3 Rol de presentación recupera el turno asignado con datos
 // ------------------------------------------------------------------------------
 echo "\n--- 9. BLINDAJES ANTI-CRUCE DE EDICIÓN Y ORGANIZACIÓN ---\n";
 
-// A. Crear una edición secundaria para probar anti-cruce
-$anioSec = rand(2045, 2095);
-$codigoEdSec = 'ed-test-cruce-' . $anioSec . '-' . rand(100, 999);
+$maxAnio = (int) $pdo->query("SELECT COALESCE(MAX(anio), 2050) FROM ediciones_candelaria WHERE organizacion_id = " . (int)$orgId)->fetchColumn();
+$anioSec = $maxAnio + 1;
+$codigoEdSec = 'ed-test-cruce-' . $anioSec . '-' . bin2hex(random_bytes(4));
 $pdo->prepare("INSERT INTO `ediciones_candelaria` (`organizacion_id`, `codigo`, `nombre`, `anio`, `fecha_inicio`, `fecha_fin`, `estado`) VALUES (?, ?, ?, ?, '2050-01-01', '2050-02-28', 'PREOPERACION')")
     ->execute([$orgId, $codigoEdSec, 'EDICION PRUEBA CRUCE ' . $anioSec, $anioSec]);
 $edicionSecId = (int)$pdo->lastInsertId();
@@ -637,7 +675,7 @@ registrarAsercion("12.5 Preservación de registros históricos de pagos ({$total
 // RESUMEN FINAL DE LA SUITE FASE 3.1B
 // ------------------------------------------------------------------------------
 echo "\n==============================================================================\n";
-echo sprintf("RESUMEN FASE 3.1B: %d PRUEBAS EJECUTADAS | %d PASS | %d FAIL\n", $totalPruebas, $pruebasExitosas, $pruebasFallidas);
+echo sprintf("RESUMEN FASE 3.1B: %d PRUEBAS EJECUTADAS | %d PASS / %d FAIL\n", $totalPruebas, $pruebasExitosas, $pruebasFallidas);
 echo "==============================================================================\n";
 
 if ($pruebasFallidas > 0) {

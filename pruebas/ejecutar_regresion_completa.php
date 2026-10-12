@@ -44,7 +44,7 @@ foreach ($archivos as $index => $archivo) {
     $fail = 0;
 
     // Patrones comunes en las suites históricas
-    if (preg_match('/(\d+)\s+PASS\s*\/\s*0\s+FAIL/i', $textoSalida, $m)) {
+    if (preg_match('/(\d+)\s+PASS\s*(?:\/|\|)\s*0\s+FAIL/i', $textoSalida, $m)) {
         $pass = (int)$m[1];
     } elseif (preg_match('/(?:TOTAL PRUEBAS EXITOSAS|PRUEBAS EXITOSAS|EXITOSAS|Exitosos)\s*:\s*(\d+)/i', $textoSalida, $m)) {
         $pass = (int)$m[1];

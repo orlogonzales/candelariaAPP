@@ -47,6 +47,30 @@ class ModuloFolclore {
         await this.cargarEdiciones();
         await this.cargarTiposDanza();
         await this.cargarConjuntos();
+
+        // Activación de pestaña directa por query param (?tab=conjuntos) o hash (#tab-conjuntos)
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        const hash = window.location.hash ? window.location.hash.replace('#', '').replace('-btn', '') : null;
+        const targetId = tabParam ? `tab-${tabParam}` : (hash ? (hash.startsWith('tab-') ? hash : `tab-${hash}`) : null);
+        if (targetId) {
+            const btn = document.querySelector(`button[data-bs-target="#${targetId}"]`) || document.getElementById(`${targetId}-btn`);
+            if (btn && typeof bootstrap !== 'undefined') {
+                const tabInstance = bootstrap.Tab.getOrCreateInstance(btn);
+                tabInstance.show();
+            }
+        }
+
+        // Apertura directa de modal por query param (?modal=danza, ?modal=conjunto, etc.)
+        const modalParam = params.get('modal');
+        if (modalParam) {
+            setTimeout(() => {
+                if (modalParam === 'danza') this.abrirModalTipoDanza();
+                if (modalParam === 'conjunto') this.abrirModalConjunto();
+                if (modalParam === 'inscripcion') this.abrirModalInscripcion();
+                if (modalParam === 'turno') this.abrirModalTurno();
+            }, 300);
+        }
     }
 
     obtenerHeaders() {

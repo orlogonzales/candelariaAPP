@@ -109,8 +109,10 @@ class FolcloreControlador
             ], 'principal');
         }
 
-        $resolucionEdicion = $this->contextoResolver->resolver($contexto->organizacionId, $_COOKIE);
-        $edicionActiva = $resolucionEdicion->edicion;
+        $contextoEdicion = $this->contextoResolver->resolverDesdeServidor($contexto, $_SERVER);
+        $edicionActiva = $contextoEdicion->edicionIdTrabajo !== null
+            ? $this->edicionRepo->buscarPorId($contextoEdicion->edicionIdTrabajo)
+            : $this->edicionRepo->obtenerActual($contexto->organizacionId);
 
         return \Nucleo\Http\Vista::renderizar('folclore', [
             'titulo'          => 'Programación Folclórica | CandelariaAPP',

@@ -532,12 +532,12 @@ class ProgramacionFolcloricaServicio
         string $fuenteOrigen,
         string $fechaEmisionFuente,
         string $etiquetaVersion = 'Rol Oficial',
-        EstadoConfirmacionProgramacion $estado = EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO,
+        EstadoConfirmacionProgramacion $estado = EstadoConfirmacionProgramacion::PRELIMINAR,
         ?string $documentoUrl = null,
         ?string $notas = null,
         ?ContextoOperacion $contexto = null
     ): ProgramacionOficialEdicion {
-        $this->validarPermiso('folclore.programacion.aprobar', $contexto);
+        $this->validarPermiso('folclore.programacion.gestionar', $contexto);
         $this->validarAlcanceTenant($organizacionId, $contexto);
 
         $actividad = $this->programacionRepo->buscarActividadPorId($actividadId, $organizacionId);
@@ -549,8 +549,14 @@ class ProgramacionFolcloricaServicio
             throw new InvalidArgumentException("Incompatibilidad de ámbito: La actividad folclórica (#{$actividadId}) no pertenece a la edición #{$edicionId}.");
         }
 
+        // Principio de Segregación de Funciones: Una versión oficial confirmada no puede nacer autoaprobada
+        if ($estado === EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO) {
+            throw new AccesoDenegadoExcepcion("Segregación de funciones: La aprobación oficial requiere el flujo formal de cuatro ojos (oficialización por un usuario distinto del creador).");
+        }
+
         $ultimaVersion = $this->programacionRepo->obtenerUltimaVersionNumero($actividadId);
         $nuevaVersionNumero = $ultimaVersion + 1;
+        $creadorId = (int) ($contexto?->usuarioId ?? 1);
 
         $programacion = new ProgramacionOficialEdicion(
             id: null,
@@ -565,7 +571,9 @@ class ProgramacionFolcloricaServicio
             estadoConfirmacion: $estado,
             esVersionActiva: true,
             notasVersion: $notas,
-            creadoPor: $contexto->usuarioId ?? 1
+            creadoPor: $creadorId,
+            aprobadoPor: null,
+            aprobadoEn: null
         );
 
         $creado = $this->programacionRepo->crearVersionProgramacion($programacion);
@@ -574,6 +582,7 @@ class ProgramacionFolcloricaServicio
             'actividad_id'   => $actividadId,
             'version_numero' => $nuevaVersionNumero,
             'fuente_origen'  => $fuenteOrigen,
+            'creador_id'     => $creadorId,
             'estado'         => $estado->value,
         ]);
 
@@ -591,6 +600,11 @@ class ProgramacionFolcloricaServicio
         return $this->programacionRepo->listarVersionesPorActividad($actividadId, $organizacionId);
     }
 
+    /**
+     * Oficializa y aprueba una versión preliminar de programación oficial.
+     * Impone el Principio de Cuatro Ojos: El usuario aprobador debe ser obligatoriamente
+     * distinto del usuario creador/solicitante de la versión.
+     */
     public function oficializarVersionExistente(
         int $organizacionId,
         int $programacionId,
@@ -604,13 +618,38 @@ class ProgramacionFolcloricaServicio
             throw new InvalidArgumentException("La programación oficial (#{$programacionId}) no existe.");
         }
 
-        $exito = $this->programacionRepo->oficializarVersion($programacionId, $organizacionId);
+        // 1. Inmutabilidad histórica: No modificar ni re-aprobar versiones ya confirmadas
+        if ($prog->estadoConfirmacion === EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO) {
+            throw new InvalidArgumentException("La programación oficial (#{$programacionId}) ya fue formalmente aprobada y confirmada con anterioridad. No se permiten reaprobaciones ni modificaciones.");
+        }
+
+        // 2. Rechazo de estados incompatibles
+        if ($prog->estadoConfirmacion === EstadoConfirmacionProgramacion::OBSOLETO) {
+            throw new InvalidArgumentException("Transición inválida: No se puede aprobar una versión catalogada como OBSOLETA.");
+        }
+
+        // 3. Identificación del aprobador
+        $aprobadorId = (int) ($contexto?->usuarioId ?? 0);
+        if ($aprobadorId <= 0) {
+            throw new AccesoDenegadoExcepcion("Identidad no autenticada: Se requiere un usuario autenticado válido para ejercer la aprobación de la programación oficial.");
+        }
+
+        // 4. Principio de Cuatro Ojos (Segregación de Funciones): El aprobador debe ser distinto del creador
+        if ($prog->creadoPor === $aprobadorId) {
+            throw new AccesoDenegadoExcepcion("Violación de Segregación de Funciones (Principio de Cuatro Ojos): El usuario aprobador (#{$aprobadorId}) no puede ser el mismo usuario creador/solicitante (#{$prog->creadoPor}) de la versión preliminar.");
+        }
+
+        $fechaAprobacion = date('Y-m-d H:i:s');
+        $exito = $this->programacionRepo->oficializarVersion($programacionId, $organizacionId, $aprobadorId, $fechaAprobacion);
 
         if ($exito) {
             $this->registrarAuditoria($contexto, 'PROGRAMACION_OFICIAL_CONFIRMADA', 'folclore_programaciones_oficiales', $programacionId, [
-                'actividad_id'   => $prog->actividadId,
-                'version_numero' => $prog->versionNumero,
-                'nuevo_estado'   => EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO->value,
+                'actividad_id'      => $prog->actividadId,
+                'version_numero'    => $prog->versionNumero,
+                'solicitante_id'    => $prog->creadoPor,
+                'aprobador_id'      => $aprobadorId,
+                'fecha_aprobacion'  => $fechaAprobacion,
+                'nuevo_estado'      => EstadoConfirmacionProgramacion::OFICIAL_CONFIRMADO->value,
             ]);
         }
 
