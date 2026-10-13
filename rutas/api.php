@@ -28,6 +28,54 @@ Enrutador::get('/api/v1/estado', function () {
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 });
 
+// Endpoint de Especificación OpenAPI 3.0 (JSON)
+Enrutador::get('/api/v1/openapi.json', function () {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    $ruta = __DIR__ . '/../docs/api/openapi.json';
+    if (!file_exists($ruta)) {
+        http_response_code(404);
+        return json_encode(['exito' => false, 'codigo' => 404, 'mensaje' => 'Especificación OpenAPI no encontrada.'], JSON_UNESCAPED_UNICODE);
+    }
+    return file_get_contents($ruta);
+});
+
+// Endpoint de Especificación OpenAPI 3.0 (YAML)
+Enrutador::get('/api/v1/openapi.yaml', function () {
+    header('Content-Type: application/yaml; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    $ruta = __DIR__ . '/../docs/api/openapi.yaml';
+    if (!file_exists($ruta)) {
+        http_response_code(404);
+        return 'error: Especificacion OpenAPI no encontrada.';
+    }
+    return file_get_contents($ruta);
+});
+
+// Endpoint de Especificación OpenAPI 3.0 (JSON)
+Enrutador::get('/api/v1/openapi.json', function () {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    $ruta = __DIR__ . '/../docs/api/openapi.json';
+    if (!file_exists($ruta)) {
+        http_response_code(404);
+        return json_encode(['exito' => false, 'codigo' => 404, 'mensaje' => 'Especificación OpenAPI no encontrada.'], JSON_UNESCAPED_UNICODE);
+    }
+    return file_get_contents($ruta);
+});
+
+// Endpoint de Especificación OpenAPI 3.0 (YAML)
+Enrutador::get('/api/v1/openapi.yaml', function () {
+    header('Content-Type: application/yaml; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    $ruta = __DIR__ . '/../docs/api/openapi.yaml';
+    if (!file_exists($ruta)) {
+        http_response_code(404);
+        return 'error: Especificacion OpenAPI no encontrada.';
+    }
+    return file_get_contents($ruta);
+});
+
 // Endpoint técnico de Autenticación (Login)
 Enrutador::post('/api/v1/auth/login', function () {
     header('Content-Type: application/json; charset=utf-8');

@@ -1,0 +1,1857 @@
+[
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/estado",
+        "handler": "Closure",
+        "dominio": "Sistema y Utilidades",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/auth/login",
+        "handler": "Closure",
+        "dominio": "Identidad y Autenticación",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/auth/logout",
+        "handler": "Closure",
+        "dominio": "Identidad y Autenticación",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/auth/sesion",
+        "handler": "Closure",
+        "dominio": "Identidad y Autenticación",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/usuarios/lista",
+        "handler": "Closure",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/usuarios",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@listar",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/usuarios/{id}",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@detalle",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/personas/disponibles",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@personasDisponibles",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/tipos-documento",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@tiposDocumento",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/roles",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@roles",
+        "dominio": "RBAC y Roles",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/usuarios",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@crear",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/usuarios/{id}",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@actualizar",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/usuarios/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@cambiarEstado",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/usuarios/{id}/roles",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@sincronizarRoles",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/usuarios/{id}/restablecer-clave",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@restablecerClave",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/usuarios/{id}",
+        "handler": "Aplicacion\\Controladores\\UsuarioControlador@eliminar",
+        "dominio": "Usuarios y Seguridad",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/organizacion",
+        "handler": "Aplicacion\\Controladores\\OrganizacionControlador@detalle",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/organizacion",
+        "handler": "Aplicacion\\Controladores\\OrganizacionControlador@actualizar",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/organizacion/branding/logo",
+        "handler": "Aplicacion\\Controladores\\OrganizacionControlador@actualizarLogo",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/organizacion/branding/isotipo",
+        "handler": "Aplicacion\\Controladores\\OrganizacionControlador@actualizarIsotipo",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/configuracion",
+        "handler": "Aplicacion\\Controladores\\ConfiguracionControlador@listar",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/configuracion",
+        "handler": "Aplicacion\\Controladores\\ConfiguracionControlador@actualizar",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@listar",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@detalle",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ediciones",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@crear",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/ediciones/{id}",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@actualizar",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ediciones/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@cambiarEstado",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ediciones/{id}/seleccionar-actual",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@seleccionarActual",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/diagnostico-cierre",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@diagnosticoCierre",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ediciones/{id}/cerrar",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@ejecutarCierre",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ediciones/{id}/reabrir",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@reabrirExcepcional",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/cierre",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@consultarCierre",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/cierre/verificar-integridad",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@verificarIntegridad",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/reportes/libro-ingresos",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@reporteLibroIngresos",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/reportes/manifiesto-salidas",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@reporteManifiestoSalidas",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/reportes/padron-asistencia",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@reportePadronAsistencia",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ediciones/{id}/reportes/exportar",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@exportarReporte",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/contexto/edicion",
+        "handler": "Aplicacion\\Controladores\\EdicionControlador@contextoActual",
+        "dominio": "Organizaciones y Contexto",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/clientes",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@listar",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/personas/buscar",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@buscarPersonas",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/clientes/{id}",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@detalle",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/clientes",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@crear",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/clientes/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@cambiarEstado",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/clientes/{id}/consentimientos",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@actualizarConsentimientos",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/clientes/{id}",
+        "handler": "Aplicacion\\Controladores\\ClienteControlador@eliminar",
+        "dominio": "Personas y Clientes",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/crm/oportunidades",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@listar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/crm/oportunidades/{id}",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@detalle",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/crm/oportunidades",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@crear",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/crm/oportunidades/{id}",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@actualizar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/crm/oportunidades/{id}/etapa",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@cambiarEtapa",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/crm/oportunidades/{id}/asignar",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@asignar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/crm/oportunidades/{id}",
+        "handler": "Aplicacion\\Controladores\\OportunidadControlador@eliminar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/crm/interacciones",
+        "handler": "Aplicacion\\Controladores\\InteraccionControlador@listar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/crm/interacciones",
+        "handler": "Aplicacion\\Controladores\\InteraccionControlador@crear",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/crm/clientes/{id}/timeline",
+        "handler": "Aplicacion\\Controladores\\InteraccionControlador@timeline",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/crm/interacciones/{id}",
+        "handler": "Aplicacion\\Controladores\\InteraccionControlador@eliminar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/crm/origenes",
+        "handler": "Aplicacion\\Controladores\\OrigenComercialControlador@listar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/crm/origenes",
+        "handler": "Aplicacion\\Controladores\\OrigenComercialControlador@crear",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/crm/origenes/{id}",
+        "handler": "Aplicacion\\Controladores\\OrigenComercialControlador@actualizar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/crm/origenes/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\OrigenComercialControlador@cambiarEstado",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/crm/origenes/{id}",
+        "handler": "Aplicacion\\Controladores\\OrigenComercialControlador@eliminar",
+        "dominio": "CRM y Comercial",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/categorias",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@listarCategorias",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/categorias",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@crearCategoria",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/catalogo/categorias/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@actualizarCategoria",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/catalogo/categorias/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@cambiarEstadoCategoria",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/unidades-medida",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@listarUnidadesMedida",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/items",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@listarItems",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/items/buscar",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@buscarItems",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/items/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@detalleItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/items",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@crearItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/catalogo/items/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@actualizarItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/catalogo/items/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@cambiarEstadoItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/paquetes",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@listarPaquetes",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/paquetes/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@detallePaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/paquetes",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@crearPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/catalogo/paquetes/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@actualizarPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/catalogo/paquetes/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@cambiarEstadoPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/paquetes/{id}/composicion",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@obtenerComposicion",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/paquetes/{id}/composicion",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@sincronizarComposicion",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/catalogo/paquetes/{id}/composicion",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@sincronizarComposicion",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/ofertas",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@listarOfertas",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/ofertas/items",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@habilitarOfertaItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/catalogo/ofertas/items/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@cambiarEstadoOfertaItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/ofertas/paquetes",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@habilitarOfertaPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/catalogo/ofertas/paquetes/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@cambiarEstadoOfertaPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/tarifas/items/inicial",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@fijarTarifaInicialItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/catalogo/tarifas/items/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@actualizarTarifaItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/catalogo/tarifas/paquetes/inicial",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@fijarTarifaInicialPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/catalogo/tarifas/paquetes/{id}",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@actualizarTarifaPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/tarifas/items/{id}/historial",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@historialTarifaItem",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/catalogo/tarifas/paquetes/{id}/historial",
+        "handler": "Aplicacion\\Controladores\\CatalogoControlador@historialTarifaPaquete",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/cotizaciones",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@listar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/cotizaciones/{id}",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@detalle",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@crearBorrador",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/cotizaciones/{id}",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@actualizarBorrador",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/lineas",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@agregarLinea",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/cotizaciones/{id}/lineas/{lineaId}/descuento",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@aplicarDescuentoLinea",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/cotizaciones/{id}/lineas/{lineaId}",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@eliminarLinea",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/descuento-global",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@aplicarDescuentoGlobal",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/emitir",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@emitir",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/revision",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@crearRevision",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/aceptar",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@aceptar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/rechazar",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@rechazar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cotizaciones/{id}/anular",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@anular",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/cotizaciones/aux/clientes",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@auxClientes",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/cotizaciones/aux/oportunidades",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@auxOportunidades",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/cotizaciones/aux/ofertas",
+        "handler": "Aplicacion\\Controladores\\CotizacionControlador@auxOfertas",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ventas",
+        "handler": "Aplicacion\\Controladores\\VentaControlador@listar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ventas/aux/cotizaciones-aceptadas",
+        "handler": "Aplicacion\\Controladores\\VentaControlador@auxCotizacionesAceptadas",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ventas/{id}",
+        "handler": "Aplicacion\\Controladores\\VentaControlador@detalle",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ventas/desde-cotizacion",
+        "handler": "Aplicacion\\Controladores\\VentaControlador@crearDesdeCotizacion",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ventas/{id}/cancelar",
+        "handler": "Aplicacion\\Controladores\\VentaControlador@cancelar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ventas/{id}/anular",
+        "handler": "Aplicacion\\Controladores\\VentaControlador@anular",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/reservas",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@listar",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/reservas/aux/ventas-confirmadas",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@auxVentasConfirmadas",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/reservas/aux/tipos-documento",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@auxTiposDocumento",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/reservas/{id}",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@detalle",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/reservas/desde-venta/{ventaId}",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@formalizarDesdeVenta",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/reservas/{id}/cancelar",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@cancelar",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/reservas/{id}/participantes",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@registrarParticipante",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/reservas/{id}/participantes/{participanteId}",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@eliminarParticipante",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/reservas/prestaciones/{prestacionId}/programar",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@programarPrestacion",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/reservas/prestaciones/{prestacionId}/reprogramar",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@reprogramarPrestacion",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/reservas/prestaciones/{prestacionId}/reprogramaciones",
+        "handler": "Aplicacion\\Controladores\\ReservaControlador@obtenerReprogramaciones",
+        "dominio": "Reservas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/salidas",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@listarSalidas",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/salidas/{id}",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@detalleSalida",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@crearSalida",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/operaciones/salidas/{id}",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@actualizarSalida",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/salidas/{id}/prestaciones-compatibles",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@prestacionesCompatibles",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/prestaciones",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@asignarPrestacion",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/operaciones/salidas/{id}/prestaciones/{prestacionId}",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@desasignarPrestacion",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/recursos",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@asignarRecurso",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/operaciones/salidas/{id}/recursos/{asignacionId}",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@desasignarRecurso",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/salidas/{id}/manifiesto",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@manifiesto",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/salidas/{id}/checkin",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@listadoCheckin",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/checkin",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@marcarCheckin",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/despachar",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@despachar",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/finalizar",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@finalizar",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/interrumpir",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@interrumpir",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/cancelar",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@cancelar",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/salidas/{id}/incidencias",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@listarIncidencias",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/salidas/{id}/incidencias",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@registrarIncidencia",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/proveedores",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@listarProveedores",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/proveedores",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@registrarProveedor",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/operaciones/proveedores/{id}/suspender",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@suspenderProveedor",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/recursos",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@listarRecursos",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/recursos",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@registrarRecurso",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PATCH",
+        "patron": "/api/v1/operaciones/recursos/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@cambiarEstadoRecurso",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/aux/personas",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@auxPersonas",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/aux/servicios",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@auxServicios",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/aux/recursos-activos",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@auxRecursosActivos",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/entregas",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@listarEntregas",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/entregas/{id}",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@detalleEntrega",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/entregas/{id}/despachar",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@despacharEntrega",
+        "dominio": "Operaciones y Salidas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/offline/paquete",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@descargarPaqueteOffline",
+        "dominio": "Operación Móvil y QR",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/offline/validar-online",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@validarOfflineOnlineDirecto",
+        "dominio": "Operación Móvil y QR",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/operaciones/offline/sincronizar",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@sincronizarLoteOffline",
+        "dominio": "Operación Móvil y QR",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/operaciones/offline/lotes",
+        "handler": "Aplicacion\\Controladores\\OperacionControlador@historialLotesOffline",
+        "dominio": "Operación Móvil y QR",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/pagos",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@listar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/pagos/aux/ventas",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@auxVentas",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/pagos/aux/ediciones",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@auxEdiciones",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/pagos/{id}",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@detalle",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/pagos/manual",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@registrarManual",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/pagos/{id}/boucher",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@subirBoucher",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/pagos/{id}/verificar",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@verificar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/pagos/{id}/reembolsar",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@reembolsar",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/ventas/{id}/estado-cuenta",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@estadoCuentaVenta",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/ventas/{id}/liquidar",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@liquidarVenta",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/cuentas-bancarias",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@listarCuentasBancarias",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/cuentas-bancarias",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@crearCuentaBancaria",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/cuentas-bancarias/{id}",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@actualizarCuentaBancaria",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/pasarelas",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@listarPasarelas",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/pasarelas/{codigo}",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@configurarPasarela",
+        "dominio": "Ventas y Finanzas",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/webhooks/pasarelas/{codigo}",
+        "handler": "Aplicacion\\Controladores\\PagoControlador@recibirWebhook",
+        "dominio": "Webhooks de Pago",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/webhooks/whatsapp",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@webhookChallenge",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/webhooks/whatsapp",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@webhookPayload",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/kpis",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@obtenerKpis",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/mensajes",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@listarMensajes",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/mensajes/enviar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@enviarMensajeTransaccional",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/mensajes/{id}/intentos",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@obtenerIntentosMensaje",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/conversaciones",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@listarConversaciones",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/conversaciones/{id}/mensajes",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@obtenerMensajesConversacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/conversaciones/{id}/responder",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@responderConversacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/conversaciones/{id}/cerrar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@cerrarConversacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/conversaciones/{id}/asignar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@asignarOperadorConversacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/plantillas",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@listarPlantillas",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/plantillas",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@crearPlantilla",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/consentimientos",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@listarConsentimientos",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/consentimientos",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@gestionarConsentimiento",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/campanas",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@listarCampanas",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/campanas",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@crearCampana",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/campanas/{id}/aprobar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@aprobarCampana",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/configuracion",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@obtenerConfiguracion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/configuracion",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@guardarConfiguracion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/simulador/recibir",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@simularMensajeEntrante",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/outbox/procesar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@procesarOutboxManual",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/comunicaciones/automatizaciones",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@listarAutomatizaciones",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/automatizaciones",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@crearAutomatizacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/comunicaciones/automatizaciones/{id}",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@actualizarAutomatizacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/automatizaciones/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@cambiarEstadoAutomatizacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/automatizaciones/probar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@probarAutomatizacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/comunicaciones/automatizaciones/disparar",
+        "handler": "Aplicacion\\Controladores\\ComunicacionControlador@dispararEventoAutomatizacion",
+        "dominio": "Comunicaciones y Consentimientos",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/edicion-actual",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@edicionActual",
+        "dominio": "Portal Público y Checkout",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/catalogo",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@catalogo",
+        "dominio": "Portal Público y Checkout",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/cotizar",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@cotizar",
+        "dominio": "Portal Público y Checkout",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/cupos/bloquear",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@bloquearCupos",
+        "dominio": "Portal Público y Checkout",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/checkout",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@checkout",
+        "dominio": "Portal Público y Checkout",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/portal/solicitar-acceso",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@solicitarAcceso",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/portal/verificar-acceso",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@verificarAcceso",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/perfil",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@miPerfil",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/publico/portal/perfil",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@actualizarMiPerfil",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/estado-cuenta",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@miEstadoCuenta",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/recibo/{id}",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@descargarReciboPdf",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/mis-reservas",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@misReservas",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/reserva/{id}/boleto-qr",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@boletoQr",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/reserva/{id}/boleto-pdf",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@descargarBoletoPdf",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/venta/{id}/contrato-pdf",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@descargarContratoPdf",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/portal/cerrar-sesion",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@cerrarSesion",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/documentos/cotizacion/{id}/pdf",
+        "handler": "Aplicacion\\Controladores\\DocumentoControlador@descargarCotizacionPdf",
+        "dominio": "Documentos y Emisión PDF",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/documentos/contrato/{id}/pdf",
+        "handler": "Aplicacion\\Controladores\\DocumentoControlador@descargarContratoPdf",
+        "dominio": "Documentos y Emisión PDF",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/documentos/recibo/{id}/pdf",
+        "handler": "Aplicacion\\Controladores\\DocumentoControlador@descargarReciboPdf",
+        "dominio": "Documentos y Emisión PDF",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/documentos/boleto/{reservaId}/pdf",
+        "handler": "Aplicacion\\Controladores\\DocumentoControlador@descargarBoletoPdf",
+        "dominio": "Documentos y Emisión PDF",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/postproduccion/recursos-formulario",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@recursosFormulario",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/postproduccion/proyectos",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@listarProyectos",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/postproduccion/proyectos/{id}",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@verProyecto",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/postproduccion/proyectos",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@crearProyecto",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/postproduccion/proyectos/{id}/galerias",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@crearGaleria",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/postproduccion/proyectos/{id}/galerias/{galeriaId}/archivos",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@subirArchivo",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/postproduccion/proyectos/{id}/entregas",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@crearEntrega",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/postproduccion/archivos/{id}/descargar",
+        "handler": "Aplicacion\\Controladores\\PostproduccionControlador@descargarArchivo",
+        "dominio": "Postproducción y Galerías",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/mis-galerias",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@listarMisGalerias",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/mis-galerias/{id}",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@verMiGaleriaDetalle",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/galerias/{id}/fotos",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@listarFotosGaleria",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/portal/galerias/{id}/seleccionar",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@guardarSeleccionFoto",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/mis-selecciones",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@listarMisSelecciones",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/publico/portal/descargar-multimedia/{id}",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@descargarMiArchivoMultimedia",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/publico/portal/entregas/{id}/responder",
+        "handler": "Aplicacion\\Controladores\\PortalPublicoControlador@responderEntregaMultimedia",
+        "dominio": "Portal del Cliente",
+        "es_publico_cliente": true
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/dashboard/kpis",
+        "handler": "Aplicacion\\Controladores\\DashboardControlador@kpis",
+        "dominio": "Dashboard Ejecutivo",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/dashboard/comparativa",
+        "handler": "Aplicacion\\Controladores\\DashboardControlador@comparativa",
+        "dominio": "Dashboard Ejecutivo",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/tipos-danza",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarTiposDanza",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/tipos-danza",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@crearTipoDanza",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/tipos-danza/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarTipoDanza",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/conjuntos",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarConjuntos",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/conjuntos",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@crearConjunto",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/conjuntos/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@obtenerConjunto",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/conjuntos/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarConjunto",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/conjuntos/{id}/bloques",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarBloques",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/conjuntos/{id}/bloques",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@crearBloque",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/bloques/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarBloque",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/ediciones/{edicionId}/inscripciones",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarInscripciones",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/ediciones/{edicionId}/inscripciones",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@inscribirConjunto",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/inscripciones/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarInscripcion",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/ediciones/{edicionId}/actividades",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarActividades",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/ediciones/{edicionId}/actividades",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@crearActividad",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/actividades/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarActividad",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/actividades/{actividadId}/versiones",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarVersiones",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/actividades/{actividadId}/versiones",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@publicarVersion",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/programaciones/{id}/oficializar",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@oficializarVersion",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/programaciones/{id}/turnos",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@listarTurnos",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/programaciones/{id}/turnos",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@asignarTurno",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/turnos/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarTurno",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "DELETE",
+        "patron": "/api/v1/folclore/turnos/{id}",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@eliminarTurno",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "POST",
+        "patron": "/api/v1/folclore/turnos/{id}/vincular-salida",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@vincularSalidaOperativa",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "GET",
+        "patron": "/api/v1/folclore/seguimiento/tablero",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@obtenerTableroOperativo",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    },
+    {
+        "metodo": "PUT",
+        "patron": "/api/v1/folclore/seguimiento/turnos/{id}/estado",
+        "handler": "Aplicacion\\Controladores\\FolcloreControlador@actualizarEstadoOperativoTurno",
+        "dominio": "Programación Folclórica",
+        "es_publico_cliente": false
+    }
+]

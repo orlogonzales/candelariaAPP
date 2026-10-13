@@ -124,7 +124,7 @@ if ($cotizacionExistente) {
     }
     afirmar($falloMultitenant, "Aislamiento Multitenant: Bloquea generación de cotización si la organización no coincide.");
 } else {
-    echo "  [SKIP] No hay cotizaciones en BD para probar emisión.\n";
+    afirmar(false, "Requisito de datos: Debe existir al menos una cotización en BD para probar emisión documental.");
 }
 
 // ------------------------------------------------------------------------------
@@ -166,7 +166,7 @@ if ($ventaConfirmada) {
         afirmar($falloEstado, "Fail-Closed: Bloquea generación de contrato si la venta no está en estado CONFIRMADA.");
     }
 } else {
-    echo "  [SKIP] No hay ventas CONFIRMADAS para emitir contrato.\n";
+    afirmar(false, "Requisito de datos: Debe existir al menos una venta CONFIRMADA en BD para emitir contrato.");
 }
 
 // ------------------------------------------------------------------------------
@@ -225,7 +225,7 @@ if ($pagoAprobado) {
     afirmar($resReciboReiterado['recibo_id'] === $resRecibo['recibo_id'], "Idempotencia: Re-emisión de recibo para el mismo pago preserva el mismo ID de recibo.");
     afirmar($resReciboReiterado['correlativo'] === $resRecibo['correlativo'], "Idempotencia: Preserva el correlativo original sin gastar una nueva secuencia.");
 } else {
-    echo "  [SKIP] No hay pagos APROBADOS para emitir recibo de caja.\n";
+    afirmar(false, "Requisito de datos: Debe existir al menos un pago APROBADO en BD para emitir recibo de caja.");
 }
 
 // ------------------------------------------------------------------------------
@@ -284,7 +284,7 @@ if ($reservaApta) {
     afirmar($bitBol !== false, "Boleto Ticket 80mm registrado en bitácora documentos_emitidos.");
     afirmar($bitBol['formato'] === 'TICKET_80MM', "Formato registrado como TICKET_80MM en bitácora.");
 } else {
-    echo "  [SKIP] No hay reservas confirmadas aptas para probar emisión de boletos.\n";
+    afirmar(false, "Requisito de datos: Debe existir al menos una reserva CONFIRMADA con venta PAGADA_TOTAL en BD para probar boletos.");
 }
 
 // ------------------------------------------------------------------------------

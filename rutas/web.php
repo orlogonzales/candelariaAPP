@@ -258,3 +258,20 @@ Enrutador::get('/folclore', [\Aplicacion\Controladores\FolcloreControlador::clas
 Enrutador::get('/folclore/tablero', [\Aplicacion\Controladores\FolcloreControlador::class, 'index']);
 
 
+
+// ==============================================================================
+// DOCUMENTACIÓN DE APIS HEADLESS OPENAPI 3.0 (FASE 3.5 — DT-V11-016)
+// ==============================================================================
+Enrutador::get('/documentacion', function () {
+    $rutaHtml = __DIR__ . '/../publico/documentacion/index.html';
+    if (file_exists($rutaHtml)) {
+        header('Content-Type: text/html; charset=utf-8');
+        return file_get_contents($rutaHtml);
+    }
+    header('Location: ' . url_base('publico/documentacion/index.html'));
+    exit;
+});
+Enrutador::get('/docs', function () {
+    header('Location: ' . url_base('documentacion'));
+    exit;
+});
