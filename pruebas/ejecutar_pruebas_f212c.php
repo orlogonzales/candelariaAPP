@@ -478,6 +478,9 @@ afirmar($kpisEmpty['kpis']['finanzas']['ticket_promedio'] === 0.0, "Empty state:
 afirmar($kpisEmpty['kpis']['operaciones']['tasa_ocupacion_flota_pct'] === 0.0, "Empty state: Ocupación flota es 0.0 (sin división por cero)");
 afirmar($kpisEmpty['kpis']['asistencia']['tasa_asistencia_pct'] === 0.0, "Empty state: Tasa asistencia es 0.0 (sin división por cero)");
 afirmar($kpisEmpty['kpis']['postproduccion']['tasa_aprobacion_entregas_pct'] === 0.0, "Empty state: Tasa aprobación es 0.0 (sin división por cero)");
+
+// Limpiar inmediatamente la edición virgen para no colisionar con otras suites
+$pdo->exec("DELETE FROM `ediciones_candelaria` WHERE id = {$emptyEdicionId}");
 afirmar(is_array($kpisEmpty['kpis']['canales']) && count($kpisEmpty['kpis']['canales']) === 0, "Empty state: Canales es array vacío sin errores");
 
 // Limpiar edición empty

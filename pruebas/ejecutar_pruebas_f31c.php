@@ -555,6 +555,10 @@ try {
 }
 registrarAsercion("7.1 Intento de vincular salida de edición distinta es tajantemente rechazado", $cruceEdicionRechazado);
 
+// Limpieza inmediata de salida y edición ajenas
+$pdo->exec("DELETE FROM `operacion_salidas` WHERE `id` = {$salidaAjenaId}");
+$pdo->exec("DELETE FROM `ediciones_candelaria` WHERE `id` = {$edicionAjenaId}");
+
 // ------------------------------------------------------------------------------
 // SECCIÓN 8: TABLERO OPERATIVO, FILTROS Y KPIS
 // ------------------------------------------------------------------------------

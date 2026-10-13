@@ -303,10 +303,12 @@ try {
     $pdo->exec("INSERT INTO `organizaciones` (`id`, `codigo`, `nombre_comercial`, `estado`) VALUES (20000, 'tenant_vta_b', 'Tenant Ventas B', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
 
     // 2.1 Obtener o crear Edición activa
-    $stmtEd = $pdo->prepare("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = :org_id AND `estado` IN ('OPERACION', 'PREOPERACION') LIMIT 1");
+    $stmtEd = $pdo->prepare("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = :org_id AND `anio` = 2026");
     $stmtEd->execute(['org_id' => $orgId]);
     $edicionId = (int) $stmtEd->fetchColumn();
-    if ($edicionId === 0) {
+    if ($edicionId > 0) {
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `estado` = 'OPERACION', `es_actual` = 1 WHERE `id` = {$edicionId}");
+    } else {
         $stmtInsEd = $pdo->prepare("INSERT INTO `ediciones_candelaria` (`organizacion_id`, `codigo`, `nombre`, `anio`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`) VALUES (:org_id, 'edicion-f25b-2026', 'CANDELARIA 2026 F25B', 2026, 'OPERACION', '2026-02-01', '2026-02-15', 1)");
         $stmtInsEd->execute(['org_id' => $orgId]);
         $edicionId = (int) $pdo->lastInsertId();

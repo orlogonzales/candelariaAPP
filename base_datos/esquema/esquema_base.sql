@@ -2994,7 +2994,8 @@ INSERT INTO `migraciones_control` (`migracion`, `lote`) VALUES
 ('2026_10_11_000024_crear_nucleo_programacion_folclorica_f31a.sql', 24),
 ('2026_10_12_000025_agregar_segregacion_aprobacion_folclore.sql', 25),
 ('2026_10_12_000026_incorporar_concurrencia_y_retrasos_seguimiento_folclore.sql', 26),
-('2026_10_12_000027_crear_modulo_automatizaciones_whatsapp.sql', 27)
+('2026_10_12_000027_crear_modulo_automatizaciones_whatsapp.sql', 27),
+('2026_10_12_000028_crear_modulo_operacion_offline_qr.sql', 28)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 -- ------------------------------------------------------------------------------
@@ -3244,6 +3245,77 @@ INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
 WHERE r.codigo IN ('COORDINADOR', 'COORDINADOR_VENTAS', 'VENTAS', 'operador_produccion') 
   AND p.codigo IN ('folclore.tipos_danza.ver', 'folclore.conjuntos.ver', 'folclore.programacion.ver');
+
+-- ------------------------------------------------------------------------------
+-- 106. TABLA `operacion_offline_lotes` (LOTES DE SINCRONIZACIÓN OFFLINE DE CAMPO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `operacion_offline_lotes`;
+CREATE TABLE `operacion_offline_lotes` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `operador_id` INT UNSIGNED NOT NULL,
+    `lote_uuid` VARCHAR(64) NOT NULL,
+    `dispositivo_info` VARCHAR(255) DEFAULT NULL,
+    `total_escaneos` INT NOT NULL DEFAULT 0,
+    `total_confirmados` INT NOT NULL DEFAULT 0,
+    `total_conflictos` INT NOT NULL DEFAULT 0,
+    `total_rechazados` INT NOT NULL DEFAULT 0,
+    `estado` ENUM('RECIBIDO', 'PROCESADO', 'CON_CONFLICTOS') NOT NULL DEFAULT 'RECIBIDO',
+    `ip_origen` VARCHAR(45) DEFAULT NULL,
+    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `procesado_en` DATETIME DEFAULT NULL,
+
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`operador_id`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+
+    UNIQUE KEY `uk_offline_lote_uuid` (`lote_uuid`),
+    KEY `idx_offline_lotes_org_edicion` (`organizacion_id`, `edicion_id`),
+    KEY `idx_offline_lotes_operador` (`operador_id`, `creado_en`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Lotes de sincronización de validaciones offline de campo';
+
+-- ------------------------------------------------------------------------------
+-- 107. TABLA `operacion_offline_eventos` (EVENTOS DE ESCANEO SINCRONIZADOS DE CAMPO)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `operacion_offline_eventos`;
+CREATE TABLE `operacion_offline_eventos` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `lote_id` BIGINT UNSIGNED NOT NULL,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `edicion_id` INT UNSIGNED NOT NULL,
+    `operador_id` INT UNSIGNED NOT NULL,
+    `idempotencia_hash` CHAR(64) NOT NULL,
+    `token_qr_hash` CHAR(64) NOT NULL,
+    `tipo_credencial` ENUM('BOLETO_RESERVA', 'PARTICIPANTE_SALIDA', 'ACREDITACION_FOLCLORE', 'PASE_PERSONAL') NOT NULL DEFAULT 'BOLETO_RESERVA',
+    `referencia_id` BIGINT UNSIGNED DEFAULT NULL,
+    `resultado_local` VARCHAR(32) NOT NULL DEFAULT 'VALIDO_PROVISIONAL',
+    `resultado_servidor` ENUM('CONFIRMADO', 'CONFLICTO_DUPLICADO', 'RECHAZADO_REVOCADO', 'RECHAZADO_EXPIRADO', 'RECHAZADO_INEXISTENTE') NOT NULL,
+    `motivo_resolucion` VARCHAR(255) DEFAULT NULL,
+    `escaneado_en` DATETIME NOT NULL,
+    `sincronizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `metadatos_json` JSON DEFAULT NULL,
+
+    FOREIGN KEY (`lote_id`) REFERENCES `operacion_offline_lotes` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`edicion_id`) REFERENCES `ediciones_candelaria` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`operador_id`) REFERENCES `usuarios` (`id`) ON DELETE RESTRICT,
+
+    UNIQUE KEY `uk_offline_evento_idempotencia` (`idempotencia_hash`),
+    KEY `idx_offline_eventos_lote` (`lote_id`),
+    KEY `idx_offline_eventos_qr_hash` (`organizacion_id`, `token_qr_hash`),
+    KEY `idx_offline_eventos_operador` (`operador_id`, `escaneado_en`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Eventos individuales de escaneo QR sincronizados desde dispositivos de campo';
+
+-- Permiso RBAC 114: operacion.offline.validar
+INSERT INTO `permisos` (`modulo_id`, `codigo`, `nombre`, `descripcion`) VALUES
+(23, 'operacion.offline.validar', 'Validar QR y Operar Offline', 'Permite acceso a la interfaz móvil de validación QR sin conexión y sincronización de campo')
+ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
+
+INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
+SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
+WHERE r.codigo IN ('superadmin_plataforma', 'admin_organizacion', 'operador_produccion')
+  AND p.codigo = 'operacion.offline.validar';
 
 SET FOREIGN_KEY_CHECKS = 1;
 

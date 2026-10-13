@@ -140,25 +140,41 @@ try {
 
     // Edición 1 para Org 10000 (es_actual = 1)
     $pdo->exec("UPDATE `ediciones_candelaria` SET `es_actual` = 0 WHERE `organizacion_id` = 10000");
-    $ed1Org1Id = $edicionRepo->crear(new Edicion(
-        id: null, organizacionId: 10000, codigo: 'candelaria-2026-test', nombre: 'Candelaria 2026 Test',
-        anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
-        estado: EstadoEdicion::OPERACION, esActual: true
-    ));
+    $edExistente1 = $edicionRepo->buscarPorAnio(10000, 2026);
+    if ($edExistente1 !== null) {
+        $ed1Org1Id = (int) $edExistente1->id;
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `es_actual` = 1, `estado` = 'OPERACION' WHERE `id` = {$ed1Org1Id}");
+    } else {
+        $ed1Org1Id = $edicionRepo->crear(new Edicion(
+            id: null, organizacionId: 10000, codigo: 'candelaria-2026-test', nombre: 'Candelaria 2026 Test',
+            anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
+            estado: EstadoEdicion::OPERACION, esActual: true
+        ));
+    }
 
     // Edición 2 para Org 10000 (es_actual = 0)
-    $ed2Org1Id = $edicionRepo->crear(new Edicion(
-        id: null, organizacionId: 10000, codigo: 'candelaria-2027-test', nombre: 'Candelaria 2027 Test',
-        anio: 2027, fechaInicio: '2027-02-01', fechaFin: '2027-02-15', descripcion: null,
-        estado: EstadoEdicion::PREOPERACION, esActual: false
-    ));
+    $edExistente2 = $edicionRepo->buscarPorAnio(10000, 2027);
+    if ($edExistente2 !== null) {
+        $ed2Org1Id = (int) $edExistente2->id;
+    } else {
+        $ed2Org1Id = $edicionRepo->crear(new Edicion(
+            id: null, organizacionId: 10000, codigo: 'candelaria-2027-test', nombre: 'Candelaria 2027 Test',
+            anio: 2027, fechaInicio: '2027-02-01', fechaFin: '2027-02-15', descripcion: null,
+            estado: EstadoEdicion::PREOPERACION, esActual: false
+        ));
+    }
 
     // Edición 3 para Org 20000 (es_actual = 1 de esa otra org)
-    $ed1Org2Id = $edicionRepo->crear(new Edicion(
-        id: null, organizacionId: 20000, codigo: 'candelaria-2026-org2', nombre: 'Candelaria Org 2 2026',
-        anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
-        estado: EstadoEdicion::PREOPERACION, esActual: true
-    ));
+    $edExistente3 = $edicionRepo->buscarPorAnio(20000, 2026);
+    if ($edExistente3 !== null) {
+        $ed1Org2Id = (int) $edExistente3->id;
+    } else {
+        $ed1Org2Id = $edicionRepo->crear(new Edicion(
+            id: null, organizacionId: 20000, codigo: 'candelaria-2026-org2', nombre: 'Candelaria Org 2 2026',
+            anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
+            estado: EstadoEdicion::PREOPERACION, esActual: true
+        ));
+    }
 
     // 3.1: Header AUSENTE con organización que tiene es_actual = 1 -> Fallback institucional
     $resAusente = $contextoResolver->resolverDesdeServidor($ctxBase, []);

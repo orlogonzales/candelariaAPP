@@ -32,6 +32,9 @@ use Aplicacion\Repositorios\ReservaRepositorio;
 use Aplicacion\Repositorios\RolRepositorio;
 use Aplicacion\Repositorios\UsuarioRepositorio;
 use Aplicacion\Reservas\TipoCapacidad;
+use Aplicacion\Excepciones\ValidacionExcepcion;
+use Aplicacion\Operaciones\OperacionOfflineServicio;
+use Aplicacion\Repositorios\OperacionOfflineRepositorio;
 use InvalidArgumentException;
 use Nucleo\BaseDatos\Conexion;
 use Nucleo\Http\ContextoOperacion;
@@ -62,6 +65,8 @@ class OperacionControlador
     private AuditoriaRepositorio $auditoriaRepo;
     private ConfiguracionServicio $configServicio;
     private ContextoEdicionResolver $contextoEdicionResolver;
+    private OperacionOfflineRepositorio $offlineRepo;
+    private OperacionOfflineServicio $offlineServicio;
     private PDO $pdo;
 
     public function __construct(
@@ -87,6 +92,13 @@ class OperacionControlador
         $this->entregaRepo = new EntregaProductoRepositorio($this->pdo);
         $this->personaRepo = new PersonaRepositorio($this->pdo);
         $this->auditoriaRepo = new AuditoriaRepositorio($this->pdo);
+
+        $this->offlineRepo = new OperacionOfflineRepositorio($this->pdo);
+        $this->offlineServicio = new OperacionOfflineServicio(
+            offlineRepo: $this->offlineRepo,
+            auditoriaRepo: $this->auditoriaRepo,
+            pdo: $this->pdo
+        );
 
         $rolRepo = new RolRepositorio($this->pdo);
         $permRepo = new PermisoRepositorio($this->pdo);
@@ -163,6 +175,50 @@ class OperacionControlador
             'seccionActiva'   => 'operaciones',
             'permisos'        => $permisos,
             'scriptAdicional' => url_base('publico/js/operaciones.js')
+        ], 'principal');
+    }
+
+    /**
+     * GET /operaciones/validador-movil
+     * Interfaz Web Móvil de Validación QR y Operación de Campo Offline (F3.3).
+     */
+    public function validadorMovil(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            header('Location: ' . url_base('login'));
+            exit;
+        }
+
+        $puedeOffline = $this->authzMiddleware->verificarPermiso('operacion.offline.validar', $contexto, false);
+        $puedeCheckin = $this->authzMiddleware->verificarPermiso('operacion.checkin', $contexto, false);
+        $puedeVer = $this->authzMiddleware->verificarPermiso('operacion.ver', $contexto, false);
+
+        if (!$puedeOffline && !$puedeCheckin && !$puedeVer) {
+            http_response_code(403);
+            return Vista::renderizar('errores/403', [
+                'titulo'        => 'Acceso Denegado | CandelariaAPP',
+                'subtitulo'     => 'Validador Móvil Offline',
+                'tituloSeccion' => 'Error 403',
+                'mensaje'       => 'No cuenta con los privilegios necesarios (operacion.offline.validar u operacion.checkin) para operar el validador móvil.'
+            ], 'principal');
+        }
+
+        // Resolver contexto de edición activa
+        $contextoEdicion = $this->contextoEdicionResolver->resolverParaUsuario($contexto->organizacionId, $contexto->usuarioId);
+        $edicionActiva = $contextoEdicion['edicion_activa'] ?? null;
+
+        $tokenCsrf = ProtectorCsrf::generarToken();
+
+        return Vista::renderizar('operaciones/validador_movil', [
+            'titulo'          => 'Validador Móvil QR | CandelariaAPP',
+            'subtitulo'       => 'Operación de Campo y Validación Sin Conexión',
+            'tituloSeccion'   => 'Validador Móvil',
+            'seccionActiva'   => 'operaciones',
+            'usuario'         => $contexto,
+            'edicion'         => $edicionActiva,
+            'tokenCsrf'       => $tokenCsrf,
+            'scriptAdicional' => url_base('publico/js/validador_offline_movil.js')
         ], 'principal');
     }
 
@@ -1785,6 +1841,164 @@ class OperacionControlador
 
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : $_POST;
+    }
+
+    // =========================================================================
+    // 8. ENDPOINTS OPERACIÓN MÓVIL Y VALIDACIÓN QR OFFLINE (FASE 3.3 / DT-V11-010)
+    // =========================================================================
+
+    /**
+     * GET /api/v1/operaciones/offline/paquete
+     */
+    public function descargarPaqueteOffline(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            return $this->responderJson(false, 401, 'No autenticado.');
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('operacion.offline.validar', $contexto, false) &&
+            !$this->authzMiddleware->verificarPermiso('operacion.checkin', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso operacion.offline.validar.');
+        }
+
+        try {
+            $contextoEdicion = $this->contextoEdicionResolver->resolverParaUsuario($contexto->organizacionId, $contexto->usuarioId);
+            $edicionId = (int) ($_GET['edicion_id'] ?? ($contextoEdicion['edicion_activa']['id'] ?? 0));
+            $salidaId = !empty($_GET['salida_id']) ? (int) $_GET['salida_id'] : null;
+
+            if ($edicionId <= 0) {
+                return $this->responderJson(false, 422, 'Debe especificar una edición activa válida.');
+            }
+
+            $paquete = $this->offlineServicio->descargarPaqueteOffline(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $edicionId,
+                operadorId: $contexto->usuarioId,
+                salidaId: $salidaId
+            );
+
+            return $this->responderJson(true, 200, 'Paquete de validación offline generado exitosamente.', $paquete);
+        } catch (ValidacionExcepcion $ve) {
+            return $this->responderJson(false, 422, $ve->getMessage());
+        } catch (Throwable $e) {
+            return $this->responderErrorSeguro($e);
+        }
+    }
+
+    /**
+     * POST /api/v1/operaciones/offline/validar-online
+     */
+    public function validarOfflineOnlineDirecto(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            return $this->responderJson(false, 401, 'No autenticado.');
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('operacion.offline.validar', $contexto, false) &&
+            !$this->authzMiddleware->verificarPermiso('operacion.checkin', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso operacion.offline.validar.');
+        }
+
+        $cuerpo = $this->obtenerCuerpoRequisicion();
+        $tokenQr = trim((string) ($cuerpo['token_qr'] ?? ''));
+        $marcarIngreso = !empty($cuerpo['marcar_ingreso']);
+
+        if (empty($tokenQr)) {
+            return $this->responderJson(false, 422, 'El token o código QR es obligatorio.');
+        }
+
+        try {
+            $contextoEdicion = $this->contextoEdicionResolver->resolverParaUsuario($contexto->organizacionId, $contexto->usuarioId);
+            $edicionId = (int) ($cuerpo['edicion_id'] ?? ($contextoEdicion['edicion_activa']['id'] ?? 0));
+
+            $resultado = $this->offlineServicio->validarCredencialOnline(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $edicionId,
+                operadorId: $contexto->usuarioId,
+                tokenQr: $tokenQr,
+                marcarIngreso: $marcarIngreso
+            );
+
+            return $this->responderJson($resultado['valido'], 200, $resultado['motivo'], $resultado);
+        } catch (Throwable $e) {
+            return $this->responderErrorSeguro($e);
+        }
+    }
+
+    /**
+     * POST /api/v1/operaciones/offline/sincronizar
+     */
+    public function sincronizarLoteOffline(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            return $this->responderJson(false, 401, 'No autenticado.');
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('operacion.offline.validar', $contexto, false) &&
+            !$this->authzMiddleware->verificarPermiso('operacion.checkin', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso operacion.offline.validar.');
+        }
+
+        $cuerpo = $this->obtenerCuerpoRequisicion();
+        if (!is_array($cuerpo)) {
+            return $this->responderJson(false, 422, 'Cuerpo de solicitud inválido.');
+        }
+
+        try {
+            $contextoEdicion = $this->contextoEdicionResolver->resolverParaUsuario($contexto->organizacionId, $contexto->usuarioId);
+            $edicionId = (int) ($cuerpo['edicion_id'] ?? ($contextoEdicion['edicion_activa']['id'] ?? 0));
+            $ipOrigen = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+
+            $resultado = $this->offlineServicio->sincronizarLoteOffline(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $edicionId,
+                operadorId: $contexto->usuarioId,
+                datosLote: $cuerpo,
+                ipOrigen: $ipOrigen
+            );
+
+            return $this->responderJson(true, 200, $resultado['mensaje'], $resultado);
+        } catch (ValidacionExcepcion $ve) {
+            return $this->responderJson(false, 422, $ve->getMessage());
+        } catch (Throwable $e) {
+            return $this->responderErrorSeguro($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/operaciones/offline/lotes
+     */
+    public function historialLotesOffline(): string
+    {
+        $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, false);
+        if ($contexto === null) {
+            return $this->responderJson(false, 401, 'No autenticado.');
+        }
+
+        if (!$this->authzMiddleware->verificarPermiso('operacion.offline.validar', $contexto, false) &&
+            !$this->authzMiddleware->verificarPermiso('operacion.ver', $contexto, false)) {
+            return $this->responderJson(false, 403, 'No cuenta con el permiso necesario.');
+        }
+
+        try {
+            $contextoEdicion = $this->contextoEdicionResolver->resolverParaUsuario($contexto->organizacionId, $contexto->usuarioId);
+            $edicionId = (int) ($_GET['edicion_id'] ?? ($contextoEdicion['edicion_activa']['id'] ?? 0));
+
+            $lotes = $this->offlineRepo->listarLotesPorOrganizacion(
+                organizacionId: $contexto->organizacionId,
+                edicionId: $edicionId,
+                limite: 50
+            );
+
+            return $this->responderJson(true, 200, 'Historial de lotes offline recuperado exitosamente.', [
+                'lotes' => $lotes,
+            ]);
+        } catch (Throwable $e) {
+            return $this->responderErrorSeguro($e);
+        }
     }
 
     private function verificarCsrf(ContextoOperacion $contexto, array $cuerpo): ?string

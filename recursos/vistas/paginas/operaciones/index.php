@@ -15,6 +15,9 @@
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0">
         <div class="d-inline-flex gap-2">
+            <a href="<?= url_base('operaciones/validador-movil') ?>" class="btn btn-outline-primary btn-md shadow-sm" title="Abrir Validador Móvil QR">
+                <i class="fa-solid fa-qrcode me-1"></i> Validador Móvil
+            </a>
             <button type="button" class="btn btn-outline-secondary btn-md" id="btnRecargarTabla" title="Actualizar datos">
                 <i class="fa-solid fa-rotate me-1"></i> Actualizar
             </button>

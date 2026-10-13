@@ -129,14 +129,19 @@ try {
     // SETUP DE FIXTURES SINTÉTICOS (ZERO-PII)
     // ==============================================================================
     $orgId = 10000;
-    $edicionId = 2026;
-
-    // Asegurar edición 2026 para org 10000
-    $pdo->exec("
-        INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `nombre`, `anio`, `estado`, `fecha_inicio`, `fecha_fin`)
-        VALUES (2026, 10000, 'candelaria-2026-f26c', 'FESTIVIDAD CANDELARIA 2026 F26C', 2026, 'OPERACION', '2026-02-01', '2026-02-15')
-        ON DUPLICATE KEY UPDATE `estado` = 'OPERACION'
-    ");
+    $stmtEd = $pdo->prepare("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = :org AND `anio` = 2026");
+    $stmtEd->execute(['org' => $orgId]);
+    $edExistenteId = $stmtEd->fetchColumn();
+    if ($edExistenteId) {
+        $edicionId = (int) $edExistenteId;
+    } else {
+        $edicionId = 2026;
+        $pdo->exec("
+            INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `nombre`, `anio`, `estado`, `fecha_inicio`, `fecha_fin`)
+            VALUES (2026, 10000, 'candelaria-2026-f26c', 'FESTIVIDAD CANDELARIA 2026 F26C', 2026, 'OPERACION', '2026-02-01', '2026-02-15')
+            ON DUPLICATE KEY UPDATE `estado` = 'OPERACION'
+        ");
+    }
 
     // Actores sintéticos
     $adminSinteticoId = 8801;

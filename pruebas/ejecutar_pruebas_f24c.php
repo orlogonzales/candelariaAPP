@@ -135,15 +135,29 @@ try {
                 ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
 
     // Crear Edición A y Edición B
-    $edicionAId = 98801;
-    $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
-                VALUES ({$edicionAId}, {$tenantA}, 'ED-2026-A', 2026, 'Candelaria 2026 A', 'PREOPERACION', '2026-02-01', '2026-02-15', 1)
-                ON DUPLICATE KEY UPDATE `estado` = 'PREOPERACION', `es_actual` = 1");
+    $stmtEdA = $pdo->query("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = {$tenantA} AND `anio` = 2026");
+    $edAExistente = $stmtEdA->fetchColumn();
+    if ($edAExistente) {
+        $edicionAId = (int) $edAExistente;
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `estado` = 'PREOPERACION', `es_actual` = 1 WHERE `id` = {$edicionAId}");
+    } else {
+        $edicionAId = 98801;
+        $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
+                    VALUES ({$edicionAId}, {$tenantA}, 'ED-2026-A', 2026, 'Candelaria 2026 A', 'PREOPERACION', '2026-02-01', '2026-02-15', 1)
+                    ON DUPLICATE KEY UPDATE `estado` = 'PREOPERACION', `es_actual` = 1");
+    }
 
-    $edicionBId = 98802;
-    $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
-                VALUES ({$edicionBId}, {$tenantB}, 'ED-2026-B', 2026, 'Candelaria 2026 B', 'PREOPERACION', '2026-02-01', '2026-02-15', 1)
-                ON DUPLICATE KEY UPDATE `estado` = 'PREOPERACION'");
+    $stmtEdB = $pdo->query("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = {$tenantB} AND `anio` = 2026");
+    $edBExistente = $stmtEdB->fetchColumn();
+    if ($edBExistente) {
+        $edicionBId = (int) $edBExistente;
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `estado` = 'PREOPERACION' WHERE `id` = {$edicionBId}");
+    } else {
+        $edicionBId = 98802;
+        $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
+                    VALUES ({$edicionBId}, {$tenantB}, 'ED-2026-B', 2026, 'Candelaria 2026 B', 'PREOPERACION', '2026-02-01', '2026-02-15', 1)
+                    ON DUPLICATE KEY UPDATE `estado` = 'PREOPERACION'");
+    }
 
     // Crear Clientes sintéticos (Persona + Cliente)
     $personaAId = 8801;

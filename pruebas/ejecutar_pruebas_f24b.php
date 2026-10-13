@@ -223,6 +223,9 @@ try {
     $tenantA = 10000;
     $tenantB = 20000;
 
+    // Limpiar secuencias previas del tenant de pruebas dentro de la transacción para iniciar en 1
+    $pdo->exec("DELETE FROM `cotizaciones_secuencias` WHERE `organizacion_id` = {$tenantA} AND `anio` = 2026");
+
     // Crear Tenant B si no existe
     $stmtOrgB = $pdo->prepare("INSERT INTO `organizaciones` (`id`, `codigo`, `nombre_comercial`, `estado`) VALUES (:id, 'tenant_cot_b', 'Tenant Cotizaciones B', 'ACTIVO') ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
     $stmtOrgB->execute(['id' => $tenantB]);

@@ -393,6 +393,12 @@ Enrutador::get('/api/v1/operaciones/entregas', [\Aplicacion\Controladores\Operac
 Enrutador::get('/api/v1/operaciones/entregas/{id}', [\Aplicacion\Controladores\OperacionControlador::class, 'detalleEntrega']);
 Enrutador::post('/api/v1/operaciones/entregas/{id}/despachar', [\Aplicacion\Controladores\OperacionControlador::class, 'despacharEntrega']);
 
+// Operación Móvil y Validación QR Offline (Fase 3.3 / DT-V11-010)
+Enrutador::get('/api/v1/operaciones/offline/paquete', [\Aplicacion\Controladores\OperacionControlador::class, 'descargarPaqueteOffline']);
+Enrutador::post('/api/v1/operaciones/offline/validar-online', [\Aplicacion\Controladores\OperacionControlador::class, 'validarOfflineOnlineDirecto']);
+Enrutador::post('/api/v1/operaciones/offline/sincronizar', [\Aplicacion\Controladores\OperacionControlador::class, 'sincronizarLoteOffline']);
+Enrutador::get('/api/v1/operaciones/offline/lotes', [\Aplicacion\Controladores\OperacionControlador::class, 'historialLotesOffline']);
+
 // ==============================================================================
 // GESTIÓN FINANCIERA, PAGOS Y PASARELAS (FASE 2.7D)
 // ==============================================================================

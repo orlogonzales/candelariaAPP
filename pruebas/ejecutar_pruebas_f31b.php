@@ -548,6 +548,10 @@ try {
 }
 registrarAsercion("9.1 Rechazo estricto de cruce de ediciones al asignar turno (inscripción 2027 en programación 2026)", $cruceRechazado);
 
+// Limpieza inmediata de edición de cruce
+$pdo->exec("DELETE FROM `edicion_conjunto_inscripciones` WHERE `id` = " . (int)$inscripcionEdSec->id);
+$pdo->exec("DELETE FROM `ediciones_candelaria` WHERE `id` = " . (int)$edicionSecId);
+
 // B. Intento de vincular participante a bloque de otro conjunto
 $otroConjunto = $folcloreServicio->registrarConjunto(
     organizacionId: $orgId,

@@ -71,15 +71,29 @@ try {
                 VALUES ({$tenantB}, 'tenant_b_f26e', 'Tenant B Pruebas F26E', 'ACTIVO')
                 ON DUPLICATE KEY UPDATE `estado` = 'ACTIVO'");
 
-    $edicionAId = 98901;
-    $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
-                VALUES ({$edicionAId}, {$tenantA}, 'ED-2026-F26E-A', 2026, 'Candelaria 2026 F26E A', 'OPERACION', '2026-02-01', '2026-02-15', 1)
-                ON DUPLICATE KEY UPDATE `estado` = 'OPERACION', `es_actual` = 1");
+    $stmtEdA = $pdo->query("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = {$tenantA} AND `anio` = 2026");
+    $edAExistente = $stmtEdA->fetchColumn();
+    if ($edAExistente) {
+        $edicionAId = (int) $edAExistente;
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `estado` = 'OPERACION', `es_actual` = 1 WHERE `id` = {$edicionAId}");
+    } else {
+        $edicionAId = 98901;
+        $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
+                    VALUES ({$edicionAId}, {$tenantA}, 'ED-2026-F26E-A', 2026, 'Candelaria 2026 F26E A', 'OPERACION', '2026-02-01', '2026-02-15', 1)
+                    ON DUPLICATE KEY UPDATE `estado` = 'OPERACION', `es_actual` = 1");
+    }
 
-    $edicionBId = 98902;
-    $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
-                VALUES ({$edicionBId}, {$tenantB}, 'ED-2026-F26E-B', 2026, 'Candelaria 2026 F26E B', 'OPERACION', '2026-02-01', '2026-02-15', 1)
-                ON DUPLICATE KEY UPDATE `estado` = 'OPERACION'");
+    $stmtEdB = $pdo->query("SELECT `id` FROM `ediciones_candelaria` WHERE `organizacion_id` = {$tenantB} AND `anio` = 2026");
+    $edBExistente = $stmtEdB->fetchColumn();
+    if ($edBExistente) {
+        $edicionBId = (int) $edBExistente;
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `estado` = 'OPERACION' WHERE `id` = {$edicionBId}");
+    } else {
+        $edicionBId = 98902;
+        $pdo->exec("INSERT INTO `ediciones_candelaria` (`id`, `organizacion_id`, `codigo`, `anio`, `nombre`, `estado`, `fecha_inicio`, `fecha_fin`, `es_actual`)
+                    VALUES ({$edicionBId}, {$tenantB}, 'ED-2026-F26E-B', 2026, 'Candelaria 2026 F26E B', 'OPERACION', '2026-02-01', '2026-02-15', 1)
+                    ON DUPLICATE KEY UPDATE `estado` = 'OPERACION'");
+    }
 
     // Clientes y Personas sintéticas
     $personaClienteA = 8911;

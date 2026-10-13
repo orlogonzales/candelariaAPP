@@ -130,28 +130,44 @@ try {
 
     // Sembrar dos ediciones en Org 10000 (Edición A actual=1, Edición B actual=0)
     $pdo->exec("UPDATE `ediciones_candelaria` SET `es_actual` = 0 WHERE `organizacion_id` = 10000");
-    $edAId = $edicionRepo->crear(new Edicion(
-        id: null, organizacionId: 10000, codigo: 'candelaria-2026-hard', nombre: 'CANDELARIA 2026 HARDENING',
-        anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
-        estado: EstadoEdicion::PREOPERACION, esActual: true
-    ));
+    $edExistenteA = $edicionRepo->buscarPorAnio(10000, 2026);
+    if ($edExistenteA !== null) {
+        $edAId = (int) $edExistenteA->id;
+        $pdo->exec("UPDATE `ediciones_candelaria` SET `es_actual` = 1, `estado` = 'PREOPERACION' WHERE `id` = {$edAId}");
+    } else {
+        $edAId = $edicionRepo->crear(new Edicion(
+            id: null, organizacionId: 10000, codigo: 'candelaria-2026-hard', nombre: 'CANDELARIA 2026 HARDENING',
+            anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
+            estado: EstadoEdicion::PREOPERACION, esActual: true
+        ));
+    }
 
-    $edBId = $edicionRepo->crear(new Edicion(
-        id: null, organizacionId: 10000, codigo: 'candelaria-2027-hard', nombre: 'CANDELARIA 2027 HARDENING',
-        anio: 2027, fechaInicio: '2027-02-01', fechaFin: '2027-02-15', descripcion: null,
-        estado: EstadoEdicion::PREOPERACION, esActual: false
-    ));
+    $edExistenteB = $edicionRepo->buscarPorAnio(10000, 2027);
+    if ($edExistenteB !== null) {
+        $edBId = (int) $edExistenteB->id;
+    } else {
+        $edBId = $edicionRepo->crear(new Edicion(
+            id: null, organizacionId: 10000, codigo: 'candelaria-2027-hard', nombre: 'CANDELARIA 2027 HARDENING',
+            anio: 2027, fechaInicio: '2027-02-01', fechaFin: '2027-02-15', descripcion: null,
+            estado: EstadoEdicion::PREOPERACION, esActual: false
+        ));
+    }
 
     // Crear Org 20000 temporal dentro de la transacción para pruebas Anti-IDOR
     $stmtOrg2 = $pdo->prepare("INSERT INTO `organizaciones` (`id`, `codigo`, `nombre_comercial`, `razon_social`, `tipo_documento_id`, `numero_documento`, `codigo_pais`, `correo_contacto`, `estado`) VALUES (20000, 'org_f21c_segunda', 'SEGUNDA PRODUCCION F21C', 'SEGUNDA PRODUCCION F21C S.A.C.', 2, '20999888773', 'PE', 'contacto@segundaf21c.com', 'ACTIVO')");
     $stmtOrg2->execute();
 
     // Sembrar edición en Org 20000 para pruebas Anti-IDOR
-    $edOrg2Id = $edicionRepo->crear(new Edicion(
-        id: null, organizacionId: 20000, codigo: 'candelaria-2026-org20k', nombre: 'CANDELARIA ORG 20K',
-        anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
-        estado: EstadoEdicion::PREOPERACION, esActual: true
-    ));
+    $edExistenteOrg2 = $edicionRepo->buscarPorAnio(20000, 2026);
+    if ($edExistenteOrg2 !== null) {
+        $edOrg2Id = (int) $edExistenteOrg2->id;
+    } else {
+        $edOrg2Id = $edicionRepo->crear(new Edicion(
+            id: null, organizacionId: 20000, codigo: 'candelaria-2026-org20k', nombre: 'CANDELARIA ORG 20K',
+            anio: 2026, fechaInicio: '2026-02-01', fechaFin: '2026-02-15', descripcion: null,
+            estado: EstadoEdicion::PREOPERACION, esActual: true
+        ));
+    }
 
     $ctxBase = ContextoOperacion::paraHumano(
         usuarioId: 24,
