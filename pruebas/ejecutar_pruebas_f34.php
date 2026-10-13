@@ -441,10 +441,19 @@ try {
 }
 assertF34($exIdorGaleria, "4.16: Anti-IDOR: Cliente B es rechazado al intentar ver fotos de galería ajena");
 
-// 4.9 Habilitación de descarga al pasar proyecto a LISTO_ENTREGA
+// 4.9 Habilitación de descarga al pasar proyecto a LISTO_ENTREGA con hito formal publicado
 $pdo->prepare("UPDATE `postproduccion_proyectos` SET `estado` = 'LISTO_ENTREGA' WHERE `id` = :id")->execute(['id' => $proyectoAId]);
+$stmtEntPrueba = $pdo->prepare("
+    INSERT INTO `postproduccion_entregas` (
+        `organizacion_id`, `proyecto_id`, `numero_entrega`, `titulo`, `tipo_entrega`, `estado_entrega`, `entregado_en`
+    ) VALUES (
+        :org_id, :pry_id, 1, 'Entrega Final Oficial', 'FINAL', 'PUBLICADA', NOW()
+    )
+");
+$stmtEntPrueba->execute(['org_id' => $orgId, 'pry_id' => $proyectoAId]);
+
 $fotosGalListo = $postSvc->obtenerFotosGaleriaCliente($orgId, $galeriaAId, $clienteAId);
-assertF34($fotosGalListo['fotos'][0]['descarga_permitida'] === true, "4.17: Descarga de original se habilita al transicionar proyecto a LISTO_ENTREGA");
+assertF34($fotosGalListo['fotos'][0]['descarga_permitida'] === true, "4.17: Descarga de original se habilita al transicionar proyecto a LISTO_ENTREGA con entrega publicada");
 
 
 // ------------------------------------------------------------------------------
@@ -502,6 +511,7 @@ $pdo->exec("DELETE FROM `postproduccion_selecciones` WHERE `cliente_id` IN ({$cl
 $pdo->exec("DELETE FROM `consentimientos_cliente` WHERE `cliente_id` IN ({$clienteAId}, {$clienteBId})");
 $pdo->exec("DELETE FROM `postproduccion_archivos` WHERE `galeria_id` = {$galeriaAId}");
 $pdo->exec("DELETE FROM `postproduccion_galerias` WHERE `id` = {$galeriaAId}");
+$pdo->exec("DELETE FROM `postproduccion_entregas` WHERE `proyecto_id` = {$proyectoAId}");
 $pdo->exec("DELETE FROM `postproduccion_proyectos` WHERE `id` = {$proyectoAId}");
 $pdo->exec("DELETE FROM `recibos_caja` WHERE `id` = {$reciboPdf['recibo_id']}");
 $pdo->exec("DELETE FROM `pagos` WHERE `venta_id` = {$ventaAId}");

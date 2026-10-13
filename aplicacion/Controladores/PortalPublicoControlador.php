@@ -622,10 +622,14 @@ class PortalPublicoControlador
                 FROM `pagos` p
                 JOIN `ventas` v ON p.venta_id = v.id
                 LEFT JOIN `recibos_caja` rc ON rc.pago_id = p.id
-                WHERE (p.id = :id OR rc.id = :id) AND p.organizacion_id = :org_id
+                WHERE (p.id = :id_pago OR rc.id = :id_recibo) AND p.organizacion_id = :org_id
                 LIMIT 1
             ");
-            $stmt->execute(['id' => $id, 'org_id' => $tenant['organizacion_id']]);
+            $stmt->execute([
+                'id_pago'   => $id,
+                'id_recibo' => $id,
+                'org_id'    => $tenant['organizacion_id'],
+            ]);
             $pago = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if (!$pago || (int) $pago['cliente_id'] !== (int) $sesion->clienteId) {
@@ -820,15 +824,23 @@ class PortalPublicoControlador
             $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
             $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
 
-            // Si es descarga de archivo original (no vista previa), validar estado del proyecto
+            // Validación Anti-IDOR para previsualización y descarga
+            $archivoInfo = $postSvc->obtenerArchivo($tenant['organizacion_id'], $archivoId);
+            if (!$archivoInfo) {
+                throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Archivo multimedia no encontrado en su organización.");
+            }
+            $proyectoInfo = $postSvc->obtenerProyecto($tenant['organizacion_id'], (int) $archivoInfo['proyecto_id']);
+            if (!$proyectoInfo || (int) $proyectoInfo['cliente_id'] !== (int) $sesion->clienteId) {
+                throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: El archivo no pertenece a su cuenta.");
+            }
+
+            // Si es descarga de archivo original de alta resolución, aplicar compuertas de autorización positiva (DT-V11-015)
             if (!$esPreview) {
-                $archivoInfo = $postSvc->obtenerArchivo($tenant['organizacion_id'], $archivoId);
-                if ($archivoInfo) {
-                    $proyectoInfo = $postSvc->obtenerProyecto($tenant['organizacion_id'], (int) $archivoInfo['proyecto_id']);
-                    if ($proyectoInfo && !in_array($proyectoInfo['estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true)) {
-                        throw new InvalidArgumentException("La descarga de archivos originales de alta resolución estará disponible cuando el proyecto pase a estado LISTO_ENTREGA o ENTREGADO. Puede previsualizar las fotografías en la galería.");
-                    }
-                }
+                $postSvc->verificarAutorizacionDescargaOriginal(
+                    $tenant['organizacion_id'],
+                    $archivoId,
+                    (int) $sesion->clienteId
+                );
             }
 
             $res = $postSvc->obtenerStreamDescarga(

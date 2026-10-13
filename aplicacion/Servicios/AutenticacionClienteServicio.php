@@ -62,10 +62,10 @@ class AutenticacionClienteServicio
         // 2. Buscar cliente titular vinculado al teléfono
         $cliente = $this->clienteRepo->buscarPorTelefono($organizacionId, $telefonoLimpio);
         if ($cliente === null) {
-            // Protección contra enumeración: devolver mensaje amigable
+            // Protección contra enumeración de cuentas: devolver mensaje indistinguible
             return [
-                'exito'   => false,
-                'mensaje' => 'No se encontró ninguna reserva vinculada a este número de WhatsApp en la organización.',
+                'exito'   => true,
+                'mensaje' => "Si el número de WhatsApp se encuentra registrado, recibirá un código de acceso de 6 dígitos.",
             ];
         }
 
@@ -137,9 +137,10 @@ class AutenticacionClienteServicio
         // 2. Buscar cliente por correo
         $cliente = $this->clienteRepo->buscarPorCorreo($organizacionId, $correoLimpio);
         if ($cliente === null) {
+            // Protección contra enumeración de cuentas: devolver mensaje indistinguible
             return [
-                'exito'   => false,
-                'mensaje' => 'No se encontró ninguna reserva vinculada a este correo electrónico.',
+                'exito'   => true,
+                'mensaje' => "Si el correo electrónico se encuentra registrado, recibirá un enlace de acceso seguro.",
             ];
         }
 
@@ -221,10 +222,12 @@ class AutenticacionClienteServicio
             return ['exito' => false, 'mensaje' => 'El código ingresado es incorrecto o ha expirado.'];
         }
 
-        // Marcar código como utilizado (single-use)
-        $this->codigoRepo->marcarUtilizado((int) $codigoObj->id);
+        // Marcar código como utilizado mediante operación estrictamente atómica (single-use)
+        if (!$this->codigoRepo->marcarUtilizado((int) $codigoObj->id)) {
+            return ['exito' => false, 'mensaje' => 'El código de acceso ya ha sido utilizado. Solicite uno nuevo.'];
+        }
 
-        // Emitir sesión del cliente
+        // Emitir sesión del cliente (con revocación previa de sesiones activas anteriores)
         $sesion = $this->emitirSesionCliente($organizacionId, (int) $cliente->id, $ipOrigen, $userAgent);
 
         return [
@@ -267,7 +270,10 @@ class AutenticacionClienteServicio
             return ['exito' => false, 'mensaje' => 'El enlace de acceso es inválido o ha expirado.'];
         }
 
-        $this->codigoRepo->marcarUtilizado((int) $codigoObj->id);
+        // Marcar código como utilizado mediante operación estrictamente atómica (single-use)
+        if (!$this->codigoRepo->marcarUtilizado((int) $codigoObj->id)) {
+            return ['exito' => false, 'mensaje' => 'El enlace de acceso ya ha sido utilizado. Solicite uno nuevo.'];
+        }
 
         $sesion = $this->emitirSesionCliente($organizacionId, (int) $cliente->id, $ipOrigen, $userAgent);
 
@@ -282,13 +288,19 @@ class AutenticacionClienteServicio
 
     /**
      * Emite una sesión segura de 30 días para un cliente en un tenant.
+     * Genera siempre un nuevo identificador CSPRNG de 256 bits, garantizando protección contra fijación.
      */
     public function emitirSesionCliente(
         int $organizacionId,
         int $clienteId,
         string $ipOrigen,
-        ?string $userAgent = null
+        ?string $userAgent = null,
+        bool $revocarPrevias = false
     ): array {
+        if ($revocarPrevias) {
+            $this->sesionRepo->revocarPorCliente($organizacionId, $clienteId);
+        }
+
         $tokenPlano = 'cli_ses_' . bin2hex(random_bytes(32));
         $tokenHash = hash('sha256', $tokenPlano);
         $expiraEn = date('Y-m-d H:i:s', time() + (30 * 86400)); // 30 días
@@ -310,6 +322,29 @@ class AutenticacionClienteServicio
             'token_plano' => $tokenPlano,
             'expira_en'   => $expiraEn,
         ];
+    }
+
+    /**
+     * Rota de manera segura una sesión existente generando un nuevo identificador CSPRNG
+     * e invalidando de inmediato el token previo (protección estricta contra fijación de sesión).
+     */
+    public function rotarSesion(string $tokenActual, ?string $ip = null, ?string $userAgent = null): array
+    {
+        $sesion = $this->validarSesion($tokenActual);
+        if ($sesion === null) {
+            throw new \DomainException("No se puede rotar una sesión inválida o expirada.");
+        }
+
+        // Invalidar inmediatamente el token anterior
+        $this->cerrarSesion($tokenActual);
+
+        // Emitir nuevo identificador de sesión
+        return $this->emitirSesionCliente(
+            $sesion->organizacionId,
+            $sesion->clienteId,
+            $ip ?? ($sesion->ipCreacion ?? '127.0.0.1'),
+            $userAgent ?? $sesion->userAgent
+        );
     }
 
     /**

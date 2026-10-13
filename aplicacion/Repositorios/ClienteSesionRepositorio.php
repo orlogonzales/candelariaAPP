@@ -68,7 +68,7 @@ class ClienteSesionRepositorio
     {
         $stmt = $this->pdo->prepare("
             UPDATE `cliente_sesiones`
-            SET `revocado` = 1
+            SET `revocado` = 1, `expira_en` = NOW()
             WHERE `id` = :id
         ");
         return $stmt->execute(['id' => $id]);
@@ -78,7 +78,7 @@ class ClienteSesionRepositorio
     {
         $stmt = $this->pdo->prepare("
             UPDATE `cliente_sesiones`
-            SET `revocado` = 1
+            SET `revocado` = 1, `expira_en` = NOW()
             WHERE `organizacion_id` = :org_id AND `cliente_id` = :cliente_id
         ");
         $stmt->execute([

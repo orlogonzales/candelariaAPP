@@ -112,14 +112,19 @@ class ClienteCodigoAccesoRepositorio
         return (int) $stmtSel->fetchColumn();
     }
 
+    /**
+     * Marca un código como utilizado mediante una operación estrictamente atómica de un solo uso.
+     * Retorna true si y solo si la fila pasó de utilizado=0 a utilizado=1 (evitando race conditions).
+     */
     public function marcarUtilizado(int $id): bool
     {
         $stmt = $this->pdo->prepare("
             UPDATE `cliente_codigos_acceso`
             SET `utilizado` = 1
-            WHERE `id` = :id
+            WHERE `id` = :id AND `utilizado` = 0
         ");
-        return $stmt->execute(['id' => $id]);
+        $stmt->execute(['id' => $id]);
+        return $stmt->rowCount() > 0;
     }
 
     public function contarSolicitudesRecientes(

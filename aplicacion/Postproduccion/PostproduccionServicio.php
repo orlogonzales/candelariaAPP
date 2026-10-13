@@ -780,6 +780,136 @@ class PostproduccionServicio
     }
 
     /**
+     * Verifica exhaustiva y canónicamente la autorización positiva para la descarga
+     * de un archivo fotográfico o audiovisual en alta resolución (DT-V11-015).
+     *
+     * Requiere simultáneamente:
+     * 1. Sesión autenticada y vigente de cliente.
+     * 2. Titularidad estricta del cliente sobre el proyecto y archivo (Anti-IDOR).
+     * 3. Correspondencia de organización y edición activa/válida.
+     * 4. Estado de entrega formalmente habilitado:
+     *    - Proyecto en estado 'LISTO_ENTREGA' o 'ENTREGADO'.
+     *    - Existencia de hito formal de entrega en postproduccion_entregas con estado 'PUBLICADA' o 'APROBADA_CLIENTE'
+     *      y enlace no caducado.
+     * 5. Ausencia de bloqueos operativos:
+     *    - Archivo en estado 'ACTIVO' (no 'REVOCADO', 'ELIMINADO_SOLICITUD' ni 'ARCHIVADO').
+     *    - Si la reserva asociada existe, no debe estar en 'CANCELADA' ni tener notas de bloqueo operativo.
+     *    - Si la venta asociada existe, no debe estar en 'ANULADA' ni tener disputas financieras activas.
+     *
+     * @throws \Aplicacion\Excepciones\AccesoDenegadoExcepcion Si alguna compuerta falla.
+     */
+    public function verificarAutorizacionDescargaOriginal(
+        int $organizacionId,
+        int $archivoId,
+        int $clienteId
+    ): array {
+        // 1. Archivo
+        $archivo = $this->obtenerArchivo($organizacionId, $archivoId);
+        if (!$archivo) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Archivo multimedia no encontrado en la organización.");
+        }
+
+        if ($archivo['estado'] === 'REVOCADO') {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: El archivo multimedia ha sido revocado por razones contractuales.");
+        }
+        if ($archivo['estado'] === 'ELIMINADO_SOLICITUD') {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: El archivo fue suprimido conforme a la Ley 29733.");
+        }
+        if ($archivo['estado'] !== 'ACTIVO') {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: El archivo no se encuentra en estado ACTIVO.");
+        }
+
+        // 2. Proyecto y Titularidad
+        $proyecto = $this->obtenerProyecto($organizacionId, (int) $archivo['proyecto_id']);
+        if (!$proyecto) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Proyecto multimedia no encontrado.");
+        }
+
+        if ((int) $proyecto['cliente_id'] !== $clienteId) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: El archivo no pertenece a su cuenta (violación de titularidad Anti-IDOR).");
+        }
+
+        if ((int) $proyecto['organizacion_id'] !== $organizacionId) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: Violación de aislamiento multitenant.");
+        }
+
+        // 3. Correspondencia de Edición
+        $stmtEd = $this->pdo->prepare("
+            SELECT id, estado FROM `ediciones_candelaria`
+            WHERE `id` = :ed_id AND `organizacion_id` = :org_id
+        ");
+        $stmtEd->execute([
+            'ed_id'  => $proyecto['edicion_id'],
+            'org_id' => $organizacionId,
+        ]);
+        $edicion = $stmtEd->fetch(PDO::FETCH_ASSOC);
+        if (!$edicion) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: La edición festiva no corresponde a la organización.");
+        }
+
+        // 4. Estado de entrega formalmente habilitado (Autorización Positiva)
+        if (!in_array($proyecto['estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true)) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion(
+                "La descarga de originales de alta resolución requiere que el proyecto esté formalmente en estado LISTO_ENTREGA o ENTREGADO. Puede previsualizar en galería."
+            );
+        }
+
+        // Comprobar existencia de hito de entrega formal habilitado
+        $stmtEnt = $this->pdo->prepare("
+            SELECT id, tipo_entrega, estado_entrega, fecha_caducidad_enlace
+            FROM `postproduccion_entregas`
+            WHERE `proyecto_id` = :pry_id
+              AND `organizacion_id` = :org_id
+              AND `estado_entrega` IN ('PUBLICADA', 'APROBADA_CLIENTE')
+              AND (`fecha_caducidad_enlace` IS NULL OR `fecha_caducidad_enlace` > NOW())
+            ORDER BY `id` DESC
+            LIMIT 1
+        ");
+        $stmtEnt->execute([
+            'pry_id' => $proyecto['id'],
+            'org_id' => $organizacionId,
+        ]);
+        $entregaHabilitada = $stmtEnt->fetch(PDO::FETCH_ASSOC);
+        if (!$entregaHabilitada) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion(
+                "Acceso denegado: No existe un paquete o hito de entrega formalmente publicado para este proyecto audiovisual."
+            );
+        }
+
+        // 5. Ausencia de bloqueos operativos aplicables
+        if (!empty($proyecto['reserva_id'])) {
+            $stmtRes = $this->pdo->prepare("
+                SELECT r.estado, r.notas_operativas, v.estado_financiero
+                FROM `reservas` r
+                LEFT JOIN `ventas` v ON r.venta_id = v.id
+                WHERE r.id = :res_id AND r.organizacion_id = :org_id
+            ");
+            $stmtRes->execute([
+                'res_id' => $proyecto['reserva_id'],
+                'org_id' => $organizacionId,
+            ]);
+            $reserva = $stmtRes->fetch(PDO::FETCH_ASSOC);
+            if ($reserva) {
+                if (in_array($reserva['estado'], ['CANCELADA', 'ANULADA'], true)) {
+                    throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: La reserva asociada al proyecto se encuentra cancelada.");
+                }
+                if ($reserva['estado_financiero'] === 'ANULADA') {
+                    throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: La venta asociada al proyecto ha sido anulada.");
+                }
+                if (!empty($reserva['notas_operativas']) && str_contains($reserva['notas_operativas'], '[BLOQUEO_OPERATIVO')) {
+                    throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: Existe un bloqueo operativo activo sobre la reserva.");
+                }
+            }
+        }
+
+        return [
+            'archivo'  => $archivo,
+            'proyecto' => $proyecto,
+            'entrega'  => $entregaHabilitada,
+        ];
+    }
+
+    /**
      * Retorna las fotos de una galería verificando pertenencia estricta al cliente titular (Anti-IDOR)
      * e incluyendo el estado de selección individual persistido.
      */
@@ -824,7 +954,20 @@ class PostproduccionServicio
         ]);
         $archivos = $stmtArch->fetchAll(PDO::FETCH_ASSOC);
 
-        $descargaPermitida = in_array($galeria['proyecto_estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true);
+        // Validación de entrega positiva formalmente publicada
+        $stmtCheckEnt = $this->pdo->prepare("
+            SELECT COUNT(*) FROM `postproduccion_entregas`
+            WHERE `proyecto_id` = :pry_id
+              AND `organizacion_id` = :org_id
+              AND `estado_entrega` IN ('PUBLICADA', 'APROBADA_CLIENTE')
+              AND (`fecha_caducidad_enlace` IS NULL OR `fecha_caducidad_enlace` > NOW())
+        ");
+        $stmtCheckEnt->execute([
+            'pry_id' => $galeria['proyecto_id'],
+            'org_id' => $organizacionId,
+        ]);
+        $tieneEntregaPublicada = ((int) $stmtCheckEnt->fetchColumn()) > 0;
+        $descargaPermitida = in_array($galeria['proyecto_estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true) && $tieneEntregaPublicada;
         $totalSeleccionadas = 0;
 
         $fotos = [];
@@ -976,7 +1119,19 @@ class PostproduccionServicio
 
         $resultado = [];
         foreach ($rows as $r) {
-            $descargaPermitida = in_array($r['proyecto_estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true);
+            $stmtEntPry = $this->pdo->prepare("
+                SELECT COUNT(*) FROM `postproduccion_entregas`
+                WHERE `proyecto_id` = :pry_id
+                  AND `organizacion_id` = :org_id
+                  AND `estado_entrega` IN ('PUBLICADA', 'APROBADA_CLIENTE')
+                  AND (`fecha_caducidad_enlace` IS NULL OR `fecha_caducidad_enlace` > NOW())
+            ");
+            $stmtEntPry->execute([
+                'pry_id' => $r['proyecto_id'],
+                'org_id' => $organizacionId,
+            ]);
+            $tieneEntregaPublicada = ((int) $stmtEntPry->fetchColumn()) > 0;
+            $descargaPermitida = in_array($r['proyecto_estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true) && $tieneEntregaPublicada;
             $resultado[] = [
                 'seleccion_id'       => (int) $r['seleccion_id'],
                 'archivo_id'         => (int) $r['archivo_id'],
