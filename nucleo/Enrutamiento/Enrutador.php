@@ -49,6 +49,14 @@ class Enrutador
     }
 
     /**
+     * Retorna todas las rutas registradas en el enrutador.
+     */
+    public static function obtenerRutas(): array
+    {
+        return self::$rutas;
+    }
+
+    /**
      * Despacha la petición actual según el método y URI solicitados.
      */
     public static function despachar(): void

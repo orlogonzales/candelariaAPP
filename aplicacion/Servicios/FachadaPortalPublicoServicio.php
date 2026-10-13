@@ -1522,9 +1522,9 @@ class FachadaPortalPublicoServicio
     }
 
     /**
-     * Resuelve un usuario activo del sistema/tenant para asociar formalmente pagos desatendidos.
+     * Resuelve un usuario activo del sistema/tenant para asociar formalmente pagos desatendidos o documentos.
      */
-    private function resolverUsuarioSistemaId(int $organizacionId): int
+    public function resolverUsuarioSistemaId(int $organizacionId): int
     {
         $stmt = $this->pdo->prepare("
             SELECT id FROM `usuarios` 
@@ -1539,5 +1539,377 @@ class FachadaPortalPublicoServicio
 
         $fallback = $this->pdo->query("SELECT id FROM `usuarios` WHERE `estado` = 'ACTIVO' ORDER BY id ASC LIMIT 1")->fetchColumn();
         return $fallback ? (int) $fallback : 24;
+    }
+
+    /**
+     * Retorna los datos de identidad, contacto, consentimientos y festividad activa para el portal del cliente.
+     */
+    public function obtenerPerfilCliente(int $organizacionId, int $clienteId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT c.id as cliente_id, c.organizacion_id, c.persona_id, c.estado_comercial,
+                   c.consentimiento_operativo, c.consentimiento_operativo_en,
+                   c.consentimiento_promocional, c.consentimiento_promocional_en,
+                   c.creado_en as cliente_creado_en,
+                   td.codigo as tipo_documento, p.numero_documento, p.nombres, p.apellidos,
+                   p.telefono_whatsapp, p.correo_electronico, p.direccion
+            FROM `clientes` c
+            JOIN `personas` p ON c.persona_id = p.id
+            LEFT JOIN `tipos_documento` td ON p.tipo_documento_id = td.id
+            WHERE c.id = :cliente_id AND c.organizacion_id = :org_id
+        ");
+        $stmt->execute(['cliente_id' => $clienteId, 'org_id' => $organizacionId]);
+        $perfil = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$perfil) {
+            throw new AccesoDenegadoExcepcion("Perfil de cliente no encontrado o acceso denegado.");
+        }
+
+        // Obtener edición activa de la organización
+        $stmtEd = $this->pdo->prepare("
+            SELECT id, nombre, anio, estado, fecha_inicio, fecha_fin
+            FROM `ediciones_candelaria`
+            WHERE `organizacion_id` = :org_id AND `estado` = 'ACTIVA'
+            LIMIT 1
+        ");
+        $stmtEd->execute(['org_id' => $organizacionId]);
+        $edicionActiva = $stmtEd->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        // Historial de consentimientos Ley 29733 (append-only)
+        $stmtHist = $this->pdo->prepare("
+            SELECT id, tipo, accion, canal, motivo, creado_en
+            FROM `consentimientos_cliente`
+            WHERE cliente_id = :cliente_id AND organizacion_id = :org_id
+            ORDER BY id DESC
+            LIMIT 10
+        ");
+        $stmtHist->execute(['cliente_id' => $clienteId, 'org_id' => $organizacionId]);
+        $consentimientosHistorial = $stmtHist->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'cliente' => [
+                'id'                          => (int) $perfil['cliente_id'],
+                'estado_comercial'            => $perfil['estado_comercial'],
+                'consentimiento_operativo'    => (bool) $perfil['consentimiento_operativo'],
+                'consentimiento_operativo_en' => $perfil['consentimiento_operativo_en'],
+                'consentimiento_promocional'  => (bool) $perfil['consentimiento_promocional'],
+                'consentimiento_promocional_en'=> $perfil['consentimiento_promocional_en'],
+                'registrado_en'               => $perfil['cliente_creado_en'],
+            ],
+            'persona' => [
+                'tipo_documento'     => $perfil['tipo_documento'],
+                'numero_documento'   => $perfil['numero_documento'],
+                'nombres'            => $perfil['nombres'],
+                'apellidos'          => $perfil['apellidos'],
+                'nombre_completo'    => trim($perfil['nombres'] . ' ' . $perfil['apellidos']),
+                'telefono_whatsapp'  => $perfil['telefono_whatsapp'],
+                'correo_electronico' => $perfil['correo_electronico'],
+                'direccion'          => $perfil['direccion'],
+            ],
+            'edicion_activa'            => $edicionActiva,
+            'historial_consentimientos' => $consentimientosHistorial,
+        ];
+    }
+
+    /**
+     * Actualiza el perfil de contacto y consentimientos Ley 29733 del cliente en su portal.
+     * Valida unicidad de WhatsApp en el tenant, inmutabilidad de documento y trazabilidad inmutable de opt-ins.
+     */
+    public function actualizarPerfilCliente(
+        int $organizacionId,
+        int $clienteId,
+        array $datos,
+        ?string $ip = null,
+        ?string $userAgent = null
+    ): array {
+        // Cargar cliente y persona con validación tenant
+        $stmt = $this->pdo->prepare("
+            SELECT c.*, p.id as persona_id, p.telefono_whatsapp, p.correo_electronico
+            FROM `clientes` c
+            JOIN `personas` p ON c.persona_id = p.id
+            WHERE c.id = :cliente_id AND c.organizacion_id = :org_id
+        ");
+        $stmt->execute(['cliente_id' => $clienteId, 'org_id' => $organizacionId]);
+        $clienteActual = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$clienteActual) {
+            throw new AccesoDenegadoExcepcion("Cliente no encontrado en su organización.");
+        }
+
+        $personaId = (int) $clienteActual['persona_id'];
+
+        // Validar WhatsApp obligatorio
+        if (!isset($datos['telefono_whatsapp']) || trim((string) $datos['telefono_whatsapp']) === '') {
+            throw new InvalidArgumentException("El número de WhatsApp es obligatorio para el perfil del cliente.");
+        }
+
+        $nuevoWhatsapp = preg_replace('/[^\+0-9]/', '', trim((string) $datos['telefono_whatsapp']));
+        if (strlen($nuevoWhatsapp) < 8 || strlen($nuevoWhatsapp) > 20) {
+            throw new InvalidArgumentException("El número de WhatsApp ingresado no tiene un formato válido (8 a 20 dígitos).");
+        }
+
+        // Validar unicidad de WhatsApp en el tenant
+        $stmtUni = $this->pdo->prepare("
+            SELECT c.id
+            FROM `clientes` c
+            JOIN `personas` p ON c.persona_id = p.id
+            WHERE c.organizacion_id = :org_id
+              AND p.telefono_whatsapp = :whatsapp
+              AND c.id != :cliente_id
+            LIMIT 1
+        ");
+        $stmtUni->execute([
+            'org_id'     => $organizacionId,
+            'whatsapp'   => $nuevoWhatsapp,
+            'cliente_id' => $clienteId,
+        ]);
+        if ($stmtUni->fetchColumn()) {
+            throw new InvalidArgumentException("El número de WhatsApp ya se encuentra registrado por otro cliente en esta festividad.");
+        }
+
+        // Correo electrónico opcional
+        $nuevoCorreo = null;
+        if (isset($datos['correo_electronico']) && trim((string) $datos['correo_electronico']) !== '') {
+            $nuevoCorreo = trim((string) $datos['correo_electronico']);
+            if (!filter_var($nuevoCorreo, FILTER_VALIDATE_EMAIL)) {
+                throw new InvalidArgumentException("El formato del correo electrónico ingresado no es válido.");
+            }
+        }
+
+        $transaccionIniciada = false;
+        if (!$this->pdo->inTransaction()) {
+            $this->pdo->beginTransaction();
+            $transaccionIniciada = true;
+        }
+
+        try {
+            // Actualizar tabla personas
+            $stmtUpdPer = $this->pdo->prepare("
+                UPDATE `personas`
+                SET `telefono_whatsapp` = :whatsapp,
+                    `correo_electronico` = :correo
+                WHERE `id` = :persona_id
+            ");
+            $stmtUpdPer->execute([
+                'whatsapp'   => $nuevoWhatsapp,
+                'correo'     => $nuevoCorreo,
+                'persona_id' => $personaId,
+            ]);
+
+            // Gestión de Consentimientos Ley 29733 (Operativo y Promocional)
+            $ahora = date('Y-m-d H:i:s');
+
+            // 1. Consentimiento Operativo
+            if (isset($datos['consentimiento_operativo'])) {
+                $nuevoOperativo = !empty($datos['consentimiento_operativo']);
+                $actualOperativo = (bool) $clienteActual['consentimiento_operativo'];
+
+                if ($nuevoOperativo !== $actualOperativo) {
+                    $accion = $nuevoOperativo ? 'OTORGAR' : 'REVOCAR';
+                    $motivo = $nuevoOperativo 
+                        ? 'Consentimiento operativo otorgado por el cliente en autoservicio' 
+                        : 'Consentimiento operativo revocado por el cliente en autoservicio';
+
+                    $this->registrarConsentimientoPortal(
+                        $organizacionId,
+                        $clienteId,
+                        'OPERATIVO',
+                        $accion,
+                        $motivo
+                    );
+
+                    $this->pdo->prepare("
+                        UPDATE `clientes`
+                        SET `consentimiento_operativo` = :val,
+                            `consentimiento_operativo_en` = :en
+                        WHERE `id` = :id
+                    ")->execute([
+                        'val' => $nuevoOperativo ? 1 : 0,
+                        'en'  => $ahora,
+                        'id'  => $clienteId,
+                    ]);
+                }
+            }
+
+            // 2. Consentimiento Promocional
+            if (isset($datos['consentimiento_promocional'])) {
+                $nuevoPromocional = !empty($datos['consentimiento_promocional']);
+                $actualPromocional = (bool) $clienteActual['consentimiento_promocional'];
+
+                if ($nuevoPromocional !== $actualPromocional) {
+                    $accion = $nuevoPromocional ? 'OTORGAR' : 'REVOCAR';
+                    $motivo = $nuevoPromocional 
+                        ? 'Consentimiento promocional otorgado por el cliente en autoservicio' 
+                        : 'Consentimiento promocional revocado por el cliente en autoservicio';
+
+                    $this->registrarConsentimientoPortal(
+                        $organizacionId,
+                        $clienteId,
+                        'PROMOCIONAL',
+                        $accion,
+                        $motivo
+                    );
+
+                    $this->pdo->prepare("
+                        UPDATE `clientes`
+                        SET `consentimiento_promocional` = :val,
+                            `consentimiento_promocional_en` = :en
+                        WHERE `id` = :id
+                    ")->execute([
+                        'val' => $nuevoPromocional ? 1 : 0,
+                        'en'  => $ahora,
+                        'id'  => $clienteId,
+                    ]);
+                }
+            }
+
+            if ($transaccionIniciada) {
+                $this->pdo->commit();
+            }
+
+            return $this->obtenerPerfilCliente($organizacionId, $clienteId);
+        } catch (\Throwable $e) {
+            if ($transaccionIniciada && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Registra en la bitácora inmutable append-only consentimientos_cliente generados desde el portal.
+     */
+    private function registrarConsentimientoPortal(
+        int $organizacionId,
+        int $clienteId,
+        string $tipo,
+        string $accion,
+        string $motivo
+    ): void {
+        $stmt = $this->pdo->prepare("
+            INSERT INTO `consentimientos_cliente` (
+                `organizacion_id`, `cliente_id`, `tipo`, `accion`,
+                `canal`, `motivo`, `actor_tipo`, `usuario_id`,
+                `actor_sistema_id`, `correlacion_id`, `creado_en`
+            ) VALUES (
+                :org_id, :cli_id, :tipo, :accion,
+                'PORTAL_WEB', :motivo, 'SISTEMA', NULL,
+                1, :correlacion, NOW()
+            )
+        ");
+        $stmt->execute([
+            'org_id'      => $organizacionId,
+            'cli_id'      => $clienteId,
+            'tipo'        => $tipo,
+            'accion'      => $accion,
+            'motivo'      => $motivo,
+            'correlacion' => bin2hex(random_bytes(16)),
+        ]);
+    }
+
+    /**
+     * Retorna el estado de cuenta financiero integral del cliente con desglose de ventas,
+     * conceptos contratados, abonos realizados y comprobantes disponibles (Anti-IDOR y cálculos soberanos en backend).
+     */
+    public function obtenerEstadoCuentaCliente(int $organizacionId, int $clienteId): array
+    {
+        // 1. Obtener ventas del cliente en el tenant
+        $stmtVentas = $this->pdo->prepare("
+            SELECT v.id, v.correlativo, v.edicion_id, v.fecha_venta, v.subtotal, v.descuento_global_monto,
+                   v.total, v.monto_pagado, v.saldo_pendiente, v.moneda,
+                   v.estado, v.estado_financiero, v.creado_en,
+                   e.nombre as edicion_nombre, e.anio as edicion_anio
+            FROM `ventas` v
+            JOIN `ediciones_candelaria` e ON v.edicion_id = e.id
+            WHERE v.organizacion_id = :org_id AND v.cliente_id = :cli_id
+            ORDER BY v.id DESC
+        ");
+        $stmtVentas->execute(['org_id' => $organizacionId, 'cli_id' => $clienteId]);
+        $ventas = $stmtVentas->fetchAll(PDO::FETCH_ASSOC);
+
+        $totalContratado = 0.0;
+        $totalPagado = 0.0;
+        $saldoPendienteTotal = 0.0;
+        $ventasDetalle = [];
+
+        foreach ($ventas as $v) {
+            $ventaId = (int) $v['id'];
+            $totalContratado += (float) $v['total'];
+            $totalPagado += (float) $v['monto_pagado'];
+            $saldoPendienteTotal += (float) $v['saldo_pendiente'];
+
+            // Desglose de conceptos contratados
+            $stmtLineas = $this->pdo->prepare("
+                SELECT id, tipo_linea, concepto_codigo, concepto_nombre, concepto_descripcion,
+                       unidad_medida, cantidad, precio_unitario, descuento_monto, subtotal, moneda
+                FROM `venta_lineas`
+                WHERE `venta_id` = :v_id
+                ORDER BY `orden` ASC, `id` ASC
+            ");
+            $stmtLineas->execute(['v_id' => $ventaId]);
+            $lineas = $stmtLineas->fetchAll(PDO::FETCH_ASSOC);
+
+            // Pagos de la venta con sus recibos asociados
+            $stmtPagos = $this->pdo->prepare("
+                SELECT p.id as pago_id, p.correlativo, p.fecha_pago, p.monto_cobrado_cliente, p.monto_aplicado_venta,
+                       p.moneda, p.metodo_pago, p.estado, p.notas_operativas, p.verificado_en,
+                       IF(p.boucher_comprobante_url IS NOT NULL AND p.boucher_comprobante_url != '', 1, 0) as tiene_comprobante,
+                       rc.id as recibo_id, rc.correlativo as recibo_correlativo, rc.emitido_en as recibo_fecha
+                FROM `pagos` p
+                LEFT JOIN `recibos_caja` rc ON rc.pago_id = p.id
+                WHERE p.venta_id = :v_id AND p.organizacion_id = :org_id
+                ORDER BY p.id ASC
+            ");
+            $stmtPagos->execute(['v_id' => $ventaId, 'org_id' => $organizacionId]);
+            $pagos = $stmtPagos->fetchAll(PDO::FETCH_ASSOC);
+
+            $tieneContrato = ($v['estado'] === EstadoVenta::CONFIRMADA->value);
+
+            $ventasDetalle[] = [
+                'id'                     => $ventaId,
+                'correlativo'            => $v['correlativo'],
+                'fecha_venta'            => $v['fecha_venta'],
+                'estado'                 => $v['estado'],
+                'estado_financiero'      => $v['estado_financiero'],
+                'moneda'                 => $v['moneda'],
+                'subtotal'               => (float) $v['subtotal'],
+                'descuento_global_monto' => (float) $v['descuento_global_monto'],
+                'total'                  => (float) $v['total'],
+                'monto_pagado'           => (float) $v['monto_pagado'],
+                'saldo_pendiente'        => (float) $v['saldo_pendiente'],
+                'edicion_nombre'         => $v['edicion_nombre'],
+                'edicion_anio'           => $v['edicion_anio'],
+                'creado_en'              => $v['creado_en'],
+                'lineas'                 => $lineas,
+                'pagos'                  => $pagos,
+                'tiene_contrato'         => $tieneContrato,
+                'url_contrato_pdf'       => $tieneContrato ? ('/api/v1/publico/portal/venta/' . $ventaId . '/contrato-pdf') : null,
+            ];
+        }
+
+        $totalContratado = round($totalContratado, 2);
+        $totalPagado = round($totalPagado, 2);
+        $saldoPendienteTotal = round($saldoPendienteTotal, 2);
+
+        $estadoGlobal = 'PENDIENTE';
+        if ($totalContratado > 0) {
+            if ($saldoPendienteTotal <= 0 && $totalPagado >= $totalContratado) {
+                $estadoGlobal = 'PAGADA_TOTAL';
+            } elseif ($totalPagado > 0) {
+                $estadoGlobal = 'PAGADA_PARCIAL';
+            }
+        }
+
+        return [
+            'resumen' => [
+                'total_contratado'      => $totalContratado,
+                'total_pagado'          => $totalPagado,
+                'saldo_pendiente_total' => $saldoPendienteTotal,
+                'moneda'                => 'PEN',
+                'estado_financiero'     => $estadoGlobal,
+                'total_ventas'          => count($ventas),
+            ],
+            'ventas' => $ventasDetalle,
+        ];
     }
 }

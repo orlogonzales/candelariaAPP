@@ -778,4 +778,233 @@ class PostproduccionServicio
         $res = $stmt->fetch(PDO::FETCH_ASSOC);
         return $res ?: null;
     }
+
+    /**
+     * Retorna las fotos de una galería verificando pertenencia estricta al cliente titular (Anti-IDOR)
+     * e incluyendo el estado de selección individual persistido.
+     */
+    public function obtenerFotosGaleriaCliente(int $organizacionId, int $galeriaId, int $clienteId): array
+    {
+        // 1. Validar que la galería pertenezca a un proyecto del cliente en el tenant
+        $stmtGal = $this->pdo->prepare("
+            SELECT g.*, p.id as proyecto_id, p.codigo_proyecto, p.titulo as proyecto_titulo,
+                   p.estado as proyecto_estado, p.cliente_id,
+                   e.nombre as edicion_nombre, e.anio as edicion_anio
+            FROM `postproduccion_galerias` g
+            JOIN `postproduccion_proyectos` p ON g.proyecto_id = p.id
+            JOIN `ediciones_candelaria` e ON p.edicion_id = e.id
+            WHERE g.id = :gal_id AND g.organizacion_id = :org_id AND p.cliente_id = :cli_id AND g.es_publica_cliente = 1
+        ");
+        $stmtGal->execute([
+            'gal_id' => $galeriaId,
+            'org_id' => $organizacionId,
+            'cli_id' => $clienteId,
+        ]);
+        $galeria = $stmtGal->fetch(PDO::FETCH_ASSOC);
+
+        if (!$galeria) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Galería no encontrada o no pertenece a su cuenta.");
+        }
+
+        // 2. Cargar fotos con su estado de selección persistente para este cliente
+        $stmtArch = $this->pdo->prepare("
+            SELECT a.id, a.galeria_id, a.proyecto_id, a.nombre_original, a.tipo_archivo,
+                   a.mime_type, a.peso_bytes, a.ancho_px, a.alto_px, a.duracion_segundos,
+                   a.es_destacado, a.creado_en,
+                   s.estado as seleccion_estado, s.notas_cliente as seleccion_notas, s.seleccionado_en
+            FROM `postproduccion_archivos` a
+            LEFT JOIN `postproduccion_selecciones` s
+                   ON s.archivo_id = a.id AND s.cliente_id = :cli_id
+            WHERE a.galeria_id = :gal_id AND a.estado IN ('ACTIVO', 'ARCHIVADO')
+            ORDER BY a.es_destacado DESC, a.id ASC
+        ");
+        $stmtArch->execute([
+            'gal_id' => $galeriaId,
+            'cli_id' => $clienteId,
+        ]);
+        $archivos = $stmtArch->fetchAll(PDO::FETCH_ASSOC);
+
+        $descargaPermitida = in_array($galeria['proyecto_estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true);
+        $totalSeleccionadas = 0;
+
+        $fotos = [];
+        foreach ($archivos as $arch) {
+            $esSeleccionada = ($arch['seleccion_estado'] === 'SELECCIONADA');
+            if ($esSeleccionada) {
+                $totalSeleccionadas++;
+            }
+
+            $fotos[] = [
+                'id'                 => (int) $arch['id'],
+                'galeria_id'         => (int) $arch['galeria_id'],
+                'proyecto_id'        => (int) $arch['proyecto_id'],
+                'nombre_original'    => $arch['nombre_original'],
+                'tipo_archivo'       => $arch['tipo_archivo'],
+                'mime_type'          => $arch['mime_type'],
+                'peso_bytes'         => (int) $arch['peso_bytes'],
+                'ancho_px'           => $arch['ancho_px'] !== null ? (int) $arch['ancho_px'] : null,
+                'alto_px'            => $arch['alto_px'] !== null ? (int) $arch['alto_px'] : null,
+                'duracion_segundos'  => $arch['duracion_segundos'] !== null ? (int) $arch['duracion_segundos'] : null,
+                'es_destacado'       => (bool) $arch['es_destacado'],
+                'es_seleccionada'    => $esSeleccionada,
+                'seleccion_notas'    => $arch['seleccion_notas'],
+                'seleccionado_en'    => $arch['seleccionado_en'],
+                'descarga_permitida' => $descargaPermitida,
+                'url_vista_previa'   => '/api/v1/publico/portal/descargar-multimedia/' . $arch['id'] . '?preview=1',
+                'url_descarga'       => '/api/v1/publico/portal/descargar-multimedia/' . $arch['id'],
+                'creado_en'          => $arch['creado_en'],
+            ];
+        }
+
+        return [
+            'galeria' => [
+                'id'                 => (int) $galeria['id'],
+                'proyecto_id'        => (int) $galeria['proyecto_id'],
+                'codigo_proyecto'    => $galeria['codigo_proyecto'],
+                'proyecto_titulo'    => $galeria['proyecto_titulo'],
+                'proyecto_estado'    => $galeria['proyecto_estado'],
+                'titulo'             => $galeria['titulo'],
+                'descripcion'        => $galeria['descripcion'],
+                'total_fotos'        => count($fotos),
+                'total_seleccionadas'=> $totalSeleccionadas,
+                'descarga_permitida' => $descargaPermitida,
+                'edicion_nombre'     => $galeria['edicion_nombre'],
+                'edicion_anio'       => $galeria['edicion_anio'],
+            ],
+            'fotos'               => $fotos,
+            'total_fotos'         => count($fotos),
+            'total_seleccionadas' => $totalSeleccionadas,
+        ];
+    }
+
+    /**
+     * Registra o actualiza la selección persistente de una fotografía por el cliente titular (Anti-IDOR).
+     */
+    public function guardarSeleccionFotoCliente(
+        int $organizacionId,
+        int $galeriaId,
+        int $archivoId,
+        int $clienteId,
+        bool $seleccionada,
+        ?string $notas = null
+    ): array {
+        // Validar titularidad estricta del archivo
+        $stmt = $this->pdo->prepare("
+            SELECT a.id, a.galeria_id, a.proyecto_id, p.cliente_id
+            FROM `postproduccion_archivos` a
+            JOIN `postproduccion_galerias` g ON a.galeria_id = g.id
+            JOIN `postproduccion_proyectos` p ON a.proyecto_id = p.id
+            WHERE a.id = :arch_id AND a.galeria_id = :gal_id AND a.organizacion_id = :org_id
+        ");
+        $stmt->execute([
+            'arch_id' => $archivoId,
+            'gal_id'  => $galeriaId,
+            'org_id'  => $organizacionId,
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row || (int) $row['cliente_id'] !== $clienteId) {
+            throw new \Aplicacion\Excepciones\AccesoDenegadoExcepcion("Acceso denegado: El archivo no pertenece a un proyecto autorizado de su cuenta.");
+        }
+
+        $proyectoId = (int) $row['proyecto_id'];
+        $estado = $seleccionada ? 'SELECCIONADA' : 'DESCARTADA';
+        $notasLimpio = ($notas !== null && trim($notas) !== '') ? trim($notas) : null;
+
+        $stmtUpsert = $this->pdo->prepare("
+            INSERT INTO `postproduccion_selecciones` (
+                `organizacion_id`, `proyecto_id`, `galeria_id`, `archivo_id`, `cliente_id`,
+                `estado`, `notas_cliente`, `seleccionado_en`
+            ) VALUES (
+                :org_id, :pry_id, :gal_id, :arch_id, :cli_id,
+                :estado, :notas, NOW()
+            )
+            ON DUPLICATE KEY UPDATE
+                `estado` = VALUES(`estado`),
+                `notas_cliente` = VALUES(`notas_cliente`),
+                `actualizado_en` = NOW()
+        ");
+        $stmtUpsert->execute([
+            'org_id'  => $organizacionId,
+            'pry_id'  => $proyectoId,
+            'gal_id'  => $galeriaId,
+            'arch_id' => $archivoId,
+            'cli_id'  => $clienteId,
+            'estado'  => $estado,
+            'notas'   => $notasLimpio,
+        ]);
+
+        return [
+            'archivo_id'      => $archivoId,
+            'galeria_id'      => $galeriaId,
+            'proyecto_id'     => $proyectoId,
+            'cliente_id'      => $clienteId,
+            'es_seleccionada' => $seleccionada,
+            'estado'          => $estado,
+            'notas_cliente'   => $notasLimpio,
+            'actualizado_en'  => date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * Retorna el consolidado global de fotos marcadas como SELECCIONADAS por el cliente en todos sus proyectos.
+     */
+    public function listarMisSeleccionesCliente(int $organizacionId, int $clienteId): array
+    {
+        $stmt = $this->pdo->prepare("
+            SELECT s.id as seleccion_id, s.estado, s.notas_cliente, s.seleccionado_en, s.actualizado_en,
+                   a.id as archivo_id, a.nombre_original, a.tipo_archivo, a.mime_type, a.peso_bytes,
+                   a.ancho_px, a.alto_px, a.es_destacado,
+                   g.id as galeria_id, g.titulo as galeria_titulo,
+                   p.id as proyecto_id, p.codigo_proyecto, p.titulo as proyecto_titulo, p.estado as proyecto_estado,
+                   e.nombre as edicion_nombre, e.anio as edicion_anio
+            FROM `postproduccion_selecciones` s
+            JOIN `postproduccion_archivos` a ON s.archivo_id = a.id
+            JOIN `postproduccion_galerias` g ON s.galeria_id = g.id
+            JOIN `postproduccion_proyectos` p ON s.proyecto_id = p.id
+            JOIN `ediciones_candelaria` e ON p.edicion_id = e.id
+            WHERE s.organizacion_id = :org_id
+              AND s.cliente_id = :cli_id
+              AND s.estado = 'SELECCIONADA'
+            ORDER BY s.actualizado_en DESC
+        ");
+        $stmt->execute([
+            'org_id' => $organizacionId,
+            'cli_id' => $clienteId,
+        ]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $resultado = [];
+        foreach ($rows as $r) {
+            $descargaPermitida = in_array($r['proyecto_estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true);
+            $resultado[] = [
+                'seleccion_id'       => (int) $r['seleccion_id'],
+                'archivo_id'         => (int) $r['archivo_id'],
+                'nombre_original'    => $r['nombre_original'],
+                'tipo_archivo'       => $r['tipo_archivo'],
+                'mime_type'          => $r['mime_type'],
+                'peso_bytes'         => (int) $r['peso_bytes'],
+                'ancho_px'           => $r['ancho_px'] !== null ? (int) $r['ancho_px'] : null,
+                'alto_px'            => $r['alto_px'] !== null ? (int) $r['alto_px'] : null,
+                'es_destacado'       => (bool) $r['es_destacado'],
+                'galeria_id'         => (int) $r['galeria_id'],
+                'galeria_titulo'     => $r['galeria_titulo'],
+                'proyecto_id'        => (int) $r['proyecto_id'],
+                'codigo_proyecto'    => $r['codigo_proyecto'],
+                'proyecto_titulo'    => $r['proyecto_titulo'],
+                'proyecto_estado'    => $r['proyecto_estado'],
+                'edicion_nombre'     => $r['edicion_nombre'],
+                'edicion_anio'       => $r['edicion_anio'],
+                'notas_cliente'      => $r['notas_cliente'],
+                'seleccionado_en'    => $r['seleccionado_en'],
+                'actualizado_en'     => $r['actualizado_en'],
+                'descarga_permitida' => $descargaPermitida,
+                'url_vista_previa'   => '/api/v1/publico/portal/descargar-multimedia/' . $r['archivo_id'] . '?preview=1',
+                'url_descarga'       => '/api/v1/publico/portal/descargar-multimedia/' . $r['archivo_id'],
+            ];
+        }
+
+        return $resultado;
+    }
 }
+

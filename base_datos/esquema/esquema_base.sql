@@ -2995,7 +2995,8 @@ INSERT INTO `migraciones_control` (`migracion`, `lote`) VALUES
 ('2026_10_12_000025_agregar_segregacion_aprobacion_folclore.sql', 25),
 ('2026_10_12_000026_incorporar_concurrencia_y_retrasos_seguimiento_folclore.sql', 26),
 ('2026_10_12_000027_crear_modulo_automatizaciones_whatsapp.sql', 27),
-('2026_10_12_000028_crear_modulo_operacion_offline_qr.sql', 28)
+('2026_10_12_000028_crear_modulo_operacion_offline_qr.sql', 28),
+('2026_10_13_000029_crear_modulo_seleccion_fotografica_portal.sql', 29)
 ON DUPLICATE KEY UPDATE `ejecutado_en` = CURRENT_TIMESTAMP;
 
 -- ------------------------------------------------------------------------------
@@ -3317,8 +3318,43 @@ SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
 WHERE r.codigo IN ('superadmin_plataforma', 'admin_organizacion', 'operador_produccion')
   AND p.codigo = 'operacion.offline.validar';
 
+
+-- ------------------------------------------------------------------------------
+-- 108. TABLA `postproduccion_selecciones` (SELECCIÓN FOTOGRÁFICA DEL CLIENTE)
+-- ------------------------------------------------------------------------------
+DROP TABLE IF EXISTS `postproduccion_selecciones`;
+CREATE TABLE `postproduccion_selecciones` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `organizacion_id` INT UNSIGNED NOT NULL,
+    `proyecto_id` BIGINT UNSIGNED NOT NULL,
+    `galeria_id` BIGINT UNSIGNED NOT NULL,
+    `archivo_id` BIGINT UNSIGNED NOT NULL,
+    `cliente_id` INT UNSIGNED NOT NULL,
+    `estado` ENUM('SELECCIONADA', 'DESCARTADA') NOT NULL DEFAULT 'SELECCIONADA',
+    `notas_cliente` VARCHAR(255) DEFAULT NULL,
+    `seleccionado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `actualizado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (`organizacion_id`) REFERENCES `organizaciones` (`id`) ON DELETE RESTRICT,
+    FOREIGN KEY (`proyecto_id`) REFERENCES `postproduccion_proyectos` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`galeria_id`) REFERENCES `postproduccion_galerias` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`archivo_id`) REFERENCES `postproduccion_archivos` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`) ON DELETE CASCADE,
+
+    UNIQUE KEY `uk_post_sel_cliente_archivo` (`cliente_id`, `archivo_id`),
+    KEY `idx_post_sel_galeria` (`galeria_id`),
+    KEY `idx_post_sel_proyecto` (`proyecto_id`),
+    KEY `idx_post_sel_org_estado` (`organizacion_id`, `estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Selección persistente de fotos por el cliente en el portal';
+
+-- Permiso RBAC 115: postproduccion.selecciones.ver
+INSERT INTO `permisos` (`modulo_id`, `codigo`, `nombre`, `descripcion`) VALUES
+(24, 'postproduccion.selecciones.ver', 'Ver Selecciones de Clientes', 'Permite consultar las fotografías seleccionadas por los clientes en el portal de autoservicio')
+ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`descripcion`);
+
+INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
+SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
+WHERE r.codigo IN ('superadmin_plataforma', 'admin_organizacion', 'operador_produccion')
+  AND p.codigo = 'postproduccion.selecciones.ver';
+
 SET FOREIGN_KEY_CHECKS = 1;
-
-
-
-

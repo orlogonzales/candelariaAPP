@@ -476,6 +476,10 @@ Enrutador::post('/api/v1/publico/checkout', [\Aplicacion\Controladores\PortalPub
 // Espacio del Cliente (Passwordless & Gestiones del Titular)
 Enrutador::post('/api/v1/publico/portal/solicitar-acceso', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'solicitarAcceso']);
 Enrutador::post('/api/v1/publico/portal/verificar-acceso', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'verificarAcceso']);
+Enrutador::get('/api/v1/publico/portal/perfil', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'miPerfil']);
+Enrutador::put('/api/v1/publico/portal/perfil', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'actualizarMiPerfil']);
+Enrutador::get('/api/v1/publico/portal/estado-cuenta', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'miEstadoCuenta']);
+Enrutador::get('/api/v1/publico/portal/recibo/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarReciboPdf']);
 Enrutador::get('/api/v1/publico/portal/mis-reservas', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'misReservas']);
 Enrutador::get('/api/v1/publico/portal/reserva/{id}/boleto-qr', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'boletoQr']);
 Enrutador::get('/api/v1/publico/portal/reserva/{id}/boleto-pdf', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarBoletoPdf']);
@@ -503,9 +507,12 @@ Enrutador::post('/api/v1/postproduccion/proyectos/{id}/galerias/{galeriaId}/arch
 Enrutador::post('/api/v1/postproduccion/proyectos/{id}/entregas', [\Aplicacion\Controladores\PostproduccionControlador::class, 'crearEntrega']);
 Enrutador::get('/api/v1/postproduccion/archivos/{id}/descargar', [\Aplicacion\Controladores\PostproduccionControlador::class, 'descargarArchivo']);
 
-// Portal Público del Cliente (Acceso Titular a Galerías y Recuerdos)
+// Portal Público del Cliente (Acceso Titular a Galerías, Selección y Recuerdos)
 Enrutador::get('/api/v1/publico/portal/mis-galerias', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'listarMisGalerias']);
 Enrutador::get('/api/v1/publico/portal/mis-galerias/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'verMiGaleriaDetalle']);
+Enrutador::get('/api/v1/publico/portal/galerias/{id}/fotos', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'listarFotosGaleria']);
+Enrutador::post('/api/v1/publico/portal/galerias/{id}/seleccionar', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'guardarSeleccionFoto']);
+Enrutador::get('/api/v1/publico/portal/mis-selecciones', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'listarMisSelecciones']);
 Enrutador::get('/api/v1/publico/portal/descargar-multimedia/{id}', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'descargarMiArchivoMultimedia']);
 Enrutador::post('/api/v1/publico/portal/entregas/{id}/responder', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'responderEntregaMultimedia']);
 

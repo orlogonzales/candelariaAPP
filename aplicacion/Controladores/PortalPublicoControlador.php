@@ -529,6 +529,143 @@ class PortalPublicoControlador
     }
 
     /**
+     * GET /api/v1/publico/portal/perfil
+     * Consulta de datos de identidad, contacto, consentimientos y festividad activa.
+     */
+    public function miPerfil(): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+
+            $perfil = $this->fachada->obtenerPerfilCliente($tenant['organizacion_id'], $sesion->clienteId);
+
+            $this->responderJson([
+                'exito' => true,
+                'datos' => $perfil,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * PUT /api/v1/publico/portal/perfil
+     * Actualización segura de teléfono WhatsApp, correo y consentimientos Ley 29733.
+     */
+    public function actualizarMiPerfil(): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $body = $this->obtenerCuerpoJson();
+
+            $perfil = $this->fachada->actualizarPerfilCliente(
+                $tenant['organizacion_id'],
+                $sesion->clienteId,
+                $body,
+                $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+
+            $this->responderJson([
+                'exito'   => true,
+                'mensaje' => 'Perfil de contacto y consentimientos actualizados exitosamente.',
+                'datos'   => $perfil,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/publico/portal/estado-cuenta
+     * Estado financiero consolidado, ventas, conceptos, pagos y recibos con importes del backend.
+     */
+    public function miEstadoCuenta(): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+
+            $estadoCuenta = $this->fachada->obtenerEstadoCuentaCliente($tenant['organizacion_id'], $sesion->clienteId);
+
+            $this->responderJson([
+                'exito' => true,
+                'datos' => $estadoCuenta,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/publico/portal/recibo/{id}
+     * Descarga de recibo de caja PDF generado para un abono verificado del cliente titular (Anti-IDOR).
+     */
+    public function descargarReciboPdf(array $params = []): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $id = (int) ($params['id'] ?? $_GET['id'] ?? 0);
+
+            if ($id <= 0) {
+                throw new InvalidArgumentException("Identificador de recibo o pago inválido.");
+            }
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+
+            // Buscar pago o recibo validando pertenencia estricta al cliente
+            $stmt = $pdo->prepare("
+                SELECT p.id as pago_id, p.organizacion_id, p.estado, p.verificado_por, v.cliente_id
+                FROM `pagos` p
+                JOIN `ventas` v ON p.venta_id = v.id
+                LEFT JOIN `recibos_caja` rc ON rc.pago_id = p.id
+                WHERE (p.id = :id OR rc.id = :id) AND p.organizacion_id = :org_id
+                LIMIT 1
+            ");
+            $stmt->execute(['id' => $id, 'org_id' => $tenant['organizacion_id']]);
+            $pago = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            if (!$pago || (int) $pago['cliente_id'] !== (int) $sesion->clienteId) {
+                throw new AccesoDenegadoExcepcion("Acceso denegado: El recibo no pertenece a su cuenta.");
+            }
+
+            if ($pago['estado'] !== 'APROBADO') {
+                throw new InvalidArgumentException("Solo se encuentran disponibles recibos de caja para pagos en estado APROBADO.");
+            }
+
+            $cajeroId = !empty($pago['verificado_por']) 
+                ? (int) $pago['verificado_por'] 
+                : $this->fachada->resolverUsuarioSistemaId($tenant['organizacion_id']);
+
+            $motorPdf = new \Aplicacion\Documentos\MotorPdfServicio();
+            $reciboSvc = new \Aplicacion\Documentos\ReciboCajaServicio($motorPdf, $pdo);
+
+            $res = $reciboSvc->generarRecibo($tenant['organizacion_id'], (int) $pago['pago_id'], $cajeroId);
+
+            $disposition = !empty($_GET['descargar']) ? 'attachment' : 'inline';
+            $nombreArchivo = sprintf('Recibo-%s.pdf', $res['correlativo']);
+
+            if (ob_get_level() > 0) {
+                ob_clean();
+            }
+
+            header('Content-Type: application/pdf');
+            header(sprintf('Content-Disposition: %s; filename="%s"', $disposition, $nombreArchivo));
+            header('Content-Length: ' . strlen($res['binario_pdf']));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+
+            echo $res['binario_pdf'];
+            exit;
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
      * GET /api/v1/publico/portal/mis-galerias
      */
     public function listarMisGalerias(): void
@@ -578,6 +715,97 @@ class PortalPublicoControlador
     }
 
     /**
+     * GET /api/v1/publico/portal/galerias/{id}/fotos
+     * Retorna las fotografías de una galería con estado de selección individual persistido (Anti-IDOR).
+     */
+    public function listarFotosGaleria(mixed $id = null): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $galeriaId = (int) ($id ?? ($_GET['id'] ?? 0));
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $datos = $postSvc->obtenerFotosGaleriaCliente($tenant['organizacion_id'], $galeriaId, $sesion->clienteId);
+
+            $this->responderJson([
+                'exito' => true,
+                'datos' => $datos,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * POST /api/v1/publico/portal/galerias/{id}/seleccionar
+     * Marca o desmarca una fotografía favorita persistiendo en postproduccion_selecciones.
+     */
+    public function guardarSeleccionFoto(mixed $id = null): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+            $galeriaId = (int) ($id ?? ($_GET['id'] ?? 0));
+            $body = $this->obtenerCuerpoJson();
+
+            $archivoId = (int) ($body['archivo_id'] ?? 0);
+            $seleccionada = isset($body['seleccionada']) ? (bool) $body['seleccionada'] : true;
+            $notas = isset($body['notas_cliente']) ? (string) $body['notas_cliente'] : (isset($body['notas']) ? (string) $body['notas'] : null);
+
+            if ($archivoId <= 0) {
+                throw new InvalidArgumentException("ID de fotografía inválido.");
+            }
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $resultado = $postSvc->guardarSeleccionFotoCliente(
+                $tenant['organizacion_id'],
+                $galeriaId,
+                $archivoId,
+                $sesion->clienteId,
+                $seleccionada,
+                $notas
+            );
+
+            $this->responderJson([
+                'exito'   => true,
+                'mensaje' => $seleccionada ? 'Fotografía añadida a su selección de favoritos.' : 'Fotografía retirada de su selección.',
+                'datos'   => $resultado,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
+     * GET /api/v1/publico/portal/mis-selecciones
+     * Retorna todas las fotografías seleccionadas por el cliente en todos sus proyectos.
+     */
+    public function listarMisSelecciones(): void
+    {
+        try {
+            $tenant = $this->tenantMiddleware->resolver($_SERVER, $_GET);
+            $sesion = $this->resolverSesionCliente();
+
+            $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
+            $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            $selecciones = $postSvc->listarMisSeleccionesCliente($tenant['organizacion_id'], $sesion->clienteId);
+
+            $this->responderJson([
+                'exito' => true,
+                'datos' => $selecciones,
+            ]);
+        } catch (Throwable $e) {
+            $this->manejarExcepcion($e);
+        }
+    }
+
+    /**
      * GET /api/v1/publico/portal/descargar-multimedia/{id}
      */
     public function descargarMiArchivoMultimedia(mixed $id = null): void
@@ -587,8 +815,21 @@ class PortalPublicoControlador
             $sesion = $this->resolverSesionCliente();
             $archivoId = (int) ($id ?? ($_GET['id'] ?? 0));
 
+            $esPreview = !empty($_GET['preview']) || !empty($_GET['miniatura']);
+
             $pdo = \Nucleo\BaseDatos\Conexion::obtenerInstancia();
             $postSvc = new \Aplicacion\Postproduccion\PostproduccionServicio($pdo);
+
+            // Si es descarga de archivo original (no vista previa), validar estado del proyecto
+            if (!$esPreview) {
+                $archivoInfo = $postSvc->obtenerArchivo($tenant['organizacion_id'], $archivoId);
+                if ($archivoInfo) {
+                    $proyectoInfo = $postSvc->obtenerProyecto($tenant['organizacion_id'], (int) $archivoInfo['proyecto_id']);
+                    if ($proyectoInfo && !in_array($proyectoInfo['estado'], ['LISTO_ENTREGA', 'ENTREGADO'], true)) {
+                        throw new InvalidArgumentException("La descarga de archivos originales de alta resolución estará disponible cuando el proyecto pase a estado LISTO_ENTREGA o ENTREGADO. Puede previsualizar las fotografías en la galería.");
+                    }
+                }
+            }
 
             $res = $postSvc->obtenerStreamDescarga(
                 $tenant['organizacion_id'],
@@ -606,10 +847,12 @@ class PortalPublicoControlador
                 ob_clean();
             }
 
+            $disposition = $esPreview ? 'inline' : 'attachment';
+
             header('Content-Type: ' . $archivo['mime_type']);
-            header('Content-Disposition: attachment; filename="' . basename($archivo['nombre_original']) . '"');
+            header(sprintf('Content-Disposition: %s; filename="%s"', $disposition, basename($archivo['nombre_original'])));
             header('Content-Length: ' . $archivo['peso_bytes']);
-            header('Cache-Control: private, no-transform, no-store, must-revalidate');
+            header('Cache-Control: private, no-transform, max-age=86400');
 
             fpassthru($stream);
             fclose($stream);
