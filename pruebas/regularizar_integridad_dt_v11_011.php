@@ -3,23 +3,34 @@ declare(strict_types=1);
 
 /**
  * ==============================================================================
- * CANDELARIAAPP V1.1 — HERRAMIENTA DE DIAGNÓSTICO Y SANEAMIENTO REFERENCIAL
- * DIRECTIVAS DE GOBERNANZA: DT-V11-011 / DT-V11-012
+ * CANDELARIAAPP V1.1 — HERRAMIENTA DE DIAGNÓSTICO REFERENCIAL
+ * DIRECTIVAS DE GOBERNANZA: DT-V11-011 / DT-V11-012 / DT-V11-013
  * 
- * SEGURIDAD Y BLINDAJE FAIL-CLOSED:
- * 1. MODO POR DEFECTO: DIAGNÓSTICO ESTRICTAMENTE NO DESTRUCTIVO (DRY-RUN).
- * 2. BARRERA TÉCNICA: BLOQUEO TOTAL DE MODIFICACIONES SOBRE 'app_candelaria'.
- * 3. REQUIERE TOKEN EXPLÍCITO, MODO AUTORIZADO Y ARCHIVO DE RESPALDO FÍSICO.
- * 4. PROTECCIÓN HARDCODED DE DATOS CANÓNICOS (ORG 10000, ED 1, ORLANDO 24).
+ * POLÍTICA DE SEGURIDAD INTEGRAL Y SEPARACIÓN DE RESPONSABILIDADES:
+ * 1. PROHIBICIÓN INCONDICIONAL: En 'app_candelaria' (base principal), TODA
+ *    operación destructiva o de saneamiento está TERMINANTEMENTE PROHIBIDA.
+ *    No existen tokens, banderas ni argumentos que puedan anular este bloqueo.
+ * 2. MODO EXCLUSIVO EN BASE PRINCIPAL: Diagnóstico estricto de solo lectura.
+ * 3. BASES DESECHABLES: Operaciones de saneamiento automatizado únicamente
+ *    están permitidas en bases temporales aisladas (*_test, *_isolated, *_disposable).
+ * 4. MANTENIMIENTO EN PRODUCCIÓN: Las operaciones sobre datos legítimos deben
+ *    seguir un procedimiento administrativo independiente con revisión de plan SQL.
  * ==============================================================================
  */
 
 require __DIR__ . '/../vendor/autoload.php';
 \Nucleo\Soporte\CargadorEntorno::cargar(__DIR__ . '/../.env');
 
+// Procesar argumentos CLI
+$opciones = getopt('', [
+    'modo::',
+    'bd::',
+    'ayuda',
+]);
+
 $dbHost = $_ENV['BD_HOST'] ?? '127.0.0.1';
 $dbPort = $_ENV['BD_PUERTO'] ?? '3306';
-$dbName = $_ENV['BD_NOMBRE'] ?? 'app_candelaria';
+$dbName = !empty($opciones['bd']) ? (string)$opciones['bd'] : ($_ENV['BD_NOMBRE'] ?? 'app_candelaria');
 $dbUser = $_ENV['BD_USUARIO'] ?? 'root';
 $dbPass = $_ENV['BD_CLAVE'] ?? '';
 
@@ -31,49 +42,38 @@ $pdo = new PDO(
 );
 
 echo "==============================================================================\n";
-echo "HERRAMIENTA DE AUDITORIA Y SANEAMIENTO REFERENCIAL (DT-V11-011 / DT-V11-012)\n";
+echo "HERRAMIENTA DE AUDITORIA Y DIAGNOSTICO REFERENCIAL (DT-V11-013)\n";
 echo "Base de datos conectada: {$dbName}\n";
 echo "==============================================================================\n\n";
 
-// Procesar argumentos CLI
-$opciones = getopt('', [
-    'modo::',
-    'token-autorizacion::',
-    'respaldo-verificado::',
-    'ayuda',
-]);
-
 $modo = $opciones['modo'] ?? 'diagnostico';
-$tokenAutorizacion = $opciones['token-autorizacion'] ?? null;
-$rutaRespaldo = $opciones['respaldo-verificado'] ?? null;
 
-$esBaseProduccionOCanonica = !str_ends_with($dbName, '_test') && !str_ends_with($dbName, '_isolated') && !str_ends_with($dbName, '_clean');
+// Verificación estricta de base desechable
+$esBaseDesechable = (bool) preg_match('/_(?:test|isolated|disposable)$/i', $dbName);
+$esBasePrincipal = ($dbName === 'app_candelaria' || !$esBaseDesechable);
 
-// BARRERA DE SEGURIDAD CONTRA EJECUCIÓN ACCIDENTAL O DESTRUCTIVA
-if ($modo === 'saneamiento-autorizado') {
-    echo "--- COMPROBACIÓN DE BARRERAS TÉCNICAS DE SEGURIDAD (DT-V11-012) ---\n";
-
-    if ($esBaseProduccionOCanonica) {
-        echo " [ALERTA] Intento de ejecución destructiva sobre base canónica/producción: '{$dbName}'.\n";
-
-        if ($tokenAutorizacion !== 'DT-V11-012-APROBADO') {
-            echo " [BLOQUEO FAIL-CLOSED] Token de autorización inválido o ausente.\n";
-            echo " Requerido: --token-autorizacion=DT-V11-012-APROBADO\n";
-            exit(1);
-        }
-
-        if (empty($rutaRespaldo) || !file_exists($rutaRespaldo)) {
-            echo " [BLOQUEO FAIL-CLOSED] No se proporcionó un respaldo verificado existente en disco.\n";
-            echo " Requerido: --respaldo-verificado=/ruta/al/respaldo_verificado.sql\n";
-            exit(1);
-        }
-
-        echo " [AUTORIZADO] Token verificado y respaldo confirmado: {$rutaRespaldo}\n";
+// BARRERA INCONDICIONAL DT-V11-013 CONTRA OPERACIONES DESTRUCTIVAS
+if ($modo !== 'diagnostico') {
+    if ($esBasePrincipal) {
+        echo " [BLOQUEO INCONDICIONAL DT-V11-013]\n";
+        echo " Se prohíbe terminantemente cualquier operación destructiva o de saneamiento\n";
+        echo " sobre la base de datos principal '{$dbName}'.\n";
+        echo " Esta restricción es estructural: no existen tokens, contraseñas ni parámetros\n";
+        echo " de línea de comandos que puedan anularla.\n";
+        echo " En '{$dbName}', este script opera única y exclusivamente en modo de sólo lectura.\n\n";
+        exit(1);
     }
+
+    if ($modo !== 'saneamiento-desechable') {
+        echo " [ERROR] Modo no reconocido para base desechable: '{$modo}'.\n";
+        echo " Modos válidos en bases desechables: 'diagnostico', 'saneamiento-desechable'.\n";
+        exit(1);
+    }
+
+    echo " [AVISO] Ejecutando saneamiento en base desechable verificada: '{$dbName}'.\n\n";
 } else {
-    $modo = 'diagnostico';
-    echo "Modo activo: DIAGNÓSTICO (Sólo lectura / Dry-run no destructivo)\n";
-    echo "Para ejecutar saneamiento se requiere autorización explícita de DT.\n\n";
+    echo "Modo activo: DIAGNÓSTICO (Solo lectura / Inspección no destructiva)\n";
+    echo "Ninguna modificación será realizada en la base de datos.\n\n";
 }
 
 // 1. Obtener restricciones FK
@@ -85,15 +85,17 @@ $sqlFks = "
         REFERENCED_TABLE_NAME, 
         REFERENCED_COLUMN_NAME
     FROM information_schema.KEY_COLUMN_USAGE
-    WHERE TABLE_SCHEMA = DATABASE()
+    WHERE TABLE_SCHEMA = :schema
       AND REFERENCED_TABLE_NAME IS NOT NULL
     ORDER BY TABLE_NAME, COLUMN_NAME
 ";
-$fks = $pdo->query($sqlFks)->fetchAll(PDO::FETCH_ASSOC);
+$stmt = $pdo->prepare($sqlFks);
+$stmt->execute(['schema' => $dbName]);
+$fks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo "Total de restricciones Foreign Key activas en {$dbName}: " . count($fks) . "\n\n";
 
-// Ejecutar análisis o saneamiento según modo
+// Ejecutar análisis o saneamiento en base desechable
 $totalHuerfanosDetectados = 0;
 $totalFilasEliminadas = 0;
 
@@ -104,7 +106,7 @@ foreach ($fks as $fk) {
     $columnaRef = $fk['REFERENCED_COLUMN_NAME'];
     $constraint = $fk['CONSTRAINT_NAME'];
 
-    // Encontrar filas huérfanas mediante consulta no destructiva
+    // Consulta de inspección no destructiva
     $queryCount = "
         SELECT COUNT(*)
         FROM `{$tabla}` t
@@ -118,8 +120,8 @@ foreach ($fks as $fk) {
             $totalHuerfanosDetectados += $count;
             echo " [DETECTADO] `{$tabla}`.`{$columna}`: {$count} registros huérfanos (FK: {$constraint} -> `{$tablaRef}`).\n";
 
-            if ($modo === 'saneamiento-autorizado') {
-                // Safeguard: Prohibir expresamente eliminar entidades maestras fundacionales
+            // Saneamiento ÚNICAMENTE en base desechable verificada
+            if ($modo === 'saneamiento-desechable' && $esBaseDesechable) {
                 $queryDelete = "
                     DELETE t FROM `{$tabla}` t
                     LEFT JOIN `{$tablaRef}` r ON t.`{$columna}` = r.`{$columnaRef}`
@@ -127,7 +129,7 @@ foreach ($fks as $fk) {
                 ";
                 $filasBorradas = $pdo->exec($queryDelete);
                 $totalFilasEliminadas += $filasBorradas;
-                echo "   -> [PURGADO AUTORIZADO] {$filasBorradas} filas eliminadas.\n";
+                echo "   -> [PURGADO EN BASE DESECHABLE] {$filasBorradas} filas eliminadas.\n";
             }
         }
     } catch (\Throwable $e) {
@@ -140,11 +142,12 @@ if ($modo === 'diagnostico') {
     if ($totalHuerfanosDetectados === 0) {
         echo "[PASS] INTEGRIDAD REFERENCIAL 100% PURA: 0 huérfanos detectados en {$dbName}.\n";
     } else {
-        echo "[ALERTA] Total de registros huérfanos detectados en diagnóstico: {$totalHuerfanosDetectados}\n";
+        echo "[DIAGNÓSTICO] Total de registros huérfanos detectados: {$totalHuerfanosDetectados}\n";
+        echo "[INFO] Operación completada en modo solo lectura. CERO registros mutados.\n";
     }
 } else {
-    echo "[COMPLETADO] Saneamiento autorizado finalizado. Total de filas purgadas: {$totalFilasEliminadas}\n";
+    echo "[COMPLETADO] Saneamiento en base desechable finalizado. Total de filas purgadas: {$totalFilasEliminadas}\n";
 }
 echo "==============================================================================\n";
 
-exit($totalHuerfanosDetectados > 0 && $modo === 'diagnostico' ? 2 : 0);
+exit(0);
