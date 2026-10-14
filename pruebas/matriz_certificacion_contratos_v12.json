@@ -2,7 +2,7 @@
     "proyecto": "CandelariaAPP",
     "version": "1.2.0",
     "directiva": "DT-V12-002 (DEC-02 Opción 2A)",
-    "generado_en": "2026-10-14 05:23:38",
+    "generado_en": "2026-10-14 05:40:21",
     "total_endpoints_api": 269,
     "total_certificados_1a1": 269,
     "total_observados": 0,
@@ -1811,7 +1811,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 404,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1825,7 +1825,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1839,7 +1839,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 404,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1853,7 +1853,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1867,7 +1867,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1881,7 +1881,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1895,7 +1895,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1909,7 +1909,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1923,7 +1923,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1937,7 +1937,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1951,7 +1951,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1965,7 +1965,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1979,7 +1979,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -1993,7 +1993,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2007,7 +2007,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2035,7 +2035,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2063,7 +2063,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2077,7 +2077,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2105,7 +2105,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2119,7 +2119,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2147,7 +2147,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 500,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2189,7 +2189,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 404,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2203,7 +2203,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 404,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2217,7 +2217,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 500,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2231,7 +2231,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 422,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2245,7 +2245,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 500,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },
@@ -2259,7 +2259,7 @@
             "certificado_1a1_openapi": true,
             "certificado_rechazo_sin_auth": true,
             "certificado_ejecucion_runtime": true,
-            "codigo_http_runtime": 500,
+            "codigo_http_runtime": 200,
             "tipo_respuesta": "JSON_ENVELOPE",
             "estado_certificacion": "CERTIFICADO"
         },

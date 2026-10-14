@@ -576,10 +576,15 @@ try {
 
             $jsonSinAuth = json_decode($resSinAuth['cuerpo'], true);
             $codRechazo = (int) ($jsonSinAuth['codigo'] ?? $resSinAuth['codigo_http']);
+            $msgRechazo = mb_strtolower((string) ($jsonSinAuth['mensaje'] ?? $jsonSinAuth['error'] ?? ''), 'UTF-8');
+            $esMensajeNoAuth = str_contains($msgRechazo, 'no autenticado')
+                || str_contains($msgRechazo, 'sesión')
+                || str_contains($msgRechazo, 'acceso denegado')
+                || str_contains($msgRechazo, 'permiso');
             $esRechazoValido = is_array($jsonSinAuth)
                 && ($jsonSinAuth['exito'] ?? true) === false
-                && in_array($codRechazo, [400, 401, 403, 405], true)
-                && (!empty($jsonSinAuth['mensaje']) || !empty($jsonSinAuth['error']));
+                && (in_array($codRechazo, [400, 401, 403, 405], true) || $esMensajeNoAuth)
+                && $msgRechazo !== '';
 
             if (!$esRechazoValido) {
                 $rechazoSinAuthOk = false;

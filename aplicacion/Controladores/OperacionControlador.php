@@ -2025,14 +2025,13 @@ class OperacionControlador
         mixed $datos = [],
         mixed $errores = []
     ): string {
-        http_response_code($codigoHttp);
         if (!headers_sent()) {
+            http_response_code($codigoHttp);
             header('Content-Type: application/json; charset=utf-8');
         }
 
         $payload = [
             'exito'   => $exito,
-            'codigo'  => $codigoHttp,
             'mensaje' => $mensaje,
             'datos'   => is_array($datos) && empty($datos) ? (object) [] : ($datos ?? (object) []),
             'errores' => is_array($errores) && empty($errores) ? (object) [] : ($errores ?? (object) []),
