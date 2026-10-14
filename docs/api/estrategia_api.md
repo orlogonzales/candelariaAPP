@@ -56,3 +56,19 @@ Esto previene roturas de compatibilidad con futuras versiones de apps móviles o
 - `422 Unprocessable Entity`: Error de validación de negocio en el backend.
 - `429 Too Many Requests`: Límite de tasa excedido.
 - `500 Internal Server Error`: Error no controlado del servidor (sin volcar detalles sensibles en producción).
+
+---
+
+## 5. Especificación Canónica OpenAPI 3.0.3 y Arquitectura Headless (Fase 3.5 — V1.1)
+
+En la Fase 3.5 (`DT-V11-016`, baseline técnico `e513fdd`), la API REST de **CandelariaAPP V1.1** fue inventariada y formalizada bajo el estándar **OpenAPI 3.0.3**:
+- **Rutas documentadas:** **265 rutas** organizadas en **13 dominios funcionales** (23 públicas/cliente/móvil y 242 administrativas/backoffice).
+- **Artefactos de contrato:** [`docs/api/openapi.json`](openapi.json) y [`docs/api/openapi.yaml`](openapi.yaml) (sincronizados en `publico/documentacion/`).
+- **Visualizador interactivo:** Swagger UI disponible en `/documentacion` y `/docs`.
+- **Esquemas de seguridad documentados:** `CookieClienteAuth` (`candelaria_cliente_sesion`, `HttpOnly`), `BearerAdminAuth` (`HTTP Bearer`) y `TenantHeader` (`X-Organizacion-Slug`).
+
+> [!IMPORTANT] Observación y Limitación Obligatoria de Certificación Contractual (`DT-V11-CIERRE-001`)
+> - La suite de la Fase 3.5 (`pruebas/ejecutar_pruebas_f35.php`, `36/36 PASS`) certifica la validez sintáctica OpenAPI 3.0.3, la resolución de las 62 referencias `$ref` (`0` rotas), la unicidad de `operationId` y la correspondencia de rutas críticas.
+> - **La certificación contractual 1:1 en tiempo de ejecución de los 265 endpoints** (verificando de forma automatizada que cada endpoint posea esquemas de solicitudes, respuestas y errores idénticos a su comportamiento real) **queda pendiente como requisito obligatorio previo a la integración de aplicaciones móviles nativas**.
+> - El desarrollo de la aplicación móvil nativa (Android/iOS) permanece fuera del alcance implementado en V1.1.
+

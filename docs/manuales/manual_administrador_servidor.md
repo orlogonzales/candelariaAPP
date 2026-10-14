@@ -1,15 +1,16 @@
-# CANDELARIAAPP V1 — MANUAL DEL ADMINISTRADOR DEL SERVIDOR
+# CANDELARIAAPP V1.1 — MANUAL DEL ADMINISTRADOR DEL SERVIDOR
 ## Instalación, Configuración, Operación, Respaldo y Recuperación (DRP)
 
-**Versión:** 1.0.0 (Cierre y Congelamiento V1)  
-**Directiva de Gobierno:** `DT-V1-CIERRE-001`  
-**Estado:** V1 Certificada Localmente / APTO CON RESTRICCIONES  
+**Versión Vigente:** 1.1.0 (Cierre Integral V1.1 — Baseline técnico `e513fdd`)  
+**Directiva de Gobierno:** `DT-V11-CIERRE-001` (Referencia histórica V1.0: `DT-V1-CIERRE-001` / `f3ddb21`)  
+**Esquema Certificado:** 108 Tablas InnoDB | 29 Migraciones | 115 Permisos RBAC | 24 Módulos (V1.0: 97 Tablas | 23 Migraciones | 104 Permisos)  
+**Estado:** V1.1 Certificada Localmente (2,342/2,342 PASS en 48 suites; 19/19 compuertas evolutivas) / CERRADO CON RESTRICCIONES  
 **Audiencia:** Administradores de Sistemas (SysAdmin / DevOps), Ingenieros de Infraestructura y Soporte de Plataforma
 
 ---
 
-> [!WARNING] Advertencia de Seguridad y Estado de Despliegue
-> El presente manual describe las directivas de configuración técnica validadas en el entorno de desarrollo y pruebas de homologación. **El despliegue en el servidor de producción definitivo todavía no ha sido certificado ni auditado en vivo.** Ninguna pasarela de pago ni integración de WhatsApp debe operarse en modo de producción sin completar previamente el checklist individual de activación y recibir la autorización expresa de la Dirección Técnica.
+> [!WARNING] Advertencia de Seguridad, Limitaciones y Estado de Despliegue
+> El presente manual describe las directivas de configuración técnica validadas en el entorno de referencia local (`PHP 8.3`, MySQL 8.0+). **El despliegue en el servidor de producción definitivo requiere autorización independiente de Dirección Técnica y todavía no ha sido certificado ni auditado en vivo.** Asimismo, las pasarelas de pago y WhatsApp Cloud API continúan sin habilitación productiva (modo sandbox), los recibos internos emitidos no son comprobantes tributarios SUNAT, la aplicación móvil nativa permanece fuera del alcance implementado y la certificación contractual 1:1 en tiempo de ejecución de los 265 endpoints OpenAPI queda pendiente para la etapa de integración móvil.
 
 ---
 
@@ -184,8 +185,9 @@ cd "${DESTINO}" && sha256sum * > MANIFIESTO_HASHES.sha256
    ```bash
    tar -xzf almacenamiento_YYYYMMDD_HHMMSS.tar.gz -C /var/www/candelaria/almacenamiento/privado/
    ```
-4. **Ejecutar Verificación de Integridad:**
+4. **Ejecutar Verificación de Integridad (V1.1 y Operativa DRP):**
    ```bash
+   php /var/www/candelaria/pruebas/ratificacion_v11.php
    php /var/www/candelaria/pruebas/verificacion_operativa_despliegue.php
    ```
 
