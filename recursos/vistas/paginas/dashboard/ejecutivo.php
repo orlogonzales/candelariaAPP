@@ -25,6 +25,9 @@
             <button type="button" class="btn btn-outline-secondary btn-md shadow-sm" id="btnRefrescarDashboard" title="Actualizar métricas">
                 <i class="fa-solid fa-rotate" id="iconoRefrescar"></i>
             </button>
+            <a href="<?= url_base('analitica-multianual') ?>" class="btn btn-danger btn-md shadow-sm" id="btnIrAnaliticaMultianual" title="Comparativa Histórica Multianual">
+                <i class="fa-solid fa-chart-column me-1"></i> <span class="d-none d-lg-inline">Multianual</span>
+            </a>
         </div>
     </div>
 </div>

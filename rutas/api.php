@@ -565,10 +565,12 @@ Enrutador::get('/api/v1/publico/portal/descargar-multimedia/{id}', [\Aplicacion\
 Enrutador::post('/api/v1/publico/portal/entregas/{id}/responder', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'responderEntregaMultimedia']);
 
 // ==============================================================================
-// DASHBOARD EJECUTIVO Y MÉTRICAS DE RENDIMIENTO (FASE 2.12C)
+// DASHBOARD EJECUTIVO, MÉTRICAS DE RENDIMIENTO Y ANALÍTICA MULTIANUAL (FASE 2.12C / FASE 4.1)
 // ==============================================================================
 Enrutador::get('/api/v1/dashboard/kpis', [\Aplicacion\Controladores\DashboardControlador::class, 'kpis']);
 Enrutador::get('/api/v1/dashboard/comparativa', [\Aplicacion\Controladores\DashboardControlador::class, 'comparativa']);
+Enrutador::get('/api/v1/dashboard/analitica-multianual', [\Aplicacion\Controladores\DashboardControlador::class, 'analiticaMultianual']);
+Enrutador::get('/api/v1/dashboard/analitica-multianual/exportar', [\Aplicacion\Controladores\DashboardControlador::class, 'exportarAnaliticaMultianual']);
 
 // ==============================================================================
 // PROGRAMACIÓN FOLCLÓRICA, CONJUNTOS Y TURNOS (FASE 3.1B — DT-V11-004)

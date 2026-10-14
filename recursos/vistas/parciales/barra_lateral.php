@@ -189,6 +189,12 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                                 <span class="badge bg-danger ms-2">KPIs</span>
                             </a>
                         </li>
+                        <li class="no-sub">
+                            <a href="<?= url_base('analitica-multianual') ?>" id="navPrincipalAnaliticaMultianual" class="<?= $seccionActual === 'analitica_multianual' ? 'active' : '' ?>">
+                                <i class="fa-solid fa-chart-column me-2 text-secondary"></i> Analítica Multianual
+                                <span class="badge bg-primary ms-2">V1.2</span>
+                            </a>
+                        </li>
                         <?php endif; ?>
                     </ul>
 
