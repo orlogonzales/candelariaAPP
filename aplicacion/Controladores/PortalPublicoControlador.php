@@ -493,11 +493,11 @@ class PortalPublicoControlador
 
             // Anti-IDOR: Validar que la venta pertenezca estrictamente al cliente de la sesión
             $stmtVta = $pdo->prepare("
-                SELECT id, cliente_id, correlativo FROM `ventas`
+                SELECT id, cliente_id FROM `ventas`
                 WHERE id = :id AND organizacion_id = :org_id
             ");
             $stmtVta->execute(['id' => $ventaId, 'org_id' => $tenant['organizacion_id']]);
-            $venta = $stmtVta->fetch(PDO::FETCH_ASSOC);
+            $venta = $stmtVta->fetch(\PDO::FETCH_ASSOC);
 
             if (!$venta || (int) $venta['cliente_id'] !== (int) $sesion->clienteId) {
                 throw new AccesoDenegadoExcepcion("Acceso denegado: El contrato no pertenece a su cuenta.");
@@ -977,12 +977,15 @@ class PortalPublicoControlador
     private function manejarExcepcion(Throwable $e): void
     {
         $codigo = 500;
-        if ($e instanceof InvalidArgumentException) {
-            $codigo = 400;
+        $codEx = (int) $e->getCode();
+        if ($e instanceof InvalidArgumentException || $e instanceof \DomainException) {
+            $codigo = ($codEx >= 400 && $codEx < 500) ? $codEx : 400;
         } elseif ($e instanceof AccesoDenegadoExcepcion) {
-            $codigo = 403;
+            $codigo = ($codEx >= 400 && $codEx < 500) ? $codEx : 403;
         } elseif ($e instanceof \Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion) {
             $codigo = 409;
+        } elseif ($e instanceof \RuntimeException && !($e instanceof \PDOException)) {
+            $codigo = ($codEx >= 400 && $codEx < 500) ? $codEx : 422;
         }
 
         $this->responderJson([

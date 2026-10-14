@@ -1,19 +1,19 @@
 # DOCUMENTACIÓN OFICIAL — CANDELARIAAPP V1.2
 ## Índice General, Arquitectura, Gobernanza y Estado de Certificación
 
-**Versión en Rama de Desarrollo:** 1.2.0 (`desarrollo/v1.2` — Directiva `DT-V12-002`)  
+**Versión en Rama de Desarrollo:** 1.2.0 (`desarrollo/v1.2` — Directivas `DT-V12-002` y `DT-V12-003`)  
 **Línea Base Congelada en `main` (V1.1):** `DT-V11-CIERRE-001` (Baseline técnico [`e513fdd`](https://github.com/orlogonzales/candelariaAPP/commit/e513fdd) / Documental [`bc97361`](https://github.com/orlogonzales/candelariaAPP/commit/bc97361))  
 **Referencia Histórica V1.0:** `DT-V1-CIERRE-001` (Baseline técnico [`f3ddb21`](https://github.com/orlogonzales/candelariaAPP/commit/f3ddb21) / Documental [`1f42885`](https://github.com/orlogonzales/candelariaAPP/commit/1f42885))  
-**Calificación Oficial en `desarrollo/v1.2`:** **IMPLEMENTACIÓN V1.2 COMPLETADA Y CERTIFICADA (`2,397/2,397 PASS` EN 51 SUITES, `269/269` ENDPOINTS CERTIFICADOS 1:1) — PENDIENTE DE HOMOLOGACIÓN DE DIRECCIÓN TÉCNICA**
+**Calificación Oficial en `desarrollo/v1.2`:** **IMPLEMENTACIÓN Y AUDITORÍA CONTRACTUAL V1.2 COMPLETADAS (`2,674/2,674 PASS` EN 51 SUITES, `269/269` ENDPOINTS CERTIFICADOS INDIVIDUALMENTE EN RUNTIME CON `293/293 PASS`) — PENDIENTE DE HOMOLOGACIÓN DE DIRECCIÓN TÉCNICA**
 
 ---
 
 > [!IMPORTANT] Declaración Expresa sobre Alcance V1.2, Resoluciones de Deuda Técnica y Restricciones Vigentes
-> Bajo la directiva **`DT-V12-002`**, se han ejecutado las Fases 4.1 a 4.4 en la rama aislada **`desarrollo/v1.2`**, manteniendo intacta la rama **`main`** en `bc97361`.
+> Bajo las directivas **`DT-V12-002`** y **`DT-V12-003`**, se han ejecutado las Fases 4.1 a 4.4 y la auditoría final de cobertura contractual individual en la rama aislada **`desarrollo/v1.2`**, manteniendo intacta la rama **`main`** en `bc97361`.
 >
 > **Hitos técnicos resueltos en V1.2:**
-> 1. **Analítica Multianual (`DEC-01` - Opción 1A):** Implementada sobre el modelo relacional existente (**108 tablas**, **29 migraciones**, **115 permisos RBAC**), agregando endpoints comparativos interanuales (`/api/v1/reportes/multianual`, `/api/v1/reportes/multianual/exportar`, `/api/v1/dashboard/multianual`), pestaña interactiva en Dashboard Ejecutivo y exportación CSV/XLSX/PDF con sanitización anti-Formula Injection (`25/25 PASS`).
-> 2. **Certificación Contractual API 1:1 en Tiempo de Ejecución (`DEC-02` - Opción 2A):** Se subsanó la observación heredada de V1.1 ejecutando pruebas de contrato automatizadas sobre el total del inventario REST (**269 endpoints únicos** en 13 dominios: 265 de V1.1 + 4 de V1.2), verificando correspondencia 1:1 en tiempo de ejecución de rutas, controladores, tipado de parámetros, seguridad (`401`/`403`) y envoltura JSON (`16/16 PASS`, **269/269 CERTIFICADOS**, `0` observados).
+> 1. **Analítica Multianual (`DEC-01` - Opción 1A):** Implementada sobre el modelo relacional existente (**108 tablas**, **29 migraciones**, **115 permisos RBAC**), agregando endpoints comparativos interanuales (`/api/v1/dashboard/analitica-multianual`, `/api/v1/dashboard/analitica-multianual/exportar`), pestaña interactiva en Dashboard Ejecutivo y exportación CSV/XLSX/PDF con sanitización anti-Formula Injection (`25/25 PASS`).
+> 2. **Certificación Contractual API 1:1 Individual en Tiempo de Ejecución (`DEC-02` - Opción 2A y `DT-V12-003`):** Se reconcilió el inventario entre V1.1 (**265 rutas** de negocio 100% compatibles) y V1.2 (**269 rutas** únicas: +2 rutas de analítica multianual + 2 rutas técnicas de distribución OpenAPI) y se ejecutaron pruebas individuales de contrato (`CT-V12-001` a `CT-V12-269`) sobre cada uno de los **269 endpoints** en la base de datos aislada desechable (`app_candelaria_v12_cert_contratos`), acreditando las 4 categorías de cobertura (inventariado, documentado, validado estructuralmente y ejecutado en runtime), `253/253` rechazos sin sesión (`401`/`403`), `183/183` rechazos por capacidad RBAC (`403`), aislamiento Multi-Tenant, Anti-IDOR y `0` respuestas HTTP 500 (`293/293 PASS`, **269/269 CERTIFICADOS**, `0` observados, `0` omitidos).
 > 3. **Blindaje de Webhooks de Pasarelas de Pago y WhatsApp (`DEC-03` - Opción 3A):** Se fortalecieron `WebhookPasarelaServicio` y `WebhookWhatsAppServicio` con rechazo *fail-closed* de firmas inválidas o expiradas, bloqueo pesimista por fila (`SELECT ... FOR UPDATE`), idempotencia transaccional y protección monotónica frente a eventos fuera de orden (`14/14 PASS`).
 >
 > **Limitaciones obligatorias vigentes:**
@@ -57,28 +57,28 @@
 
 ## 2. Indicadores Oficiales Comparados (Histórico V1.0 vs Congelado V1.1 vs Vigente V1.2)
 
-| Indicador | Referencia Histórica V1.0 (`DT-V1-CIERRE-001`) | Línea Base Congelada V1.1 (`DT-V11-CIERRE-001`) | Estado Vigente V1.2 (`DT-V12-002`) | Detalle de Verificación V1.2 |
+| Indicador | Referencia Histórica V1.0 (`DT-V1-CIERRE-001`) | Línea Base Congelada V1.1 (`DT-V11-CIERRE-001`) | Estado Vigente V1.2 (`DT-V12-003`) | Detalle de Verificación V1.2 |
 | :--- | :---: | :---: | :---: | :--- |
 | **Tablas Relacionales** | 97 | 108 | **108** | Sin tablas nuevas en V1.2 (`DEC-01` Opción 1A); blindaje incondicional de `app_candelaria` |
 | **Migraciones Versionadas** | 23 | 29 | **29** | Numeradas cronológicamente (`000001` a `000029`) en `/base_datos/migraciones/` |
-| **Permisos RBAC** | 104 | 115 | **115** | Reutilización de permisos existentes (`reportes.ver`, `reportes.exportar`, `dashboard.ver`) |
+| **Permisos RBAC** | 104 | 115 | **115** | Reutilización de permisos existentes (`ediciones.reportes.ver`, `ediciones.reportes.ingresos.exportar`) |
 | **Módulos Oficiales** | 24 | 24 | **24** | Catálogo completo registrado en tabla `modulos` |
 | **Suites Automatizadas** | 40 | 48 | **51** | 48 suites V1.1 + 3 suites nuevas V1.2 (`f41`, `f42_contratos`, `f42_webhooks`) |
-| **Pruebas Aprobadas** | 2,019 / 2,019 PASS | 2,342 / 2,342 PASS | **2,397 / 2,397 PASS** | 51 suites ejecutadas con `0 FAIL` y código `0` (`EXIT_SUCCESS` en `registro_regresion_global.log`) |
+| **Pruebas Aprobadas** | 2,019 / 2,019 PASS | 2,342 / 2,342 PASS | **2,674 / 2,674 PASS** | 51 suites ejecutadas con `0 FAIL` y código `0` (`EXIT_SUCCESS` en `registro_regresion_global.log`) |
 | **Compuertas Evolutivas** | 25 / 25 PASS | 19 / 19 PASS | **19 / 19 PASS** | Suite `pruebas/ratificacion_v11.php` (instalación limpia 1:1, DRP y seguridad) |
-| **Rutas OpenAPI 3.0.3** | — | 265 rutas (estructural) | **269 / 269 rutas (1:1 runtime)** | Matriz `pruebas/matriz_certificacion_contratos_v12.json` (`269 CERTIFICADOS`, `0` observados) |
+| **Rutas OpenAPI 3.0.3** | — | 265 rutas (estructural) | **269 / 269 rutas (1:1 runtime)** | Matriz `pruebas/matriz_certificacion_contratos_v12.json` (`269 CERTIFICADOS`, `293/293 PASS`) |
 | **Huella Criptográfica** | `80e6af84e02e89e3` | `80e6af84e02e89e3` | **`80e6af84e02e89e3`** | Huella inmutable de identidad de Orlando (ID 24) preservada |
 
 ---
 
-## 3. Trazabilidad Oficial de Fases Implementadas en CandelariaAPP V1.2 (`DT-V12-002`)
+## 3. Trazabilidad Oficial de Fases Implementadas en CandelariaAPP V1.2 (`DT-V12-002` y `DT-V12-003`)
 
 | Fase / Directiva | Micro-Baseline | Alcance Técnico y Evidencia Probatoria |
 | :--- | :---: | :--- |
 | **Fase 4.1** (`DT-V12-002` / `DEC-01`) | `88becaf` | **COMPLETADA:** Analítica multianual e inteligencia histórica de ediciones sobre esquema de 108 tablas. Comparativa interanual de 2 a $N$ ediciones con variaciones absolutas ($\Delta$) y porcentuales ($\Delta\%$), manejo seguro de división por cero (`null`), aislamiento por `organizacion_id`, pestaña interactiva en Dashboard Ejecutivo y exportación CSV/XLSX/PDF (`25/25 PASS` en `pruebas/ejecutar_pruebas_f41.php`). |
-| **Fase 4.2** (`DT-V12-002` / `DEC-02`, `DEC-03`) | `9f73604` | **COMPLETADA:** (1) Certificación contractual 1:1 en tiempo de ejecución de los **269 endpoints REST** entre `rutas/api.php` y OpenAPI 3.0.3, incluyendo coerciones de tipos en `Enrutador.php` y matriz `pruebas/matriz_certificacion_contratos_v12.json` (`16/16 PASS`, `269/269 CERTIFICADOS`). (2) Blindaje de `WebhookPasarelaServicio` y `WebhookWhatsAppServicio` con firmas HMAC *fail-closed*, bloqueo pesimista `FOR UPDATE`, idempotencia e invariante monotónica (`14/14 PASS` en `pruebas/ejecutar_pruebas_f42_webhooks.php`). |
-| **Fase 4.3** (`DT-V12-002`) | Cierre V1.2 | **COMPLETADA:** Estabilización transversal y ejecución completa en primer plano de las **51 suites** (`2,397/2,397 PASS`, `0 FAIL`) en `pruebas/registro_regresion_global.log` y ratificación estructural `19/19 PASS` en `pruebas/ratificacion_v11.php`. |
-| **Fase 4.4** (`DT-V12-002`) | Cierre V1.2 | **COMPLETADA:** Sincronización documental (`README.md`, `docs/README.md`, `docs/modulos/mapa_modulos.md`) preservando los indicadores históricos de V1.0 y V1.1, y entrega del Informe Consolidado de Cierre V1.2. |
+| **Fase 4.2** (`DT-V12-002` / `DT-V12-003` / `DEC-02`, `DEC-03`) | `DT-V12-003` | **COMPLETADA:** (1) Certificación contractual 1:1 individual en tiempo de ejecución de los **269 endpoints REST** (`CT-V12-001` a `CT-V12-269`) entre `rutas/api.php` y OpenAPI 3.0.3 sobre base aislada desechable `app_candelaria_v12_cert_contratos`, matriz `pruebas/matriz_certificacion_contratos_v12.json` y corrección de 8 defectos latentes en controladores/servicios (`293/293 PASS`, `269/269 CERTIFICADOS`, `0` observados). (2) Blindaje de `WebhookPasarelaServicio` y `WebhookWhatsAppServicio` con firmas HMAC *fail-closed*, bloqueo pesimista `FOR UPDATE`, idempotencia e invariante monotónica (`14/14 PASS` en `pruebas/ejecutar_pruebas_f42_webhooks.php`). |
+| **Fase 4.3** (`DT-V12-002` / `DT-V12-003`) | `DT-V12-003` | **COMPLETADA:** Estabilización transversal y ejecución completa en primer plano de las **51 suites** (`2,674/2,674 PASS`, `0 FAIL`) en `pruebas/registro_regresion_global.log` y ratificación estructural `19/19 PASS` en `pruebas/ratificacion_v11.php`. |
+| **Fase 4.4** (`DT-V12-002` / `DT-V12-003`) | `DT-V12-003` | **COMPLETADA:** Sincronización documental (`README.md`, `docs/README.md`, `docs/modulos/mapa_modulos.md`) preservando los indicadores históricos de V1.0 y V1.1, y entrega del Informe de Auditoría Final de Cobertura Contractual `DT-V12-003`. |
 
 ---
 

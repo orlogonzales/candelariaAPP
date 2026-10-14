@@ -115,21 +115,45 @@ class GeneradorOpenApi
 
             if (isset($rutasManuales[$patron][$metodoKey])) {
                 $op = $rutasManuales[$patron][$metodoKey];
-                // Garantizar que todos los parámetros de ruta estén declarados en parameters
+                // Garantizar que todos los parámetros de ruta y respuestas de error estén declarados
                 $op = self::asegurarParametrosDeRuta($patron, $op);
+                $op = self::asegurarRespuestasEstandar($patron, $metodoHttp, $op);
                 $paths[$patron][$metodoKey] = $op;
                 continue;
             }
 
-            $paths[$patron][$metodoKey] = self::generarContratoParaRuta(
+            $opGenerada = self::generarContratoParaRuta(
                 $patron,
                 $metodoHttp,
                 $accion,
                 $operationIdsUsados
             );
+            $paths[$patron][$metodoKey] = self::asegurarRespuestasEstandar($patron, $metodoHttp, $opGenerada);
         }
 
         return $paths;
+    }
+
+    /**
+     * Garantiza que toda operación documente los códigos HTTP de error aplicables en tiempo de ejecución.
+     */
+    private static function asegurarRespuestasEstandar(string $patron, string $metodoHttp, array $op): array
+    {
+        if (in_array($patron, ['/api/v1/estado', '/api/v1/openapi.json', '/api/v1/openapi.yaml'], true)) {
+            return $op;
+        }
+
+        $op['responses']['400'] ??= ['$ref' => '#/components/responses/ErrorSolicitudInvalida'];
+        $op['responses']['401'] ??= ['$ref' => '#/components/responses/ErrorNoAutorizado'];
+        $op['responses']['403'] ??= ['$ref' => '#/components/responses/ErrorAccesoDenegado'];
+        $op['responses']['404'] ??= ['$ref' => '#/components/responses/ErrorNoEncontrado'];
+        $op['responses']['422'] ??= ['$ref' => '#/components/responses/ErrorValidacion'];
+
+        if ($metodoHttp === 'DELETE') {
+            $op['responses']['405'] ??= ['$ref' => '#/components/responses/ErrorMetodoNoPermitido'];
+        }
+
+        return $op;
     }
 
     /**
@@ -1697,6 +1721,19 @@ class GeneradorOpenApi
                 ]
             ],
             'responses' => [
+                'ErrorSolicitudInvalida' => [
+                    'description' => 'Solicitud inválida o parámetros faltantes/malformados.',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/SobreRespuestaError'],
+                            'example' => [
+                                'exito' => false,
+                                'codigo' => 400,
+                                'mensaje' => 'Parámetros de entrada inválidos o incompletos.'
+                            ]
+                        ]
+                    ]
+                ],
                 'ErrorNoAutorizado' => [
                     'description' => 'No autorizado. Se requiere token o sesión válida.',
                     'content' => [
@@ -1711,7 +1748,7 @@ class GeneradorOpenApi
                     ]
                 ],
                 'ErrorAccesoDenegado' => [
-                    'description' => 'Acceso denegado (Anti-IDOR o falta de permisos RBAC).',
+                    'description' => 'Acceso denegado (Anti-IDOR, CSRF o falta de permisos RBAC).',
                     'content' => [
                         'application/json' => [
                             'schema' => ['$ref' => '#/components/schemas/SobreRespuestaError'],
@@ -1732,6 +1769,19 @@ class GeneradorOpenApi
                                 'exito' => false,
                                 'codigo' => 404,
                                 'mensaje' => 'El recurso solicitado no fue encontrado.'
+                            ]
+                        ]
+                    ]
+                ],
+                'ErrorMetodoNoPermitido' => [
+                    'description' => 'Operación o eliminación física prohibida por gobernanza de integridad.',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/SobreRespuestaError'],
+                            'example' => [
+                                'exito' => false,
+                                'codigo' => 405,
+                                'mensaje' => 'Eliminación física prohibida por gobernanza. Utilice desactivación lógica.'
                             ]
                         ]
                     ]

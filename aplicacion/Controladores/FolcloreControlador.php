@@ -774,7 +774,7 @@ class FolcloreControlador
                 : null;
 
             if ($edicionId === null || $edicionId <= 0) {
-                $edicionActiva = $this->edicionRepo->obtenerEdicionActiva($contexto->organizacionId);
+                $edicionActiva = $this->edicionRepo->obtenerActual($contexto->organizacionId);
                 $edicionId = $edicionActiva?->id ?? 0;
             }
 

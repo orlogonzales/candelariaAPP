@@ -150,6 +150,12 @@ paths:
           $ref: "#/components/responses/ErrorValidacion"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/auth/logout:
     post:
       tags:
@@ -161,6 +167,16 @@ paths:
       responses:
         200:
           description: Sesión cerrada exitosamente
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/auth/sesion:
     get:
       tags:
@@ -185,6 +201,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/usuarios/lista:
     get:
       tags:
@@ -209,6 +227,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/usuarios:
     get:
       tags:
@@ -233,6 +253,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Identidad y Autenticación Admin
@@ -269,6 +291,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/usuarios/{id}:
     get:
       tags:
@@ -300,6 +324,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Identidad y Autenticación Admin
@@ -337,6 +363,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     delete:
       tags:
         - Identidad y Autenticación Admin
@@ -367,6 +395,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/personas/disponibles:
     get:
       tags:
@@ -391,6 +423,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/tipos-documento:
     get:
       tags:
@@ -415,6 +449,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/roles:
     get:
       tags:
@@ -439,6 +475,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/usuarios/{id}/estado:
     patch:
       tags:
@@ -477,6 +515,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/usuarios/{id}/roles:
     put:
       tags:
@@ -515,6 +555,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/usuarios/{id}/restablecer-clave:
     post:
       tags:
@@ -559,6 +601,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/organizacion:
     get:
       tags:
@@ -583,6 +627,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Organizaciones y Contexto
@@ -613,6 +659,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/organizacion/branding/logo:
     post:
       tags:
@@ -650,6 +698,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/organizacion/branding/isotipo:
     post:
       tags:
@@ -687,6 +737,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/configuracion:
     get:
       tags:
@@ -711,6 +763,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Organizaciones y Contexto
@@ -741,6 +795,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones:
     get:
       tags:
@@ -765,6 +821,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Organizaciones y Contexto
@@ -801,6 +859,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}:
     get:
       tags:
@@ -832,6 +892,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Organizaciones y Contexto
@@ -869,6 +931,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/estado:
     post:
       tags:
@@ -913,6 +977,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/seleccionar-actual:
     post:
       tags:
@@ -957,6 +1023,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/diagnostico-cierre:
     get:
       tags:
@@ -988,6 +1056,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/cerrar:
     post:
       tags:
@@ -1032,6 +1102,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/reabrir:
     post:
       tags:
@@ -1076,6 +1148,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/cierre:
     get:
       tags:
@@ -1107,6 +1181,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/cierre/verificar-integridad:
     get:
       tags:
@@ -1138,6 +1214,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/reportes/libro-ingresos:
     get:
       tags:
@@ -1169,6 +1247,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/reportes/manifiesto-salidas:
     get:
       tags:
@@ -1200,6 +1280,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/reportes/padron-asistencia:
     get:
       tags:
@@ -1231,6 +1313,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ediciones/{id}/reportes/exportar:
     get:
       tags:
@@ -1269,6 +1353,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/contexto/edicion:
     get:
       tags:
@@ -1293,6 +1381,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/clientes:
     get:
       tags:
@@ -1317,6 +1407,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -1353,6 +1445,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/personas/buscar:
     get:
       tags:
@@ -1377,6 +1471,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/clientes/{id}:
     get:
       tags:
@@ -1408,6 +1504,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     delete:
       tags:
         - Ventas y Finanzas
@@ -1438,6 +1536,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/clientes/{id}/estado:
     patch:
       tags:
@@ -1476,6 +1578,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/clientes/{id}/consentimientos:
     post:
       tags:
@@ -1520,6 +1624,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/oportunidades:
     get:
       tags:
@@ -1544,6 +1650,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -1580,6 +1688,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/oportunidades/{id}:
     get:
       tags:
@@ -1611,6 +1721,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Ventas y Finanzas
@@ -1648,6 +1760,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     delete:
       tags:
         - Ventas y Finanzas
@@ -1678,6 +1792,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/crm/oportunidades/{id}/etapa:
     post:
       tags:
@@ -1722,6 +1840,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/oportunidades/{id}/asignar:
     post:
       tags:
@@ -1766,6 +1886,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/interacciones:
     get:
       tags:
@@ -1790,6 +1912,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -1826,6 +1950,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/clientes/{id}/timeline:
     get:
       tags:
@@ -1857,6 +1983,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/interacciones/{id}:
     delete:
       tags:
@@ -1888,6 +2016,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/crm/origenes:
     get:
       tags:
@@ -1912,6 +2044,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -1948,6 +2082,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/crm/origenes/{id}:
     put:
       tags:
@@ -1986,6 +2122,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     delete:
       tags:
         - Ventas y Finanzas
@@ -2016,6 +2154,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/crm/origenes/{id}/estado:
     patch:
       tags:
@@ -2054,6 +2196,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/categorias:
     get:
       tags:
@@ -2078,6 +2222,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -2114,6 +2260,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/categorias/{id}:
     put:
       tags:
@@ -2152,6 +2300,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/categorias/{id}/estado:
     patch:
       tags:
@@ -2190,6 +2340,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/unidades-medida:
     get:
       tags:
@@ -2214,6 +2366,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/items:
     get:
       tags:
@@ -2238,6 +2392,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -2274,6 +2430,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/items/buscar:
     get:
       tags:
@@ -2298,6 +2456,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/items/{id}:
     get:
       tags:
@@ -2329,6 +2489,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Ventas y Finanzas
@@ -2366,6 +2528,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/items/{id}/estado:
     patch:
       tags:
@@ -2404,6 +2568,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/paquetes:
     get:
       tags:
@@ -2428,6 +2594,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -2464,6 +2632,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/paquetes/{id}:
     get:
       tags:
@@ -2495,6 +2665,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Ventas y Finanzas
@@ -2532,6 +2704,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/paquetes/{id}/estado:
     patch:
       tags:
@@ -2570,6 +2744,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/paquetes/{id}/composicion:
     get:
       tags:
@@ -2601,6 +2777,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -2644,6 +2822,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Ventas y Finanzas
@@ -2681,6 +2861,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/ofertas:
     get:
       tags:
@@ -2705,6 +2887,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/ofertas/items:
     post:
       tags:
@@ -2742,6 +2926,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/ofertas/items/{id}/estado:
     patch:
       tags:
@@ -2780,6 +2966,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/ofertas/paquetes:
     post:
       tags:
@@ -2817,6 +3005,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/ofertas/paquetes/{id}/estado:
     patch:
       tags:
@@ -2855,6 +3045,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/tarifas/items/inicial:
     post:
       tags:
@@ -2892,6 +3084,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/tarifas/items/{id}:
     put:
       tags:
@@ -2930,6 +3124,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/tarifas/paquetes/inicial:
     post:
       tags:
@@ -2967,6 +3163,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/tarifas/paquetes/{id}:
     put:
       tags:
@@ -3005,6 +3203,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/tarifas/items/{id}/historial:
     get:
       tags:
@@ -3036,6 +3236,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/catalogo/tarifas/paquetes/{id}/historial:
     get:
       tags:
@@ -3067,6 +3269,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones:
     get:
       tags:
@@ -3091,6 +3295,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -3127,6 +3333,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}:
     get:
       tags:
@@ -3158,6 +3366,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Ventas y Finanzas
@@ -3195,6 +3405,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/lineas:
     post:
       tags:
@@ -3239,6 +3451,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/lineas/{lineaId}/descuento:
     patch:
       tags:
@@ -3283,6 +3497,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/lineas/{lineaId}:
     delete:
       tags:
@@ -3320,6 +3536,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/cotizaciones/{id}/descuento-global:
     post:
       tags:
@@ -3364,6 +3584,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/emitir:
     post:
       tags:
@@ -3408,6 +3630,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/revision:
     post:
       tags:
@@ -3452,6 +3676,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/aceptar:
     post:
       tags:
@@ -3496,6 +3722,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/rechazar:
     post:
       tags:
@@ -3540,6 +3768,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/{id}/anular:
     post:
       tags:
@@ -3584,6 +3814,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/aux/clientes:
     get:
       tags:
@@ -3608,6 +3840,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/aux/oportunidades:
     get:
       tags:
@@ -3632,6 +3866,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cotizaciones/aux/ofertas:
     get:
       tags:
@@ -3656,6 +3892,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas:
     get:
       tags:
@@ -3680,6 +3918,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/aux/cotizaciones-aceptadas:
     get:
       tags:
@@ -3704,6 +3944,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/{id}:
     get:
       tags:
@@ -3735,6 +3977,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/desde-cotizacion:
     post:
       tags:
@@ -3772,6 +4016,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/{id}/cancelar:
     post:
       tags:
@@ -3816,6 +4062,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/{id}/anular:
     post:
       tags:
@@ -3860,6 +4108,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas:
     get:
       tags:
@@ -3884,6 +4134,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/aux/ventas-confirmadas:
     get:
       tags:
@@ -3908,6 +4160,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/aux/tipos-documento:
     get:
       tags:
@@ -3932,6 +4186,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/{id}:
     get:
       tags:
@@ -3963,6 +4219,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/desde-venta/{ventaId}:
     post:
       tags:
@@ -4007,6 +4265,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/{id}/cancelar:
     post:
       tags:
@@ -4051,6 +4311,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/{id}/participantes:
     post:
       tags:
@@ -4095,6 +4357,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/{id}/participantes/{participanteId}:
     delete:
       tags:
@@ -4132,6 +4396,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/reservas/prestaciones/{prestacionId}/programar:
     post:
       tags:
@@ -4176,6 +4444,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/prestaciones/{prestacionId}/reprogramar:
     post:
       tags:
@@ -4220,6 +4490,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/reservas/prestaciones/{prestacionId}/reprogramaciones:
     get:
       tags:
@@ -4251,6 +4523,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas:
     get:
       tags:
@@ -4275,6 +4549,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Reservas y Operaciones
@@ -4311,6 +4587,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}:
     get:
       tags:
@@ -4342,6 +4620,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Reservas y Operaciones
@@ -4379,6 +4659,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/prestaciones-compatibles:
     get:
       tags:
@@ -4410,6 +4692,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/prestaciones:
     post:
       tags:
@@ -4454,6 +4738,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/prestaciones/{prestacionId}:
     delete:
       tags:
@@ -4491,6 +4777,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/operaciones/salidas/{id}/recursos:
     post:
       tags:
@@ -4535,6 +4825,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/recursos/{asignacionId}:
     delete:
       tags:
@@ -4572,6 +4864,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/operaciones/salidas/{id}/manifiesto:
     get:
       tags:
@@ -4603,6 +4899,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/checkin:
     get:
       tags:
@@ -4634,6 +4932,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Reservas y Operaciones
@@ -4677,6 +4977,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/despachar:
     post:
       tags:
@@ -4721,6 +5023,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/finalizar:
     post:
       tags:
@@ -4765,6 +5069,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/interrumpir:
     post:
       tags:
@@ -4809,6 +5115,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/cancelar:
     post:
       tags:
@@ -4853,6 +5161,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/salidas/{id}/incidencias:
     get:
       tags:
@@ -4884,6 +5194,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Reservas y Operaciones
@@ -4927,6 +5239,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/proveedores:
     get:
       tags:
@@ -4951,6 +5265,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Reservas y Operaciones
@@ -4987,6 +5303,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/proveedores/{id}/suspender:
     patch:
       tags:
@@ -5025,6 +5343,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/recursos:
     get:
       tags:
@@ -5049,6 +5369,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Reservas y Operaciones
@@ -5085,6 +5407,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/recursos/{id}/estado:
     patch:
       tags:
@@ -5123,6 +5447,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/aux/personas:
     get:
       tags:
@@ -5147,6 +5473,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/aux/servicios:
     get:
       tags:
@@ -5171,6 +5499,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/aux/recursos-activos:
     get:
       tags:
@@ -5195,6 +5525,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/entregas:
     get:
       tags:
@@ -5219,6 +5551,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/entregas/{id}:
     get:
       tags:
@@ -5250,6 +5584,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/entregas/{id}/despachar:
     post:
       tags:
@@ -5294,6 +5630,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/operaciones/offline/paquete:
     get:
       tags:
@@ -5318,6 +5656,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/operaciones/offline/validar-online:
     post:
       tags:
@@ -5340,6 +5686,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/operaciones/offline/sincronizar:
     post:
       tags:
@@ -5370,6 +5726,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/operaciones/offline/lotes:
     get:
       tags:
@@ -5386,6 +5750,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/pagos:
     get:
       tags:
@@ -5410,6 +5784,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/aux/ventas:
     get:
       tags:
@@ -5434,6 +5810,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/aux/ediciones:
     get:
       tags:
@@ -5458,6 +5836,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/{id}:
     get:
       tags:
@@ -5489,6 +5869,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/manual:
     post:
       tags:
@@ -5526,6 +5908,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/{id}/boucher:
     post:
       tags:
@@ -5570,6 +5954,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/{id}/verificar:
     post:
       tags:
@@ -5614,6 +6000,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pagos/{id}/reembolsar:
     post:
       tags:
@@ -5658,6 +6046,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/{id}/estado-cuenta:
     get:
       tags:
@@ -5689,6 +6079,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/ventas/{id}/liquidar:
     post:
       tags:
@@ -5733,6 +6125,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cuentas-bancarias:
     get:
       tags:
@@ -5757,6 +6151,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Ventas y Finanzas
@@ -5793,6 +6189,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/cuentas-bancarias/{id}:
     put:
       tags:
@@ -5831,6 +6229,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pasarelas:
     get:
       tags:
@@ -5855,6 +6255,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/pasarelas/{codigo}:
     put:
       tags:
@@ -5893,6 +6295,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/webhooks/pasarelas/{codigo}:
     post:
       tags:
@@ -5935,6 +6339,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/webhooks/whatsapp:
     get:
       tags:
@@ -5957,6 +6363,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Comunicaciones y Consentimientos
@@ -5991,6 +6399,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/kpis:
     get:
       tags:
@@ -6015,6 +6425,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/mensajes:
     get:
       tags:
@@ -6039,6 +6451,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/mensajes/enviar:
     post:
       tags:
@@ -6076,6 +6490,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/mensajes/{id}/intentos:
     get:
       tags:
@@ -6107,6 +6523,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/conversaciones:
     get:
       tags:
@@ -6131,6 +6549,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/conversaciones/{id}/mensajes:
     get:
       tags:
@@ -6162,6 +6582,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/conversaciones/{id}/responder:
     post:
       tags:
@@ -6206,6 +6628,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/conversaciones/{id}/cerrar:
     post:
       tags:
@@ -6250,6 +6674,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/conversaciones/{id}/asignar:
     post:
       tags:
@@ -6294,6 +6720,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/plantillas:
     get:
       tags:
@@ -6318,6 +6746,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Comunicaciones y Consentimientos
@@ -6354,6 +6784,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/consentimientos:
     get:
       tags:
@@ -6370,6 +6802,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
     post:
       tags:
         - Comunicaciones y Consentimientos
@@ -6414,6 +6856,16 @@ paths:
       responses:
         200:
           description: Consentimiento registrado
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/comunicaciones/campanas:
     get:
       tags:
@@ -6438,6 +6890,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Comunicaciones y Consentimientos
@@ -6474,6 +6928,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/campanas/{id}/aprobar:
     post:
       tags:
@@ -6518,6 +6974,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/configuracion:
     get:
       tags:
@@ -6542,6 +7000,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Comunicaciones y Consentimientos
@@ -6578,6 +7038,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/simulador/recibir:
     post:
       tags:
@@ -6615,6 +7077,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/outbox/procesar:
     post:
       tags:
@@ -6631,6 +7095,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/comunicaciones/automatizaciones:
     get:
       tags:
@@ -6655,6 +7129,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Comunicaciones y Consentimientos
@@ -6691,6 +7167,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/automatizaciones/{id}:
     put:
       tags:
@@ -6729,6 +7207,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/automatizaciones/{id}/estado:
     post:
       tags:
@@ -6773,6 +7253,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/automatizaciones/probar:
     post:
       tags:
@@ -6810,6 +7292,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/comunicaciones/automatizaciones/disparar:
     post:
       tags:
@@ -6847,6 +7331,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/publico/edicion-actual:
     get:
       tags:
@@ -6871,6 +7357,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/catalogo:
     get:
       tags:
@@ -6887,6 +7381,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/cotizar:
     post:
       tags:
@@ -6909,6 +7411,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/publico/cupos/bloquear:
     post:
       tags:
@@ -6933,6 +7443,14 @@ paths:
           $ref: "#/components/responses/ErrorConflictoAforo"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/publico/checkout:
     post:
       tags:
@@ -6955,6 +7473,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/publico/portal/solicitar-acceso:
     post:
       tags:
@@ -6982,6 +7508,16 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         429:
           $ref: "#/components/responses/ErrorRateLimit"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/verificar-acceso:
     post:
       tags:
@@ -7011,6 +7547,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/perfil:
     get:
       tags:
@@ -7029,6 +7573,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
     put:
       tags:
         - Portal del Cliente
@@ -7054,6 +7606,12 @@ paths:
           $ref: "#/components/responses/ErrorNoAutorizado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/publico/portal/estado-cuenta:
     get:
       tags:
@@ -7072,6 +7630,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/recibo/{id}:
     get:
       tags:
@@ -7102,6 +7668,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/mis-reservas:
     get:
       tags:
@@ -7120,6 +7690,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/reserva/{id}/boleto-qr:
     get:
       tags:
@@ -7146,6 +7724,12 @@ paths:
           $ref: "#/components/responses/ErrorNoAutorizado"
         403:
           $ref: "#/components/responses/ErrorAccesoDenegado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/reserva/{id}/boleto-pdf:
     get:
       tags:
@@ -7176,6 +7760,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/venta/{id}/contrato-pdf:
     get:
       tags:
@@ -7206,6 +7794,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/cerrar-sesion:
     post:
       tags:
@@ -7222,6 +7814,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/documentos/cotizacion/{id}/pdf:
     get:
       tags:
@@ -7252,6 +7854,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/documentos/contrato/{id}/pdf:
     get:
       tags:
@@ -7282,6 +7888,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/documentos/recibo/{id}/pdf:
     get:
       tags:
@@ -7312,6 +7922,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/documentos/boleto/{reservaId}/pdf:
     get:
       tags:
@@ -7342,6 +7956,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/postproduccion/recursos-formulario:
     get:
       tags:
@@ -7366,6 +7984,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/postproduccion/proyectos:
     get:
       tags:
@@ -7377,6 +7997,16 @@ paths:
       responses:
         200:
           description: Lista de proyectos
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
     post:
       tags:
         - Postproducción y Galerías
@@ -7405,6 +8035,16 @@ paths:
       responses:
         201:
           description: Proyecto creado
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/postproduccion/proyectos/{id}:
     get:
       tags:
@@ -7436,6 +8076,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/postproduccion/proyectos/{id}/galerias:
     post:
       tags:
@@ -7480,6 +8122,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/postproduccion/proyectos/{id}/galerias/{galeriaId}/archivos:
     post:
       tags:
@@ -7530,6 +8174,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/postproduccion/proyectos/{id}/entregas:
     post:
       tags:
@@ -7574,6 +8220,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/postproduccion/archivos/{id}/descargar:
     get:
       tags:
@@ -7604,6 +8252,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         404:
           $ref: "#/components/responses/ErrorNoEncontrado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/mis-galerias:
     get:
       tags:
@@ -7622,6 +8274,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/mis-galerias/{id}:
     get:
       tags:
@@ -7653,6 +8313,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/publico/portal/galerias/{id}/fotos:
     get:
       tags:
@@ -7679,6 +8341,12 @@ paths:
           $ref: "#/components/responses/ErrorNoAutorizado"
         403:
           $ref: "#/components/responses/ErrorAccesoDenegado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/galerias/{id}/seleccionar:
     post:
       tags:
@@ -7711,6 +8379,12 @@ paths:
           $ref: "#/components/responses/ErrorNoAutorizado"
         403:
           $ref: "#/components/responses/ErrorAccesoDenegado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/mis-selecciones:
     get:
       tags:
@@ -7729,6 +8403,14 @@ paths:
                 $ref: "#/components/schemas/SobreRespuestaExito"
         401:
           $ref: "#/components/responses/ErrorNoAutorizado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/descargar-multimedia/{id}:
     get:
       tags:
@@ -7774,6 +8456,12 @@ paths:
           $ref: "#/components/responses/ErrorNoAutorizado"
         403:
           $ref: "#/components/responses/ErrorAccesoDenegado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/publico/portal/entregas/{id}/responder:
     post:
       tags:
@@ -7818,6 +8506,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/dashboard/kpis:
     get:
       tags:
@@ -7842,6 +8532,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/dashboard/comparativa:
     get:
       tags:
@@ -7866,6 +8558,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/dashboard/analitica-multianual:
     get:
       tags:
@@ -7919,6 +8613,12 @@ paths:
           $ref: "#/components/responses/ErrorNoAutorizado"
         403:
           $ref: "#/components/responses/ErrorAccesoDenegado"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/dashboard/analitica-multianual/exportar:
     get:
       tags:
@@ -7979,6 +8679,10 @@ paths:
           $ref: "#/components/responses/ErrorAccesoDenegado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
   /api/v1/folclore/tipos-danza:
     get:
       tags:
@@ -7995,6 +8699,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
     post:
       tags:
         - Programación Folclórica
@@ -8028,6 +8742,16 @@ paths:
       responses:
         201:
           description: Tipo de danza creado
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/folclore/tipos-danza/{id}:
     put:
       tags:
@@ -8066,6 +8790,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/conjuntos:
     get:
       tags:
@@ -8082,6 +8808,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
     post:
       tags:
         - Programación Folclórica
@@ -8114,6 +8850,16 @@ paths:
       responses:
         201:
           description: Conjunto registrado
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/folclore/conjuntos/{id}:
     get:
       tags:
@@ -8145,6 +8891,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     put:
       tags:
         - Programación Folclórica
@@ -8182,6 +8930,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/conjuntos/{id}/bloques:
     get:
       tags:
@@ -8213,6 +8963,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Programación Folclórica
@@ -8256,6 +9008,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/bloques/{id}:
     put:
       tags:
@@ -8294,6 +9048,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/ediciones/{edicionId}/inscripciones:
     get:
       tags:
@@ -8325,6 +9081,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Programación Folclórica
@@ -8368,6 +9126,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/inscripciones/{id}:
     put:
       tags:
@@ -8406,6 +9166,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/ediciones/{edicionId}/actividades:
     get:
       tags:
@@ -8437,6 +9199,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Programación Folclórica
@@ -8480,6 +9244,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/actividades/{id}:
     put:
       tags:
@@ -8518,6 +9284,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/actividades/{actividadId}/versiones:
     get:
       tags:
@@ -8549,6 +9317,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Programación Folclórica
@@ -8592,6 +9362,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/programaciones/{id}/oficializar:
     post:
       tags:
@@ -8636,6 +9408,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/programaciones/{id}/turnos:
     get:
       tags:
@@ -8667,6 +9441,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     post:
       tags:
         - Programación Folclórica
@@ -8710,6 +9486,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/turnos/{id}:
     put:
       tags:
@@ -8748,6 +9526,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
     delete:
       tags:
         - Programación Folclórica
@@ -8778,6 +9558,10 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        405:
+          $ref: "#/components/responses/ErrorMetodoNoPermitido"
   /api/v1/folclore/turnos/{id}/vincular-salida:
     post:
       tags:
@@ -8822,6 +9606,8 @@ paths:
           $ref: "#/components/responses/ErrorNoEncontrado"
         422:
           $ref: "#/components/responses/ErrorValidacion"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
   /api/v1/folclore/seguimiento/tablero:
     get:
       tags:
@@ -8838,6 +9624,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SobreRespuestaExito"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
   /api/v1/folclore/seguimiento/turnos/{id}/estado:
     put:
       tags:
@@ -8881,6 +9677,16 @@ paths:
           description: Estado actualizado
         409:
           $ref: "#/components/responses/ErrorConflictoConcurrencia"
+        400:
+          $ref: "#/components/responses/ErrorSolicitudInvalida"
+        401:
+          $ref: "#/components/responses/ErrorNoAutorizado"
+        403:
+          $ref: "#/components/responses/ErrorAccesoDenegado"
+        404:
+          $ref: "#/components/responses/ErrorNoEncontrado"
+        422:
+          $ref: "#/components/responses/ErrorValidacion"
 components:
   securitySchemes:
     CookieClienteAuth:
@@ -9158,6 +9964,16 @@ components:
                 type: string
                 example: PERMITIDO
   responses:
+    ErrorSolicitudInvalida:
+      description: Solicitud inválida o parámetros faltantes/malformados.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SobreRespuestaError"
+          example:
+            exito: false
+            codigo: 400
+            mensaje: Parámetros de entrada inválidos o incompletos.
     ErrorNoAutorizado:
       description: No autorizado. Se requiere token o sesión válida.
       content:
@@ -9169,7 +9985,7 @@ components:
             codigo: 401
             mensaje: No autenticado. Inicie sesión para acceder a este recurso.
     ErrorAccesoDenegado:
-      description: "Acceso denegado (Anti-IDOR o falta de permisos RBAC)."
+      description: "Acceso denegado (Anti-IDOR, CSRF o falta de permisos RBAC)."
       content:
         application/json:
           schema:
@@ -9188,6 +10004,16 @@ components:
             exito: false
             codigo: 404
             mensaje: El recurso solicitado no fue encontrado.
+    ErrorMetodoNoPermitido:
+      description: Operación o eliminación física prohibida por gobernanza de integridad.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SobreRespuestaError"
+          example:
+            exito: false
+            codigo: 405
+            mensaje: Eliminación física prohibida por gobernanza. Utilice desactivación lógica.
     ErrorConflictoAforo:
       description: Conflicto de aforo o cupos agotados.
       content:

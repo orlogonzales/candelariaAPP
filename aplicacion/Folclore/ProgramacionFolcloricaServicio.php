@@ -460,6 +460,10 @@ class ProgramacionFolcloricaServicio
         $this->validarPermiso('folclore.programacion.gestionar', $contexto);
         $this->validarAlcanceTenant($organizacionId, $contexto);
 
+        if (trim($codigo) === '' || trim($titulo) === '' || trim($fechaInicio) === '' || trim($fechaFin) === '') {
+            throw new InvalidArgumentException('El código, título, fecha de inicio y fecha de fin de la actividad son obligatorios.');
+        }
+
         $actividad = new ActividadFolcloricaEdicion(
             id: null,
             organizacionId: $organizacionId,
