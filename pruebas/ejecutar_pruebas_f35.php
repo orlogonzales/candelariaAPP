@@ -64,10 +64,10 @@ assertF35(($spec['openapi'] ?? '') === '3.0.3', "1.5: Versión oficial OpenAPI e
 $info = $spec['info'] ?? [];
 assertF35(
     !empty($info['title']) &&
-    ($info['version'] ?? '') === '1.1.0' &&
+    in_array($info['version'] ?? '', ['1.1.0', '1.2.0'], true) &&
     str_contains($info['description'] ?? '', 'API-First') &&
     !empty($info['contact']['email']),
-    "1.6: Metadatos info contienen versión 1.1.0, contacto y principios de arquitectura"
+    "1.6: Metadatos info contienen versión oficial (1.1.0/1.2.0), contacto y principios de arquitectura"
 );
 
 $servers = $spec['servers'] ?? [];

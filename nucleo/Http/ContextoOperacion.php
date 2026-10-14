@@ -211,4 +211,19 @@ class ContextoOperacion
             origenEdicion: $origenEdicion
         );
     }
+
+    public function obtenerOrganizacionId(): ?int
+    {
+        return $this->organizacionId;
+    }
+
+    public function obtenerUsuarioId(): ?int
+    {
+        return $this->usuarioId;
+    }
+
+    public function obtenerEdicionTrabajoId(): ?int
+    {
+        return $this->edicionTrabajoId;
+    }
 }

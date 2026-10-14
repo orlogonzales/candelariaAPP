@@ -1843,6 +1843,11 @@ class OperacionControlador
         return is_array($decoded) ? $decoded : $_POST;
     }
 
+    private function obtenerCuerpoRequisicion(): array
+    {
+        return $this->obtenerCuerpo();
+    }
+
     // =========================================================================
     // 8. ENDPOINTS OPERACIÓN MÓVIL Y VALIDACIÓN QR OFFLINE (FASE 3.3 / DT-V11-010)
     // =========================================================================
@@ -2020,13 +2025,14 @@ class OperacionControlador
         mixed $datos = [],
         mixed $errores = []
     ): string {
+        http_response_code($codigoHttp);
         if (!headers_sent()) {
-            http_response_code($codigoHttp);
             header('Content-Type: application/json; charset=utf-8');
         }
 
         $payload = [
             'exito'   => $exito,
+            'codigo'  => $codigoHttp,
             'mensaje' => $mensaje,
             'datos'   => is_array($datos) && empty($datos) ? (object) [] : ($datos ?? (object) []),
             'errores' => is_array($errores) && empty($errores) ? (object) [] : ($errores ?? (object) []),

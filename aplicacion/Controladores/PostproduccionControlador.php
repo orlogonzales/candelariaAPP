@@ -84,7 +84,7 @@ class PostproduccionControlador
             SELECT u.id, u.nombre_completo, u.correo_electronico
             FROM `usuarios` u
             JOIN `usuario_roles` ur ON u.id = ur.usuario_id
-            WHERE ur.organizacion_id = :org_id
+            WHERE u.organizacion_id = :org_id
             GROUP BY u.id
             ORDER BY u.nombre_completo ASC
         ");
@@ -140,7 +140,7 @@ class PostproduccionControlador
             SELECT u.id, u.nombre_completo, u.correo_electronico
             FROM `usuarios` u
             JOIN `usuario_roles` ur ON u.id = ur.usuario_id
-            WHERE ur.organizacion_id = :org_id
+            WHERE u.organizacion_id = :org_id
             GROUP BY u.id
             ORDER BY u.nombre_completo ASC
         ");
@@ -454,21 +454,8 @@ class PostproduccionControlador
 
     private function exigirPermiso(ContextoOperacion $ctx, string $permiso): void
     {
-        $usuarioId = (int) $ctx->obtenerUsuarioId();
-        $orgId = (int) $ctx->obtenerOrganizacionId();
-
-        $stmt = $this->pdo->prepare("
-            SELECT COUNT(*)
-            FROM `usuario_roles` ur
-            JOIN `rol_permisos` rp ON ur.rol_id = rp.rol_id
-            JOIN `permisos` p ON rp.permiso_id = p.id
-            WHERE ur.usuario_id = :usr_id AND ur.organizacion_id = :org_id AND p.codigo = :codigo
-        ");
-        $stmt->execute(['usr_id' => $usuarioId, 'org_id' => $orgId, 'codigo' => $permiso]);
-
-        if ((int) $stmt->fetchColumn() === 0) {
+        if (!$this->authzMiddleware->verificarPermiso($permiso, $ctx, true)) {
             $this->responderJson(403, ['exito' => false, 'mensaje' => "Acceso denegado: Requiere el permiso '{$permiso}'."]);
-            exit(0);
         }
     }
 
@@ -484,8 +471,12 @@ class PostproduccionControlador
 
     private function responderJson(int $statusCode, array $payload): void
     {
+        $payload['codigo'] ??= $statusCode;
+        $payload['mensaje'] ??= ($payload['exito'] ?? false) ? 'Operación completada con éxito.' : 'Error en la operación.';
         http_response_code($statusCode);
-        header('Content-Type: application/json; charset=UTF-8');
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 }

@@ -965,8 +965,12 @@ class PortalPublicoControlador
 
     private function responderJson(array $datos, int $status = 200): void
     {
+        $datos['codigo'] ??= $status;
+        $datos['mensaje'] ??= ($datos['exito'] ?? false) ? 'Operación completada con éxito.' : 'Error en la solicitud.';
         http_response_code($status);
-        header('Content-Type: application/json; charset=utf-8');
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode($datos, JSON_UNESCAPED_UNICODE);
     }
 

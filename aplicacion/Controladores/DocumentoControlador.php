@@ -204,12 +204,14 @@ class DocumentoControlador
         }
 
         http_response_code($codigo);
-        header('Content-Type: application/json; charset=utf-8');
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode([
             'exito'        => false,
+            'codigo'       => $codigo,
             'codigo_error' => (new \ReflectionClass($e))->getShortName(),
             'mensaje'      => $e->getMessage(),
         ], JSON_UNESCAPED_UNICODE);
-        exit;
     }
 }

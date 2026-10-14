@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 /**
  * ==============================================================================
- * GENERADOR CANÓNICO DE ESPECIFICACIÓN OPENAPI 3.0.3 (CANDELARIAAPP V1.1)
- * DIRECTIVA TÉCNICA DT-V11-016 (FASE 3.5)
+ * GENERADOR CANÓNICO DE ESPECIFICACIÓN OPENAPI 3.0.3 (CANDELARIAAPP V1.2)
+ * DIRECTIVAS TÉCNICAS DT-V11-016 (FASE 3.5) Y DT-V12-002 (FASE 4.2A)
  * ==============================================================================
+ * Genera la especificación OpenAPI 3.0.3 en sincronía 1:1 con el 100% de las
+ * rutas registradas en `rutas/api.php` (269 endpoints en 13 dominios).
  */
 
 namespace Herramientas\Documentacion;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../nucleo/Soporte/ayudantes.php';
+
+use Nucleo\Enrutamiento\Enrutador;
 
 class GeneradorOpenApi
 {
@@ -18,30 +25,31 @@ class GeneradorOpenApi
         return [
             'openapi' => '3.0.3',
             'info' => [
-                'title' => 'CandelariaAPP V1.1 — API REST Headless',
-                'description' => "Especificación canónica formal de las APIs REST de CandelariaAPP.\n\n"
+                'title' => 'CandelariaAPP V1.2 — API REST Headless',
+                'description' => "Especificación canónica formal de las APIs REST de CandelariaAPP (Certificación Contractual 1:1 — DT-V12-002).\n\n"
                     . "Diseñada bajo arquitectura API-First para soportar la aplicación web Alina Bootstrap 5 "
                     . "y la futura aplicación móvil nativa (Android / iOS) para la Festividad Virgen de la Candelaria en Puno, Perú.\n\n"
-                    . "### Dominios Principales Documentados:\n"
+                    . "### Dominios Principales Documentados (13 Dominios · 269 Endpoints):\n"
                     . "- **Portal del Cliente:** Autenticación sin contraseña, perfil inmutable, estado de cuenta, recibos y galerías fotográficas.\n"
                     . "- **Portal Público y Checkout:** Resolución multitenant, catálogo comercial, cotizador determinista en backend, bloqueos de cupos (TTL 15m) y checkout soberano.\n"
                     . "- **Operación Móvil y Validación QR:** Descarga de manifiestos criptográficos para validación sin conexión, validación online, sincronización de lotes y resolución de conflictos.\n"
                     . "- **Programación Folclórica:** Catálogo de danzas, conjuntos, bloques, padrón oficial, programación versionada con 4 ojos y seguimiento en vivo.\n"
-                    . "- **Comunicaciones y Eventos:** Consentimientos Ley 29733, plantillas, reglas de notificación y bandeja de salida (Outbox).\n"
-                    . "- **Ventas, Finanzas y Postproducción:** Ventas, pagos, cotizaciones, recibos internos y descarga de originales bajo 5 compuertas simultáneas.\n\n"
+                    . "- **Comunicaciones y Eventos:** Consentimientos Ley 29733, plantillas, reglas de notificación, webhooks WhatsApp blindados y bandeja de salida (Outbox).\n"
+                    . "- **Ventas, Finanzas y Postproducción:** Ventas, pagos, webhooks de pasarelas blindados, cotizaciones, recibos internos y descarga de originales bajo 5 compuertas simultáneas.\n"
+                    . "- **Dashboard Ejecutivo y Analítica Multianual (V1.2):** KPIs en tiempo real, comparativa interanual YoY en centavos, curvas de preventa (Booking Pace), cohortes de retención y exportaciones CSV/XLSX/PDF.\n\n"
                     . "### Convenciones de Seguridad y Respuestas:\n"
                     . "- Toda respuesta exitosa sigue el sobre JSON: `{ exito: true, codigo: 200, mensaje: string, datos: ... }`.\n"
                     . "- Todo error sigue el sobre JSON: `{ exito: false, codigo: 4xx|5xx, mensaje: string, errores: [...] }`.\n"
                     . "- Aislamiento Multitenant estricto por `organizacion_id` y `edicion_id`.\n"
                     . "- Prevención activa contra IDOR en todos los recursos de clientes y organizaciones.",
-                'version' => '1.1.0',
+                'version' => '1.2.0',
                 'contact' => [
                     'name' => 'O.G. Estudio Creativo — Equipo de Arquitectura',
                     'email' => 'contacto@ogestudiocreativo.com',
                     'url' => 'https://ogestudiocreativo.com',
                 ],
                 'license' => [
-                    'name' => 'Propietaria — CandelariaAPP V1.1',
+                    'name' => 'Propietaria — CandelariaAPP V1.2',
                 ],
             ],
             'servers' => [
@@ -63,27 +71,417 @@ class GeneradorOpenApi
                 ['name' => 'Portal Público y Checkout', 'description' => 'Catálogo comercial, cotizador determinista, bloqueo de cupos y checkout de invitado'],
                 ['name' => 'Operación Móvil y QR', 'description' => 'Manifiestos offline, validación HMAC-SHA256 y sincronización de lotes de campo'],
                 ['name' => 'Programación Folclórica', 'description' => 'Catálogo de danzas, conjuntos, bloques, programación oficial y tablero en vivo'],
-                ['name' => 'Comunicaciones y Consentimientos', 'description' => 'Consentimientos Ley 29733, plantillas, reglas automatizadas y Outbox'],
-                ['name' => 'Ventas y Finanzas', 'description' => 'Gestión comercial, ventas, pagos, recibos de caja y conciliación'],
-                ['name' => 'Reservas y Operaciones', 'description' => 'Reservas de servicios, salidas operativas y manifiestos de pasajeros'],
+                ['name' => 'Comunicaciones y Consentimientos', 'description' => 'Consentimientos Ley 29733, plantillas, reglas automatizadas, webhooks WhatsApp y Outbox'],
+                ['name' => 'Ventas y Finanzas', 'description' => 'Gestión comercial, CRM, catálogo, cotizaciones, ventas, pagos, pasarelas y conciliación'],
+                ['name' => 'Reservas y Operaciones', 'description' => 'Reservas de servicios, salidas operativas, proveedores, recursos y manifiestos de pasajeros'],
                 ['name' => 'Postproducción y Galerías', 'description' => 'Proyectos fotográficos, galerías y entrega canónica de originales bajo 5 compuertas'],
                 ['name' => 'Documentos y Emisión PDF', 'description' => 'Generación de cotizaciones, contratos, recibos y boletos imprimibles en A4 y Ticket 80mm'],
-                ['name' => 'Identidad y Autenticación Admin', 'description' => 'Inicio y cierre de sesión de usuarios administrativos'],
-                ['name' => 'Organizaciones y Contexto', 'description' => 'Multi-tenant, gestión de ediciones y parámetros de plataforma'],
-                ['name' => 'Dashboard Ejecutivo', 'description' => 'KPIs comerciales y operativos en tiempo real'],
-                ['name' => 'Sistema y Salud', 'description' => 'Verificación de estado de la plataforma'],
+                ['name' => 'Identidad y Autenticación Admin', 'description' => 'Inicio y cierre de sesión, usuarios y roles administrativos RBAC'],
+                ['name' => 'Organizaciones y Contexto', 'description' => 'Multi-tenant, gestión de ediciones, cierres y parámetros de plataforma'],
+                ['name' => 'Dashboard Ejecutivo', 'description' => 'KPIs comerciales, operativos y motor de Analítica Multianual (YoY, Booking Pace, Cohortes)'],
+                ['name' => 'Sistema y Salud', 'description' => 'Verificación de estado de la plataforma y distribución de contratos OpenAPI'],
             ],
-            'paths' => self::construirRutas(),
+            'paths' => self::construirRutasSincronizadas(),
             'components' => self::construirComponentes(),
         ];
     }
 
-    private static function construirRutas(): array
+    /**
+     * Construye el mapa completo de rutas garantizando correspondencia 1:1 exacta
+     * con `rutas/api.php`, enriquecido con las especificaciones detalladas de dominio.
+     */
+    private static function construirRutasSincronizadas(): array
     {
-        // Se definen los contratos para todos los dominios
+        $rutasManuales = self::construirRutasDetalladas();
+
+        $rutasRegistradas = self::cargarRutasDeApiPhp();
+        $paths = [];
+        $operationIdsUsados = [];
+
+        // Primero registrar operationIds de las rutas manuales que coinciden con api.php
+        foreach ($rutasRegistradas as $r) {
+            $patron = $r['patron'];
+            $metodo = strtolower($r['metodo']);
+            if (isset($rutasManuales[$patron][$metodo]['operationId'])) {
+                $operationIdsUsados[$rutasManuales[$patron][$metodo]['operationId']] = true;
+            }
+        }
+
+        foreach ($rutasRegistradas as $r) {
+            $patron = $r['patron'];
+            $metodoHttp = strtoupper($r['metodo']);
+            $metodoKey = strtolower($metodoHttp);
+            $accion = $r['accion'];
+
+            if (isset($rutasManuales[$patron][$metodoKey])) {
+                $op = $rutasManuales[$patron][$metodoKey];
+                // Garantizar que todos los parámetros de ruta estén declarados en parameters
+                $op = self::asegurarParametrosDeRuta($patron, $op);
+                $paths[$patron][$metodoKey] = $op;
+                continue;
+            }
+
+            $paths[$patron][$metodoKey] = self::generarContratoParaRuta(
+                $patron,
+                $metodoHttp,
+                $accion,
+                $operationIdsUsados
+            );
+        }
+
+        return $paths;
+    }
+
+    /**
+     * Carga las rutas declaradas en `rutas/api.php` sin afectar el estado global si ya estaban cargadas.
+     */
+    private static function cargarRutasDeApiPhp(): array
+    {
+        $existentes = Enrutador::obtenerRutas();
+        $rutasApi = array_values(array_filter($existentes, fn(array $r) => str_starts_with($r['patron'], '/api/')));
+
+        if (empty($rutasApi)) {
+            require __DIR__ . '/../rutas/api.php';
+            $existentes = Enrutador::obtenerRutas();
+            $rutasApi = array_values(array_filter($existentes, fn(array $r) => str_starts_with($r['patron'], '/api/')));
+        }
+
+        // Deduplicar por (metodo, patron) preservando orden canónico
+        $unicas = [];
+        $resultado = [];
+        foreach ($rutasApi as $r) {
+            $llave = strtoupper($r['metodo']) . ' ' . $r['patron'];
+            if (!isset($unicas[$llave])) {
+                $unicas[$llave] = true;
+                $resultado[] = $r;
+            }
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Asegura que cualquier placeholder `{param}` del patrón exista en `$op['parameters']`.
+     */
+    private static function asegurarParametrosDeRuta(string $patron, array $op): array
+    {
+        if (!preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $patron, $m)) {
+            return $op;
+        }
+
+        $paramsExistentes = [];
+        foreach ($op['parameters'] ?? [] as $p) {
+            if (($p['in'] ?? '') === 'path' && !empty($p['name'])) {
+                $paramsExistentes[$p['name']] = true;
+            }
+        }
+
+        foreach ($m[1] as $nombreParam) {
+            if (!isset($paramsExistentes[$nombreParam])) {
+                $esString = in_array($nombreParam, ['codigo', 'slug'], true);
+                $op['parameters'][] = [
+                    'name' => $nombreParam,
+                    'in' => 'path',
+                    'required' => true,
+                    'description' => "Identificador de ruta ({$nombreParam})",
+                    'schema' => ['type' => $esString ? 'string' : 'integer'],
+                ];
+            }
+        }
+
+        return $op;
+    }
+
+    /**
+     * Genera el contrato OpenAPI 3.0.3 formal para una ruta registrada en `rutas/api.php`.
+     */
+    private static function generarContratoParaRuta(
+        string $patron,
+        string $metodoHttp,
+        mixed $accion,
+        array &$operationIdsUsados
+    ): array {
+        $tag = self::resolverTagPorPatron($patron);
+        $opId = self::generarOperationIdUnico($patron, $metodoHttp, $accion, $operationIdsUsados);
+        [$summary, $description] = self::generarResumenYDescripcion($patron, $metodoHttp, $accion, $tag);
+
+        $op = [
+            'tags' => [$tag],
+            'summary' => $summary,
+            'description' => $description,
+            'operationId' => $opId,
+        ];
+
+        // Seguridad contractual según dominio de ruta
+        $seguridad = self::resolverSeguridadPorPatron($patron);
+        if (!empty($seguridad)) {
+            $op['security'] = $seguridad;
+        }
+
+        // Parámetros de ruta ({id}, {codigo}, etc.)
+        $op = self::asegurarParametrosDeRuta($patron, $op);
+
+        // Cuerpo de petición para POST, PUT, PATCH
+        if (in_array($metodoHttp, ['POST', 'PUT', 'PATCH'], true)) {
+            $op['requestBody'] = [
+                'required' => false,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'additionalProperties' => true,
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        // Respuestas estándar según naturaleza del endpoint
+        $esPdf = str_ends_with($patron, '/pdf') || str_contains($patron, '/recibo/') || str_contains($patron, '-pdf');
+        $esExportacion = str_ends_with($patron, '/exportar');
+        $esDescargaBinaria = str_ends_with($patron, '/descargar') || str_contains($patron, '/descargar-multimedia/');
+
+        if ($esPdf) {
+            $op['responses'] = [
+                '200' => [
+                    'description' => 'Documento PDF generado exitosamente',
+                    'content' => [
+                        'application/pdf' => [
+                            'schema' => ['type' => 'string', 'format' => 'binary'],
+                        ],
+                    ],
+                ],
+                '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
+                '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado'],
+                '404' => ['$ref' => '#/components/responses/ErrorNoEncontrado'],
+            ];
+        } elseif ($esExportacion) {
+            $op['responses'] = [
+                '200' => [
+                    'description' => 'Archivo de reporte exportado (CSV, XLSX o PDF)',
+                    'content' => [
+                        'text/csv' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                        'application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                    ],
+                ],
+                '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
+                '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado'],
+                '422' => ['$ref' => '#/components/responses/ErrorValidacion'],
+            ];
+        } elseif ($esDescargaBinaria) {
+            $op['responses'] = [
+                '200' => [
+                    'description' => ' Flujo binario multimedia transmitido de forma segura',
+                    'content' => [
+                        'application/octet-stream' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                    ],
+                ],
+                '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
+                '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado'],
+                '404' => ['$ref' => '#/components/responses/ErrorNoEncontrado'],
+            ];
+        } else {
+            $respuestas = [
+                '200' => [
+                    'description' => 'Operación procesada con éxito',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito'],
+                        ],
+                    ],
+                ],
+            ];
+            if ($metodoHttp === 'POST') {
+                $respuestas['201'] = [
+                    'description' => 'Recurso creado o procesado exitosamente',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito'],
+                        ],
+                    ],
+                ];
+            }
+            $respuestas['401'] = ['$ref' => '#/components/responses/ErrorNoAutorizado'];
+            $respuestas['403'] = ['$ref' => '#/components/responses/ErrorAccesoDenegado'];
+            $respuestas['404'] = ['$ref' => '#/components/responses/ErrorNoEncontrado'];
+            $respuestas['422'] = ['$ref' => '#/components/responses/ErrorValidacion'];
+
+            $op['responses'] = $respuestas;
+        }
+
+        return $op;
+    }
+
+    private static function resolverTagPorPatron(string $patron): string
+    {
+        if (str_starts_with($patron, '/api/v1/publico/portal/')) {
+            return 'Portal del Cliente';
+        }
+        if (str_starts_with($patron, '/api/v1/publico/')) {
+            return 'Portal Público y Checkout';
+        }
+        if (str_starts_with($patron, '/api/v1/operaciones/offline/')) {
+            return 'Operación Móvil y QR';
+        }
+        if (str_starts_with($patron, '/api/v1/folclore/')) {
+            return 'Programación Folclórica';
+        }
+        if (str_starts_with($patron, '/api/v1/comunicaciones/') || str_starts_with($patron, '/api/v1/webhooks/whatsapp')) {
+            return 'Comunicaciones y Consentimientos';
+        }
+        if (
+            str_starts_with($patron, '/api/v1/clientes') ||
+            str_starts_with($patron, '/api/v1/personas/buscar') ||
+            str_starts_with($patron, '/api/v1/crm/') ||
+            str_starts_with($patron, '/api/v1/catalogo/') ||
+            str_starts_with($patron, '/api/v1/cotizaciones') ||
+            str_starts_with($patron, '/api/v1/ventas') ||
+            str_starts_with($patron, '/api/v1/pagos') ||
+            str_starts_with($patron, '/api/v1/cuentas-bancarias') ||
+            str_starts_with($patron, '/api/v1/pasarelas') ||
+            str_starts_with($patron, '/api/v1/webhooks/pasarelas')
+        ) {
+            return 'Ventas y Finanzas';
+        }
+        if (str_starts_with($patron, '/api/v1/reservas') || str_starts_with($patron, '/api/v1/operaciones/')) {
+            return 'Reservas y Operaciones';
+        }
+        if (str_starts_with($patron, '/api/v1/postproduccion/')) {
+            return 'Postproducción y Galerías';
+        }
+        if (str_starts_with($patron, '/api/v1/documentos/')) {
+            return 'Documentos y Emisión PDF';
+        }
+        if (
+            str_starts_with($patron, '/api/v1/auth/') ||
+            str_starts_with($patron, '/api/v1/usuarios') ||
+            str_starts_with($patron, '/api/v1/personas/disponibles') ||
+            str_starts_with($patron, '/api/v1/tipos-documento') ||
+            str_starts_with($patron, '/api/v1/roles')
+        ) {
+            return 'Identidad y Autenticación Admin';
+        }
+        if (
+            str_starts_with($patron, '/api/v1/organizacion') ||
+            str_starts_with($patron, '/api/v1/configuracion') ||
+            str_starts_with($patron, '/api/v1/ediciones') ||
+            str_starts_with($patron, '/api/v1/contexto/')
+        ) {
+            return 'Organizaciones y Contexto';
+        }
+        if (str_starts_with($patron, '/api/v1/dashboard/')) {
+            return 'Dashboard Ejecutivo';
+        }
+        return 'Sistema y Salud';
+    }
+
+    private static function resolverSeguridadPorPatron(string $patron): array
+    {
+        $publicosSinAuth = [
+            '/api/v1/estado',
+            '/api/v1/openapi.json',
+            '/api/v1/openapi.yaml',
+            '/api/v1/auth/login',
+            '/api/v1/webhooks/whatsapp',
+            '/api/v1/webhooks/pasarelas/{codigo}',
+        ];
+        if (in_array($patron, $publicosSinAuth, true)) {
+            return [];
+        }
+
+        $publicosTenant = [
+            '/api/v1/publico/edicion-actual',
+            '/api/v1/publico/catalogo',
+            '/api/v1/publico/cotizar',
+            '/api/v1/publico/cupos/bloquear',
+            '/api/v1/publico/checkout',
+            '/api/v1/publico/portal/solicitar-acceso',
+            '/api/v1/publico/portal/verificar-acceso',
+        ];
+        if (in_array($patron, $publicosTenant, true)) {
+            return [['TenantHeader' => []]];
+        }
+
+        if (str_starts_with($patron, '/api/v1/publico/portal/')) {
+            return [['CookieClienteAuth' => []]];
+        }
+
+        return [['BearerAdminAuth' => []]];
+    }
+
+    private static function generarOperationIdUnico(
+        string $patron,
+        string $metodoHttp,
+        mixed $accion,
+        array &$operationIdsUsados
+    ): string {
+        $base = '';
+        if (is_array($accion) && count($accion) === 2) {
+            [$clase, $metodo] = $accion;
+            $partesClase = explode('\\', (string) $clase);
+            $corto = str_replace('Controlador', '', end($partesClase));
+            $base = lcfirst($corto) . ucfirst((string) $metodo);
+        } else {
+            $limpio = preg_replace('/[^a-zA-Z0-9]+/', ' ', str_replace('/api/v1/', '', $patron));
+            $palabras = array_filter(explode(' ', trim((string) $limpio)));
+            $camel = strtolower($metodoHttp);
+            foreach ($palabras as $p) {
+                $camel .= ucfirst(strtolower($p));
+            }
+            $base = $camel;
+        }
+
+        if (!isset($operationIdsUsados[$base])) {
+            $operationIdsUsados[$base] = true;
+            return $base;
+        }
+
+        $conVerbo = $base . ucfirst(strtolower($metodoHttp));
+        if (!isset($operationIdsUsados[$conVerbo])) {
+            $operationIdsUsados[$conVerbo] = true;
+            return $conVerbo;
+        }
+
+        $i = 2;
+        while (isset($operationIdsUsados[$conVerbo . $i])) {
+            $i++;
+        }
+        $final = $conVerbo . $i;
+        $operationIdsUsados[$final] = true;
+        return $final;
+    }
+
+    private static function generarResumenYDescripcion(
+        string $patron,
+        string $metodoHttp,
+        mixed $accion,
+        string $tag
+    ): array {
+        if (is_array($accion) && count($accion) === 2) {
+            [$clase, $metodo] = $accion;
+            $partesClase = explode('\\', (string) $clase);
+            $corto = end($partesClase);
+            $palabras = preg_replace('/([a-z])([A-Z])/', '$1 $2', (string) $metodo);
+            $resumen = ucfirst(strtolower((string) $palabras)) . " ({$tag})";
+            $descripcion = "Endpoint REST `{$metodoHttp} {$patron}` despachado por `{$corto}::{$metodo}()`. Aplica aislamiento multi-tenant por `organizacion_id` y controles de seguridad RBAC.";
+            return [$resumen, $descripcion];
+        }
+
+        return [
+            "Endpoint {$metodoHttp} {$patron}",
+            "Contrato oficial para `{$metodoHttp} {$patron}` dentro del dominio {$tag}."
+        ];
+    }
+
+    /**
+     * Especificaciones ricas detalladas para los endpoints estratégicos de V1.1 y V1.2.
+     */
+    private static function construirRutasDetalladas(): array
+    {
         $rutas = [];
 
-        // 1. SISTEMA Y SALUD
+        // 1. SISTEMA Y SALUD + ESPECIFICACIÓN OPENAPI
         $rutas['/api/v1/estado'] = [
             'get' => [
                 'tags' => ['Sistema y Salud'],
@@ -102,11 +500,11 @@ class GeneradorOpenApi
                                     'mensaje' => 'API CandelariaAPP V1 en funcionamiento.',
                                     'datos' => [
                                         'plataforma' => 'CandelariaAPP',
-                                        'version' => '1.1.0',
-                                        'fase' => 'F3.5 Especificación OpenAPI y Arquitectura Headless',
+                                        'version' => '1.2.0',
+                                        'fase' => 'V1.2 Analítica Multianual y Certificación Contractual',
                                         'entorno' => 'desarrollo',
                                         'php' => '8.3.30',
-                                        'hora_servidor' => '2026-10-13 08:30:00'
+                                        'hora_servidor' => '2026-10-14 00:00:00'
                                     ]
                                 ]
                             ]
@@ -116,16 +514,54 @@ class GeneradorOpenApi
             ]
         ];
 
+        $rutas['/api/v1/openapi.json'] = [
+            'get' => [
+                'tags' => ['Sistema y Salud'],
+                'summary' => 'Especificación OpenAPI 3.0.3 en formato JSON',
+                'description' => 'Sirve el contrato formal OpenAPI 3.0.3 en formato JSON con cabeceras CORS habilitadas.',
+                'operationId' => 'obtenerEspecificacionOpenApiJson',
+                'responses' => [
+                    '200' => [
+                        'description' => 'Documento JSON OpenAPI 3.0.3',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => ['type' => 'object']
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
+        $rutas['/api/v1/openapi.yaml'] = [
+            'get' => [
+                'tags' => ['Sistema y Salud'],
+                'summary' => 'Especificación OpenAPI 3.0.3 en formato YAML',
+                'description' => 'Sirve el contrato formal OpenAPI 3.0.3 en formato YAML con cabeceras CORS habilitadas.',
+                'operationId' => 'obtenerEspecificacionOpenApiYaml',
+                'responses' => [
+                    '200' => [
+                        'description' => 'Documento YAML OpenAPI 3.0.3',
+                        'content' => [
+                            'application/yaml' => [
+                                'schema' => ['type' => 'string']
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
         // 2. PORTAL PÚBLICO Y CHECKOUT
-        $rutas['/api/v1/publico/tenant'] = [
+        $rutas['/api/v1/publico/edicion-actual'] = [
             'get' => [
                 'tags' => ['Portal Público y Checkout'],
                 'summary' => 'Resolución de tenant y edición activa',
                 'description' => 'Resuelve la organización y su edición folclórica activa a partir del slug o subdominio. Respuesta fail-closed si la organización no existe o está inactiva.',
-                'operationId' => 'resolverTenantPublico',
+                'operationId' => 'resolverEdicionActualPublico',
                 'parameters' => [
                     [
-                        'name' => 'slug_organizacion',
+                        'name' => 'slug',
                         'in' => 'query',
                         'required' => false,
                         'description' => 'Slug único de la organización (ej: og_estudio)',
@@ -138,25 +574,6 @@ class GeneradorOpenApi
                         'content' => [
                             'application/json' => [
                                 'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito'],
-                                'example' => [
-                                    'exito' => true,
-                                    'codigo' => 200,
-                                    'mensaje' => 'Organización resuelta con éxito.',
-                                    'datos' => [
-                                        'organizacion' => [
-                                            'id' => 1,
-                                            'nombre' => 'O.G. Estudio Creativo',
-                                            'slug' => 'og_estudio',
-                                            'color_primario' => '#E63946'
-                                        ],
-                                        'edicion' => [
-                                            'id' => 1,
-                                            'nombre' => 'Festividad Virgen de la Candelaria 2026',
-                                            'anio' => 2026,
-                                            'activa' => true
-                                        ]
-                                    ]
-                                ]
                             ]
                         ]
                     ],
@@ -177,25 +594,10 @@ class GeneradorOpenApi
                         'content' => [
                             'application/json' => [
                                 'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito'],
-                                'example' => [
-                                    'exito' => true,
-                                    'codigo' => 200,
-                                    'datos' => [
-                                        'items' => [
-                                            [
-                                                'id' => 1,
-                                                'codigo' => 'FOTO-CAN-01',
-                                                'nombre' => 'Paquete Fotográfico Cobertura Candelaria',
-                                                'precio' => 1200.00,
-                                                'moneda' => 'PEN',
-                                                'capacidad_disponible' => 15
-                                            ]
-                                        ]
-                                    ]
-                                ]
                             ]
                         ]
-                    ]
+                    ],
+                    '404' => ['$ref' => '#/components/responses/ErrorNoEncontrado']
                 ]
             ]
         ];
@@ -251,7 +653,8 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
-                    '409' => ['$ref' => '#/components/responses/ErrorConflictoAforo']
+                    '409' => ['$ref' => '#/components/responses/ErrorConflictoAforo'],
+                    '422' => ['$ref' => '#/components/responses/ErrorValidacion']
                 ]
             ]
         ];
@@ -391,6 +794,7 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
                     '422' => ['$ref' => '#/components/responses/ErrorValidacion']
                 ]
             ]
@@ -442,6 +846,7 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
                     '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado'],
                     '404' => ['$ref' => '#/components/responses/ErrorNoEncontrado']
                 ]
@@ -463,7 +868,8 @@ class GeneradorOpenApi
                                 'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito']
                             ]
                         ]
-                    ]
+                    ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado']
                 ]
             ]
         ];
@@ -487,6 +893,7 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
                     '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado']
                 ]
             ]
@@ -507,7 +914,8 @@ class GeneradorOpenApi
                                 'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito']
                             ]
                         ]
-                    ]
+                    ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado']
                 ]
             ]
         ];
@@ -531,6 +939,7 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
                     '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado']
                 ]
             ]
@@ -563,6 +972,7 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
                     '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado']
                 ]
             ]
@@ -583,7 +993,8 @@ class GeneradorOpenApi
                                 'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito']
                             ]
                         ]
-                    ]
+                    ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado']
                 ]
             ]
         ];
@@ -613,6 +1024,7 @@ class GeneradorOpenApi
                             'image/jpeg' => ['schema' => ['type' => 'string', 'format' => 'binary']]
                         ]
                     ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
                     '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado']
                 ]
             ]
@@ -638,7 +1050,7 @@ class GeneradorOpenApi
             ]
         ];
 
-        // 4. OPERACIÓN MÓVIL Y VALIDACIÓN QR (APP DE CAMPO PWA / NATIVA)
+        // 4. OPERACIÓN MÓVIL Y VALIDACIÓN QR
         $rutas['/api/v1/operaciones/offline/paquete'] = [
             'get' => [
                 'tags' => ['Operación Móvil y QR'],
@@ -889,8 +1301,25 @@ class GeneradorOpenApi
             ]
         ];
 
-        // 6. COMUNICACIONES Y OUTBOX (FASE 3.2)
-        $rutas['/api/v1/comunicaciones/consentimientos/registrar'] = [
+        // 6. COMUNICACIONES Y OUTBOX
+        $rutas['/api/v1/comunicaciones/consentimientos'] = [
+            'get' => [
+                'tags' => ['Comunicaciones y Consentimientos'],
+                'summary' => 'Listar consentimientos de comunicación (Ley 29733)',
+                'description' => 'Lista los consentimientos transaccionales y promocionales registrados por canal en la organización.',
+                'operationId' => 'listarConsentimientosComunicacion',
+                'security' => [['BearerAdminAuth' => []]],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Listado de consentimientos',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
             'post' => [
                 'tags' => ['Comunicaciones y Consentimientos'],
                 'summary' => 'Registro de consentimiento diferenciado (Ley 29733)',
@@ -921,16 +1350,16 @@ class GeneradorOpenApi
             ]
         ];
 
-        $rutas['/api/v1/comunicaciones/outbox'] = [
-            'get' => [
+        $rutas['/api/v1/comunicaciones/outbox/procesar'] = [
+            'post' => [
                 'tags' => ['Comunicaciones y Consentimientos'],
-                'summary' => 'Bandeja de salida (Outbox) de mensajes encolados',
-                'description' => 'Lista los mensajes transaccionales generados por eventos de negocio listos para su despacho.',
-                'operationId' => 'listarOutboxComunicaciones',
+                'summary' => 'Procesar bandeja de salida (Outbox) de mensajes encolados',
+                'description' => 'Despacha los mensajes transaccionales generados por eventos de negocio encolados en la bandeja Outbox.',
+                'operationId' => 'procesarOutboxComunicaciones',
                 'security' => [['BearerAdminAuth' => []]],
                 'responses' => [
                     '200' => [
-                        'description' => 'Mensajes en Outbox',
+                        'description' => 'Bandeja Outbox procesada',
                         'content' => [
                             'application/json' => [
                                 'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito']
@@ -1010,6 +1439,7 @@ class GeneradorOpenApi
                             ]
                         ]
                     ],
+                    '400' => ['$ref' => '#/components/responses/ErrorValidacion'],
                     '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado']
                 ]
             ]
@@ -1023,6 +1453,70 @@ class GeneradorOpenApi
                 'security' => [['BearerAdminAuth' => []]],
                 'responses' => [
                     '200' => ['description' => 'Sesión cerrada exitosamente']
+                ]
+            ]
+        ];
+
+        // 9. DASHBOARD EJECUTIVO Y ANALÍTICA MULTIANUAL (FASE 4.1 — DT-V12-002)
+        $rutas['/api/v1/dashboard/analitica-multianual'] = [
+            'get' => [
+                'tags' => ['Dashboard Ejecutivo'],
+                'summary' => 'Motor de Analítica Multianual e Inteligencia Histórica de Ediciones',
+                'description' => "Calcula en centavos las series financieras interanuales (YoY), curvas de preventa (*Booking Pace*), cohortes de retención de clientes, participación folclórica y métricas operativas/postproducción para todas las ediciones de la organización.\n\n"
+                    . "**Gobernanza DT-V12-002 (DEC-01 Opción 1A):**\n"
+                    . "- Exige permiso `dashboard.ejecutivo.ver`.\n"
+                    . "- Aislamiento estricto por `organizacion_id`.\n"
+                    . "- Prevención de división por cero cuando la edición base registra 0 centavos.",
+                'operationId' => 'obtenerAnaliticaMultianualDashboard',
+                'security' => [['BearerAdminAuth' => []]],
+                'parameters' => [
+                    ['name' => 'edicion_ids', 'in' => 'query', 'required' => false, 'description' => 'Lista de IDs de edición separados por coma', 'schema' => ['type' => 'string']],
+                    ['name' => 'anio_desde', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer']],
+                    ['name' => 'anio_hasta', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer']],
+                    ['name' => 'estado_edicion', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                    ['name' => 'canal_origen', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Analítica multianual consolidada por edición',
+                        'content' => [
+                            'application/json' => [
+                                'schema' => ['$ref' => '#/components/schemas/SobreRespuestaExito']
+                            ]
+                        ]
+                    ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
+                    '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado']
+                ]
+            ]
+        ];
+
+        $rutas['/api/v1/dashboard/analitica-multianual/exportar'] = [
+            'get' => [
+                'tags' => ['Dashboard Ejecutivo'],
+                'summary' => 'Exportación oficial de Analítica Multianual (CSV, XLSX, PDF)',
+                'description' => "Genera y transmite el archivo de Analítica Multianual en formato CSV (con BOM UTF-8 y sanitización anti-Formula Injection), XLSX (OpenXML ECMA-376) o PDF institucional horizontal.\n\n"
+                    . "Exige explícitamente el permiso `ediciones.reportes.ingresos.exportar`.",
+                'operationId' => 'exportarAnaliticaMultianualDashboard',
+                'security' => [['BearerAdminAuth' => []]],
+                'parameters' => [
+                    ['name' => 'formato', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string', 'enum' => ['csv', 'xlsx', 'pdf'], 'default' => 'csv']],
+                    ['name' => 'edicion_ids', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string']],
+                    ['name' => 'anio_desde', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer']],
+                    ['name' => 'anio_hasta', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer']],
+                ],
+                'responses' => [
+                    '200' => [
+                        'description' => 'Archivo binario o CSV de analítica multianual',
+                        'content' => [
+                            'text/csv' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                            'application/pdf' => ['schema' => ['type' => 'string', 'format' => 'binary']],
+                        ]
+                    ],
+                    '401' => ['$ref' => '#/components/responses/ErrorNoAutorizado'],
+                    '403' => ['$ref' => '#/components/responses/ErrorAccesoDenegado'],
+                    '422' => ['$ref' => '#/components/responses/ErrorValidacion']
                 ]
             ]
         ];
@@ -1337,7 +1831,7 @@ class GeneradorOpenApi
         if ($val === true) return 'true';
         if ($val === false) return 'false';
         if (is_int($val) || is_float($val)) return (string) $val;
-        
+
         $str = (string) $val;
         if (str_contains($str, "\n")) {
             $lineas = explode("\n", $str);
@@ -1362,31 +1856,35 @@ class GeneradorOpenApi
     }
 }
 
-// Ejecución
-$spec = GeneradorOpenApi::construirEspecificacion();
+// Ejecución directa cuando se invoca por CLI
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    $spec = GeneradorOpenApi::construirEspecificacion();
 
-// Guardar JSON en docs/api/openapi.json
-$dirDocs = __DIR__ . '/../docs/api';
-if (!is_dir($dirDocs)) {
-    mkdir($dirDocs, 0755, true);
+    $dirDocs = __DIR__ . '/../docs/api';
+    if (!is_dir($dirDocs)) {
+        mkdir($dirDocs, 0755, true);
+    }
+    $jsonOutput = json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    file_put_contents($dirDocs . '/openapi.json', $jsonOutput);
+
+    $yamlOutput = GeneradorOpenApi::arrayToYaml($spec);
+    file_put_contents($dirDocs . '/openapi.yaml', $yamlOutput);
+
+    $dirPubDoc = __DIR__ . '/../publico/documentacion';
+    if (!is_dir($dirPubDoc)) {
+        mkdir($dirPubDoc, 0755, true);
+    }
+    file_put_contents($dirPubDoc . '/openapi.json', $jsonOutput);
+    file_put_contents($dirPubDoc . '/openapi.yaml', $yamlOutput);
+
+    $totalOperaciones = 0;
+    foreach ($spec['paths'] as $metodos) {
+        $totalOperaciones += count($metodos);
+    }
+
+    echo "Especificación OpenAPI 3.0.3 (V1.2) generada exitosamente ({$totalOperaciones} operaciones en " . count($spec['paths']) . " rutas URI):\n";
+    echo " - docs/api/openapi.json\n";
+    echo " - docs/api/openapi.yaml\n";
+    echo " - publico/documentacion/openapi.json\n";
+    echo " - publico/documentacion/openapi.yaml\n";
 }
-$jsonOutput = json_encode($spec, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-file_put_contents($dirDocs . '/openapi.json', $jsonOutput);
-
-// Guardar YAML en docs/api/openapi.yaml
-$yamlOutput = GeneradorOpenApi::arrayToYaml($spec);
-file_put_contents($dirDocs . '/openapi.yaml', $yamlOutput);
-
-// Guardar JSON en publico/documentacion/openapi.json
-$dirPubDoc = __DIR__ . '/../publico/documentacion';
-if (!is_dir($dirPubDoc)) {
-    mkdir($dirPubDoc, 0755, true);
-}
-file_put_contents($dirPubDoc . '/openapi.json', $jsonOutput);
-file_put_contents($dirPubDoc . '/openapi.yaml', $yamlOutput);
-
-echo "Especificación OpenAPI 3.0.3 generada exitosamente en:\n";
-echo " - docs/api/openapi.json\n";
-echo " - docs/api/openapi.yaml\n";
-echo " - publico/documentacion/openapi.json\n";
-echo " - publico/documentacion/openapi.yaml\n";

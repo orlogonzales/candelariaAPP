@@ -52,30 +52,6 @@ Enrutador::get('/api/v1/openapi.yaml', function () {
     return file_get_contents($ruta);
 });
 
-// Endpoint de Especificación OpenAPI 3.0 (JSON)
-Enrutador::get('/api/v1/openapi.json', function () {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
-    $ruta = __DIR__ . '/../docs/api/openapi.json';
-    if (!file_exists($ruta)) {
-        http_response_code(404);
-        return json_encode(['exito' => false, 'codigo' => 404, 'mensaje' => 'Especificación OpenAPI no encontrada.'], JSON_UNESCAPED_UNICODE);
-    }
-    return file_get_contents($ruta);
-});
-
-// Endpoint de Especificación OpenAPI 3.0 (YAML)
-Enrutador::get('/api/v1/openapi.yaml', function () {
-    header('Content-Type: application/yaml; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
-    $ruta = __DIR__ . '/../docs/api/openapi.yaml';
-    if (!file_exists($ruta)) {
-        http_response_code(404);
-        return 'error: Especificacion OpenAPI no encontrada.';
-    }
-    return file_get_contents($ruta);
-});
-
 // Endpoint técnico de Autenticación (Login)
 Enrutador::post('/api/v1/auth/login', function () {
     header('Content-Type: application/json; charset=utf-8');
@@ -188,11 +164,18 @@ Enrutador::get('/api/v1/usuarios/lista', function () {
 
     // 1. Verificar Autenticación (401 si falla)
     $authMiddleware = new \Nucleo\Http\Middleware\AutenticacionMiddleware();
-    $contexto = $authMiddleware->procesar($_SERVER, $_COOKIE, true);
+    $contexto = $authMiddleware->procesar($_SERVER, $_COOKIE, false);
+    if ($contexto === null) {
+        http_response_code(401);
+        return json_encode(['exito' => false, 'codigo' => 401, 'mensaje' => 'No autenticado: token de sesión ausente o inválido.'], JSON_UNESCAPED_UNICODE);
+    }
 
     // 2. Verificar Permiso RBAC (403 si carece de usuarios.ver)
     $rbacMiddleware = new \Nucleo\Http\Middleware\AutorizacionMiddleware();
-    $rbacMiddleware->verificarPermiso('usuarios.ver', $contexto, true);
+    if (!$rbacMiddleware->verificarPermiso('usuarios.ver', $contexto, false)) {
+        http_response_code(403);
+        return json_encode(['exito' => false, 'codigo' => 403, 'mensaje' => 'Acceso denegado: no cuenta con el permiso usuarios.ver.'], JSON_UNESCAPED_UNICODE);
+    }
 
     // 3. Operación permitida en Backend (Fail-closed estricto si no hay tenant)
     if ($contexto->organizacionId === null || $contexto->organizacionId <= 0) {
