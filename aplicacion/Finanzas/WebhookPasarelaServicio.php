@@ -76,40 +76,7 @@ class WebhookPasarelaServicio
             $secreto = $this->cifrador->descifrar($orgPasarela->credencialSecretaEnc);
         }
 
-        // 4. Resolver adaptador e invocar verificación y normalización
-        $adaptador = FabricaAdaptadorPasarela::obtener($codigoNormalizado);
-
-        $firmaValida = $adaptador->verificarFirmaWebhook($orgPasarela, $cuerpoRaw, $cabeceras, $secreto);
-        if (!$firmaValida) {
-            throw new InvalidArgumentException("Firma criptográfica de webhook inválida para la pasarela {$codigoNormalizado}.");
-        }
-
-        $evento = $adaptador->parsearEventoWebhook($orgPasarela, $cuerpoRaw, $cabeceras);
-        if (!$evento->esValido) {
-            throw new InvalidArgumentException("Payload de webhook no estructurado o inválido: " . ($evento->mensajeRespuesta ?? 'Desconocido'));
-        }
-
-        // 5. Blindaje de idempotencia: verificar si este webhook ya fue procesado
-        $claveIdempotencia = $evento->claveIdempotencia ?? ('wh_' . strtolower($codigoNormalizado) . '_' . ($evento->transaccionExternaId ?? md5($cuerpoRaw)));
-        $intentoExistente = $this->pagoRepo->buscarIntentoPorIdempotencia($organizacionId, $claveIdempotencia);
-        if ($intentoExistente !== null) {
-            return [
-                'exito'      => true,
-                'mensaje'    => 'Evento ya procesado previamente (idempotente).',
-                'duplicado'  => true,
-                'intento_id' => (int) $intentoExistente['id'],
-                'pago_id'    => $intentoExistente['pago_id'] !== null ? (int) $intentoExistente['pago_id'] : null,
-                'evento'     => $evento->tipoEvento,
-            ];
-        }
-
-        // 6. Validar o resolver la venta vinculada
-        $ventaId = $evento->ventaId;
-        if ($ventaId === null && !empty($evento->ordenCheckoutId) && is_numeric($evento->ordenCheckoutId)) {
-            $ventaId = (int) $evento->ordenCheckoutId;
-        }
-
-        // Crear contexto de sistema para la operación
+        // Crear contexto de sistema para trazabilidad y auditoría
         $contexto = ContextoOperacion::paraSistema(
             actorSistemaId: 2,
             actorSistemaCodigo: 'CHECKOUT_PASARELA',
@@ -120,68 +87,245 @@ class WebhookPasarelaServicio
             organizacionId: $organizacionId
         );
 
-        $pagoId = null;
-        $pagoRegistrado = null;
+        // 4. Resolver adaptador e invocar verificación y normalización (Fail-Closed)
+        $adaptador = FabricaAdaptadorPasarela::obtener($codigoNormalizado);
 
-        // 7. Si el evento es un pago exitoso, registrar y aplicar pago a la venta
-        if (in_array($evento->tipoEvento, ['CARGO_EXITOSO', 'PAGO_EXITOSO'], true) && $ventaId !== null) {
-            $venta = $this->ventaRepo->buscarPorId($ventaId, $organizacionId);
-            if ($venta !== null) {
-                $comisionEstimada = round(($evento->monto * (float) $orgPasarela->porcentajeComision / 100.0) + (float) $orgPasarela->comisionFija, 2);
-                $pagoRegistrado = $this->pagoServicio->registrarPagoPasarelaWeb(
-                    organizacionId: $organizacionId,
-                    ventaId: $ventaId,
-                    organizacionPasarelaId: (int) $orgPasarela->id,
-                    monto: $evento->monto,
-                    comisionPasarela: $comisionEstimada,
-                    transaccionExternaId: $evento->transaccionExternaId ?? ('EXT-' . time()),
-                    claveIdempotencia: $claveIdempotencia,
-                    datosMetadatos: [
-                        'notas' => "Pago vía {$codigoNormalizado} webhook (Ref: " . ($evento->transaccionExternaId ?? 'N/A') . ")",
-                    ],
-                    contexto: $contexto
+        $firmaValida = $adaptador->verificarFirmaWebhook($orgPasarela, $cuerpoRaw, $cabeceras, $secreto);
+        if (!$firmaValida) {
+            try {
+                $this->auditoriaRepo->registrar(
+                    contexto: $contexto,
+                    modulo: 'pagos_caja',
+                    accion: 'WEBHOOK_FIRMA_INVALIDA_RECHAZADA',
+                    entidadTipo: 'PASARELA',
+                    entidadId: $codigoNormalizado,
+                    datosPrevios: null,
+                    datosNuevos: [
+                        'pasarela'  => $codigoNormalizado,
+                        'ip_origen' => $ipOrigen,
+                        'motivo'    => 'Firma criptográfica ausente, expirada o inválida',
+                    ]
                 );
-                $pagoId = $pagoRegistrado->id;
+            } catch (\Throwable) {
+                // No interrumpir el rechazo fail-closed si la auditoría falla
             }
+            throw new InvalidArgumentException("Firma criptográfica de webhook inválida para la pasarela {$codigoNormalizado}.");
         }
 
-        // 8. Registrar el intento/evento en `pago_intentos_pasarela` para trazabilidad inmutable
-        $estadoIntento = in_array($evento->tipoEvento, ['CARGO_EXITOSO', 'PAGO_EXITOSO'], true)
-            ? EstadoIntentoPasarela::EXITOSO
-            : EstadoIntentoPasarela::FALLIDO;
+        $evento = $adaptador->parsearEventoWebhook($orgPasarela, $cuerpoRaw, $cabeceras);
+        if (!$evento->esValido) {
+            throw new InvalidArgumentException("Payload de webhook no estructurado o inválido: " . ($evento->mensajeRespuesta ?? 'Desconocido'));
+        }
 
-        $intento = new PagoIntentoPasarela(
-            id: null,
-            organizacionId: $organizacionId,
-            pagoId: $pagoId,
-            ventaId: $ventaId ?? 1,
-            organizacionPasarelaId: (int) $orgPasarela->id,
-            transaccionExternaId: $evento->transaccionExternaId ?? ('TRANS-' . time()),
-            ordenCheckoutId: $evento->ordenCheckoutId,
-            monto: $evento->monto,
-            moneda: $evento->moneda,
-            estadoIntento: $estadoIntento,
-            codigoRespuestaPasarela: $evento->codigoRespuesta,
-            mensajeRespuestaPasarela: $evento->mensajeRespuesta,
-            payloadSolicitudSanitizado: ['headers' => array_intersect_key($cabeceras, array_flip(['content-type', 'user-agent', 'x-signature', 'stripe-signature', 'x-niubiz-signature', 'x-culqi-signature']))],
-            payloadRespuestaSanitizado: $evento->payloadSanitizado,
-            tarjetaMarca: $evento->tarjetaMarca,
-            tarjetaUltimosCuatro: $evento->tarjetaUltimosCuatro,
-            ipOrigen: $ipOrigen,
-            firmaWebhookRecibida: $cabeceras['stripe-signature'] ?? $cabeceras['x-signature'] ?? $cabeceras['x-culqi-signature'] ?? $cabeceras['authorization'] ?? null,
-            claveIdempotenciaWebhook: $claveIdempotencia
-        );
+        $claveIdempotencia = $evento->claveIdempotencia ?? ('wh_' . strtolower($codigoNormalizado) . '_' . ($evento->transaccionExternaId ?? md5($cuerpoRaw)));
 
-        $intentoId = $this->pagoRepo->registrarIntentoPasarela($intento);
+        // Validar o resolver la venta vinculada
+        $ventaId = $evento->ventaId;
+        if ($ventaId === null && !empty($evento->ordenCheckoutId) && is_numeric($evento->ordenCheckoutId)) {
+            $ventaId = (int) $evento->ordenCheckoutId;
+        }
 
-        return [
-            'exito'      => true,
-            'mensaje'    => 'Webhook procesado satisfactoriamente.',
-            'duplicado'  => false,
-            'intento_id' => $intentoId,
-            'pago_id'    => $pagoId,
-            'evento'     => $evento->tipoEvento,
-        ];
+        // 5. Bloqueo pesimista transaccional (FOR UPDATE), idempotencia y monotonicidad de estados
+        $transaccionPropia = false;
+        if (!$this->pdo->inTransaction()) {
+            $this->pdo->beginTransaction();
+            $transaccionPropia = true;
+        }
+
+        try {
+            // 5.1 Si hay venta vinculada, adquirir bloqueo pesimista de fila para serializar webhooks concurrentes
+            $filaVentaBloqueada = null;
+            if ($ventaId !== null && $ventaId > 0) {
+                $stmtLockVenta = $this->pdo->prepare("
+                    SELECT `id`, `organizacion_id`, `estado`, `estado_financiero`, `total`, `monto_pagado`, `saldo_pendiente`
+                    FROM `ventas`
+                    WHERE `id` = :id AND `organizacion_id` = :org_id
+                    LIMIT 1
+                    FOR UPDATE
+                ");
+                $stmtLockVenta->execute(['id' => $ventaId, 'org_id' => $organizacionId]);
+                $filaVentaBloqueada = $stmtLockVenta->fetch(PDO::FETCH_ASSOC) ?: null;
+            }
+
+            // 5.2 Verificar idempotencia estricta por clave de evento con bloqueo FOR UPDATE
+            $stmtLockIntento = $this->pdo->prepare("
+                SELECT * FROM `pago_intentos_pasarela`
+                WHERE `organizacion_id` = :org_id
+                  AND `clave_idempotencia_webhook` = :clave
+                LIMIT 1
+                FOR UPDATE
+            ");
+            $stmtLockIntento->execute([
+                'org_id' => $organizacionId,
+                'clave'  => $claveIdempotencia,
+            ]);
+            $intentoExistente = $stmtLockIntento->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            if ($intentoExistente !== null) {
+                if ($transaccionPropia && $this->pdo->inTransaction()) {
+                    $this->pdo->commit();
+                }
+                return [
+                    'exito'                   => true,
+                    'mensaje'                 => 'Evento ya procesado previamente (idempotente).',
+                    'duplicado'               => true,
+                    'ignorado_fuera_de_orden' => false,
+                    'intento_id'              => (int) $intentoExistente['id'],
+                    'pago_id'                 => $intentoExistente['pago_id'] !== null ? (int) $intentoExistente['pago_id'] : null,
+                    'evento'                  => $evento->tipoEvento,
+                ];
+            }
+
+            // 5.3 Verificar monotonicidad por transaccion_externa_id (protección contra eventos fuera de orden o reintentos con distinto ID de sobre)
+            $txExterna = $evento->transaccionExternaId;
+            if ($txExterna !== null && $txExterna !== '') {
+                $stmtPagoPrevio = $this->pdo->prepare("
+                    SELECT `id`, `estado`, `monto_reembolsado_acumulado`
+                    FROM `pagos`
+                    WHERE `organizacion_id` = :org_id
+                      AND `numero_operacion_bancaria` = :tx
+                    ORDER BY `id` DESC
+                    LIMIT 1
+                    FOR UPDATE
+                ");
+                $stmtPagoPrevio->execute([
+                    'org_id' => $organizacionId,
+                    'tx'     => $txExterna,
+                ]);
+                $pagoPrevio = $stmtPagoPrevio->fetch(PDO::FETCH_ASSOC) ?: null;
+
+                if ($pagoPrevio !== null && $pagoPrevio['estado'] === EstadoPago::APROBADO->value) {
+                    $pagoPrevioId = (int) $pagoPrevio['id'];
+                    $tieneReembolsos = (float) ($pagoPrevio['monto_reembolsado_acumulado'] ?? 0) > 0.0;
+
+                    // Caso A: Llega otro CARGO_EXITOSO para la misma transacción ya aprobada (o ya reembolsada)
+                    if (in_array($evento->tipoEvento, ['CARGO_EXITOSO', 'PAGO_EXITOSO'], true)) {
+                        if ($transaccionPropia && $this->pdo->inTransaction()) {
+                            $this->pdo->commit();
+                        }
+                        return [
+                            'exito'                   => true,
+                            'mensaje'                 => $tieneReembolsos
+                                ? 'Evento ignorado: el pago asociado ya registra reembolsos ejecutados (estado monotónico superior).'
+                                : 'Transacción externa ya imputada previamente como pago aprobado (idempotente).',
+                            'duplicado'               => !$tieneReembolsos,
+                            'ignorado_fuera_de_orden' => $tieneReembolsos,
+                            'intento_id'              => null,
+                            'pago_id'                 => $pagoPrevioId,
+                            'evento'                  => $evento->tipoEvento,
+                        ];
+                    }
+
+                    // Caso B: Llega un CARGO_FALLIDO / PENDIENTE / OTRO retrasado (fuera de orden) después de que el pago ya fue APROBADO
+                    $this->auditoriaRepo->registrar(
+                        contexto: $contexto,
+                        modulo: 'pagos_caja',
+                        accion: 'WEBHOOK_FUERA_DE_ORDEN_IGNORADO',
+                        entidadTipo: 'PAGO',
+                        entidadId: (string) $pagoPrevioId,
+                        datosPrevios: ['estado_pago' => $pagoPrevio['estado']],
+                        datosNuevos: [
+                            'evento_retrasado'       => $evento->tipoEvento,
+                            'transaccion_externa_id' => $txExterna,
+                            'clave_idempotencia'     => $claveIdempotencia,
+                            'motivo'                 => 'Invariante monotónica: un evento de fallo o pendiente retrasado no puede degradar un pago APROBADO.',
+                        ]
+                    );
+
+                    if ($transaccionPropia && $this->pdo->inTransaction()) {
+                        $this->pdo->commit();
+                    }
+                    return [
+                        'exito'                   => true,
+                        'mensaje'                 => 'Evento fuera de orden ignorado: la transacción ya cuenta con un pago aprobado monotónico.',
+                        'duplicado'               => false,
+                        'ignorado_fuera_de_orden' => true,
+                        'intento_id'              => null,
+                        'pago_id'                 => $pagoPrevioId,
+                        'evento'                  => $evento->tipoEvento,
+                    ];
+                }
+            }
+
+            // 5.4 Si la venta ya está en estado terminal (LIQUIDADA, CANCELADA, ANULADA), no imputar nuevos cobros tardíos
+            $ventaEnEstadoTerminal = $filaVentaBloqueada !== null
+                && in_array((string) $filaVentaBloqueada['estado'], ['LIQUIDADA', 'CANCELADA', 'ANULADA'], true);
+
+            $pagoId = null;
+            $pagoRegistrado = null;
+
+            // 6. Si el evento es un pago exitoso y la venta admite cobros, registrar y aplicar pago a la venta
+            if (in_array($evento->tipoEvento, ['CARGO_EXITOSO', 'PAGO_EXITOSO'], true) && $ventaId !== null && !$ventaEnEstadoTerminal) {
+                $venta = $this->ventaRepo->buscarPorId($ventaId, $organizacionId);
+                if ($venta !== null) {
+                    $comisionEstimada = round(($evento->monto * (float) $orgPasarela->porcentajeComision / 100.0) + (float) $orgPasarela->comisionFija, 2);
+                    $pagoRegistrado = $this->pagoServicio->registrarPagoPasarelaWeb(
+                        organizacionId: $organizacionId,
+                        ventaId: $ventaId,
+                        organizacionPasarelaId: (int) $orgPasarela->id,
+                        monto: $evento->monto,
+                        comisionPasarela: $comisionEstimada,
+                        transaccionExternaId: $evento->transaccionExternaId ?? ('EXT-' . time()),
+                        claveIdempotencia: $claveIdempotencia,
+                        datosMetadatos: [
+                            'notas' => "Pago vía {$codigoNormalizado} webhook (Ref: " . ($evento->transaccionExternaId ?? 'N/A') . ")",
+                        ],
+                        contexto: $contexto
+                    );
+                    $pagoId = $pagoRegistrado->id;
+                }
+            }
+
+            // 7. Registrar el intento/evento en `pago_intentos_pasarela` para trazabilidad inmutable
+            $estadoIntento = in_array($evento->tipoEvento, ['CARGO_EXITOSO', 'PAGO_EXITOSO'], true)
+                ? EstadoIntentoPasarela::EXITOSO
+                : EstadoIntentoPasarela::FALLIDO;
+
+            $intento = new PagoIntentoPasarela(
+                id: null,
+                organizacionId: $organizacionId,
+                pagoId: $pagoId,
+                ventaId: $ventaId ?? 1,
+                organizacionPasarelaId: (int) $orgPasarela->id,
+                transaccionExternaId: $evento->transaccionExternaId ?? ('TRANS-' . time()),
+                ordenCheckoutId: $evento->ordenCheckoutId,
+                monto: $evento->monto,
+                moneda: $evento->moneda,
+                estadoIntento: $estadoIntento,
+                codigoRespuestaPasarela: $evento->codigoRespuesta,
+                mensajeRespuestaPasarela: $evento->mensajeRespuesta,
+                payloadSolicitudSanitizado: ['headers' => array_intersect_key($cabeceras, array_flip(['content-type', 'user-agent', 'x-signature', 'stripe-signature', 'x-niubiz-signature', 'x-culqi-signature']))],
+                payloadRespuestaSanitizado: $evento->payloadSanitizado,
+                tarjetaMarca: $evento->tarjetaMarca,
+                tarjetaUltimosCuatro: $evento->tarjetaUltimosCuatro,
+                ipOrigen: $ipOrigen,
+                firmaWebhookRecibida: $cabeceras['stripe-signature'] ?? $cabeceras['x-signature'] ?? $cabeceras['x-culqi-signature'] ?? $cabeceras['authorization'] ?? null,
+                claveIdempotenciaWebhook: $claveIdempotencia
+            );
+
+            $intentoId = $this->pagoRepo->registrarIntentoPasarela($intento);
+
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->commit();
+            }
+
+            return [
+                'exito'                   => true,
+                'mensaje'                 => $ventaEnEstadoTerminal
+                    ? 'Evento registrado sin imputación contable por encontrarse la venta en estado terminal.'
+                    : 'Webhook procesado satisfactoriamente.',
+                'duplicado'               => false,
+                'ignorado_fuera_de_orden' => $ventaEnEstadoTerminal,
+                'intento_id'              => $intentoId,
+                'pago_id'                 => $pagoId,
+                'evento'                  => $evento->tipoEvento,
+            ];
+        } catch (\Throwable $e) {
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     /**

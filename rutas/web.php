@@ -247,9 +247,10 @@ Enrutador::get('/p/{slug}/checkout/confirmacion', [\Aplicacion\Controladores\Por
 Enrutador::get('/p/{slug}/mi-espacio', [\Aplicacion\Controladores\PortalPublicoControlador::class, 'vistaEspacioCliente']);
 
 // ==============================================================================
-// DASHBOARD EJECUTIVO Y MÉTRICAS DE RENDIMIENTO (FASE 2.12C)
+// DASHBOARD EJECUTIVO Y ANALÍTICA MULTIANUAL (FASE 2.12C / FASE 4.1)
 // ==============================================================================
 Enrutador::get('/dashboard-ejecutivo', [\Aplicacion\Controladores\DashboardControlador::class, 'vista']);
+Enrutador::get('/analitica-multianual', [\Aplicacion\Controladores\DashboardControlador::class, 'vistaAnaliticaMultianual']);
 
 // ==============================================================================
 // PROGRAMACIÓN FOLCLÓRICA Y CONJUNTOS (FASE 3.1B — DT-V11-004)

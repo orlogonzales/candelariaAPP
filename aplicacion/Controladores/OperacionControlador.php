@@ -1766,9 +1766,9 @@ class OperacionControlador
         try {
             $orgId = (int) $contexto->organizacionId;
             $stmt = $this->pdo->prepare("
-                SELECT id, codigo, nombre, tipo_item, unidad_medida
+                SELECT id, codigo, nombre, tipo AS tipo_item, unidad_medida
                 FROM `items_comerciales`
-                WHERE `organizacion_id` = :org_id AND `tipo_item` = 'SERVICIO' AND `estado` = 'ACTIVO'
+                WHERE `organizacion_id` = :org_id AND `tipo` = 'SERVICIO' AND `estado` = 'ACTIVO'
                 ORDER BY `nombre` ASC
             ");
             $stmt->execute(['org_id' => $orgId]);
@@ -1841,6 +1841,11 @@ class OperacionControlador
 
         $decoded = json_decode($raw, true);
         return is_array($decoded) ? $decoded : $_POST;
+    }
+
+    private function obtenerCuerpoRequisicion(): array
+    {
+        return $this->obtenerCuerpo();
     }
 
     // =========================================================================
@@ -2020,8 +2025,9 @@ class OperacionControlador
         mixed $datos = [],
         mixed $errores = []
     ): string {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigoHttp;
+        @http_response_code($codigoHttp);
         if (!headers_sent()) {
-            http_response_code($codigoHttp);
             header('Content-Type: application/json; charset=utf-8');
         }
 

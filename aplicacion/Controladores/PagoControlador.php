@@ -27,10 +27,10 @@ use Aplicacion\Repositorios\RolRepositorio;
 use Aplicacion\Repositorios\UsuarioRepositorio;
 use Aplicacion\Repositorios\VentaRepositorio;
 use Aplicacion\Autorizacion\AutorizacionServicio;
-use Aplicacion\Seguridad\ProtectorCsrf;
+use Nucleo\Seguridad\ProtectorCsrf;
 use Nucleo\BaseDatos\Conexion;
-use Nucleo\Excepciones\AccesoDenegadoExcepcion;
-use Nucleo\Excepciones\ConflictoConcurrenciaExcepcion;
+use Aplicacion\Excepciones\AccesoDenegadoExcepcion;
+use Aplicacion\Excepciones\ConflictoConcurrenciaExcepcion;
 use Nucleo\Http\ContextoOperacion;
 use Nucleo\Http\Middleware\AutenticacionMiddleware;
 use Nucleo\Http\Middleware\AutorizacionMiddleware;
@@ -790,9 +790,9 @@ class PagoControlador
     {
         $candidato = null;
         if (!empty($_GET['edicion_id']) && is_numeric($_GET['edicion_id'])) {
-            $candidato = (int) $_GET['edicion_id'];
+            $candidato = (string) $_GET['edicion_id'];
         } elseif (!empty($_SERVER['HTTP_X_EDICION_ID']) && is_numeric($_SERVER['HTTP_X_EDICION_ID'])) {
-            $candidato = (int) $_SERVER['HTTP_X_EDICION_ID'];
+            $candidato = (string) $_SERVER['HTTP_X_EDICION_ID'];
         }
 
         if ($candidato !== null) {
@@ -903,8 +903,9 @@ class PagoControlador
         mixed $datos = [],
         mixed $errores = []
     ): string {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigoHttp;
+        @http_response_code($codigoHttp);
         if (!headers_sent()) {
-            http_response_code($codigoHttp);
             header('Content-Type: application/json; charset=utf-8');
         }
 

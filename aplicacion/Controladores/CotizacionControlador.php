@@ -1367,8 +1367,9 @@ class CotizacionControlador
         mixed $datos = [],
         mixed $errores = []
     ): string {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigoHttp;
+        @http_response_code($codigoHttp);
         if (!headers_sent()) {
-            http_response_code($codigoHttp);
             header('Content-Type: application/json; charset=utf-8');
         }
 

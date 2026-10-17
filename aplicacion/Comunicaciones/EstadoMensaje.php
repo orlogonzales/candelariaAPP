@@ -38,11 +38,11 @@ enum EstadoMensaje: string
     public function transicionesPermitidas(): array
     {
         return match ($this) {
-            self::ENCOLADO             => [self::EN_PROCESO, self::CANCELADO],
-            self::EN_PROCESO           => [self::ENVIADO, self::REINTENTO_PROGRAMADO, self::FALLIDO, self::CANCELADO],
-            self::REINTENTO_PROGRAMADO => [self::EN_PROCESO, self::FALLIDO, self::CANCELADO],
+            self::ENCOLADO             => [self::EN_PROCESO, self::ENVIADO, self::ENTREGADO, self::LEIDO, self::CANCELADO],
+            self::EN_PROCESO           => [self::ENVIADO, self::ENTREGADO, self::LEIDO, self::REINTENTO_PROGRAMADO, self::FALLIDO, self::CANCELADO],
+            self::REINTENTO_PROGRAMADO => [self::EN_PROCESO, self::ENVIADO, self::ENTREGADO, self::LEIDO, self::FALLIDO, self::CANCELADO],
             self::ENVIADO              => [self::ENTREGADO, self::LEIDO, self::FALLIDO],
-            self::ENTREGADO            => [self::LEIDO], // Inmutable ante fallos tardíos
+            self::ENTREGADO            => [self::LEIDO], // Inmutable ante fallos o sent tardíos
             self::LEIDO                => [],            // Terminal exitoso absoluto
             self::FALLIDO              => [],            // Terminal fallido absoluto
             self::CANCELADO            => [],            // Terminal cancelado absoluto
@@ -60,9 +60,9 @@ enum EstadoMensaje: string
             self::ENCOLADO             => [],
             self::EN_PROCESO           => [self::ENCOLADO->value, self::REINTENTO_PROGRAMADO->value],
             self::REINTENTO_PROGRAMADO => [self::EN_PROCESO->value],
-            self::ENVIADO              => [self::EN_PROCESO->value],
-            self::ENTREGADO            => [self::ENVIADO->value],
-            self::LEIDO                => [self::ENVIADO->value, self::ENTREGADO->value],
+            self::ENVIADO              => [self::ENCOLADO->value, self::EN_PROCESO->value, self::REINTENTO_PROGRAMADO->value],
+            self::ENTREGADO            => [self::ENCOLADO->value, self::EN_PROCESO->value, self::REINTENTO_PROGRAMADO->value, self::ENVIADO->value],
+            self::LEIDO                => [self::ENCOLADO->value, self::EN_PROCESO->value, self::REINTENTO_PROGRAMADO->value, self::ENVIADO->value, self::ENTREGADO->value],
             self::FALLIDO              => [self::EN_PROCESO->value, self::REINTENTO_PROGRAMADO->value, self::ENVIADO->value],
             self::CANCELADO            => [self::ENCOLADO->value, self::EN_PROCESO->value, self::REINTENTO_PROGRAMADO->value],
         };

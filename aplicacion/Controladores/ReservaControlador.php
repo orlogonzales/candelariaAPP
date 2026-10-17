@@ -732,9 +732,9 @@ class ReservaControlador
                 FROM `ventas` v
                 WHERE v.organizacion_id = :org_id
                   AND v.estado = 'CONFIRMADA'
-                  AND v.id NOT IN (SELECT r.venta_id FROM `reservas` r WHERE r.organizacion_id = :org_id)
+                  AND v.id NOT IN (SELECT r.venta_id FROM `reservas` r WHERE r.organizacion_id = :org_id_sub)
             ";
-            $params = ['org_id' => $orgId];
+            $params = ['org_id' => $orgId, 'org_id_sub' => $orgId];
 
             if ($edicionId !== null) {
                 $sql .= " AND v.edicion_id = :edicion_id";
@@ -828,8 +828,9 @@ class ReservaControlador
         mixed $datos = [],
         mixed $errores = []
     ): string {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigoHttp;
+        @http_response_code($codigoHttp);
         if (!headers_sent()) {
-            http_response_code($codigoHttp);
             header('Content-Type: application/json; charset=utf-8');
         }
 

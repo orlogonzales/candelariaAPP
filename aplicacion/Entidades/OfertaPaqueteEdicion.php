@@ -47,6 +47,11 @@ class OfertaPaqueteEdicion
         }
     }
 
+    public function activo(): bool
+    {
+        return $this->estado === EstadoCatalogo::ACTIVO;
+    }
+
     public function toArray(): array
     {
         return [

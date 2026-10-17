@@ -107,15 +107,17 @@ class Enrutador
                 $accion = $ruta['accion'];
 
                 try {
+                    $argumentos = self::prepararArgumentosAccion($ruta['patron'], $coincidencias, $accion);
+
                     if ($accion instanceof Closure) {
-                        echo call_user_func_array($accion, $coincidencias);
+                        echo call_user_func_array($accion, $argumentos);
                         return;
                     }
 
                     if (is_array($accion) && count($accion) === 2) {
                         [$clase, $metodo] = $accion;
                         $instancia = new $clase();
-                        echo call_user_func_array([$instancia, $metodo], $coincidencias);
+                        echo call_user_func_array([$instancia, $metodo], $argumentos);
                         return;
                     }
                 } catch (\Throwable $e) {
@@ -149,6 +151,69 @@ class Enrutador
             ], JSON_UNESCAPED_UNICODE);
         } else {
             echo "<h1>404 - Página no encontrada</h1><p>La ruta '{$uriLimpia}' no existe en CandelariaAPP.</p>";
+        }
+    }
+
+    /**
+     * Adapta los parámetros capturados en la URI a las firmas tipadas bajo strict_types=1.
+     */
+    public static function prepararArgumentosAccion(string $patron, array $coincidencias, Closure|array $accion): array
+    {
+        if (empty($coincidencias)) {
+            return [];
+        }
+
+        try {
+            $ref = $accion instanceof Closure
+                ? new \ReflectionFunction($accion)
+                : new \ReflectionMethod($accion[0], $accion[1]);
+
+            $parametros = $ref->getParameters();
+            if (empty($parametros)) {
+                return $coincidencias;
+            }
+
+            $primerTipo = $parametros[0]->getType();
+            if ($primerTipo instanceof \ReflectionNamedType && $primerTipo->getName() === 'array') {
+                preg_match_all('#\{([a-zA-Z0-9_]+)\}#', $patron, $m);
+                $nombres = $m[1] ?? [];
+                $mapa = [];
+                foreach ($coincidencias as $idx => $valor) {
+                    $llave = $nombres[$idx] ?? (string) $idx;
+                    $mapa[$llave] = is_numeric($valor) ? (int) $valor : $valor;
+                }
+                if (!isset($mapa['id']) && isset($coincidencias[0])) {
+                    $mapa['id'] = is_numeric($coincidencias[0]) ? (int) $coincidencias[0] : $coincidencias[0];
+                }
+                return [$mapa];
+            }
+
+            $argumentos = [];
+            foreach ($coincidencias as $idx => $valor) {
+                if (isset($parametros[$idx])) {
+                    $tipo = $parametros[$idx]->getType();
+                    if ($tipo instanceof \ReflectionNamedType) {
+                        $nombreTipo = $tipo->getName();
+                        if ($nombreTipo === 'int' && is_numeric($valor)) {
+                            $argumentos[] = (int) $valor;
+                            continue;
+                        }
+                        if ($nombreTipo === 'float' && is_numeric($valor)) {
+                            $argumentos[] = (float) $valor;
+                            continue;
+                        }
+                        if ($nombreTipo === 'string') {
+                            $argumentos[] = (string) $valor;
+                            continue;
+                        }
+                    }
+                }
+                $argumentos[] = $valor;
+            }
+
+            return $argumentos;
+        } catch (\Throwable) {
+            return $coincidencias;
         }
     }
 }

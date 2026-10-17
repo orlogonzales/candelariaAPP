@@ -95,4 +95,26 @@ class ContextoEdicionResolver
 
         return $this->resolver($contexto, $candidatoStr);
     }
+
+    /**
+     * Resuelve el descriptor de edición activa para una organización y usuario dado.
+     *
+     * @return array{edicion_activa: array{id: int, anio: int, nombre: string, estado: string}|null}
+     */
+    public function resolverParaUsuario(int $organizacionId, ?int $usuarioId = null): array
+    {
+        $edicionActual = $this->edicionRepo->obtenerActual($organizacionId);
+        if ($edicionActual === null) {
+            return ['edicion_activa' => null];
+        }
+
+        return [
+            'edicion_activa' => [
+                'id'     => (int) $edicionActual->id,
+                'anio'   => (int) $edicionActual->anio,
+                'nombre' => (string) $edicionActual->nombre,
+                'estado' => $edicionActual->estado->value,
+            ],
+        ];
+    }
 }

@@ -43,7 +43,8 @@ class WebhookWhatsAppServicio
     }
 
     /**
-     * Procesa la carga útil (payload) entrante con validación HMAC, deduplicación e idempotencia.
+     * Procesa la carga útil (payload) entrante con validación HMAC fail-closed,
+     * bloqueo pesimista por fila, deduplicación e invariante monotónica ante eventos fuera de orden.
      */
     public function procesarPayload(int $orgId, string $rawPayload, string $firmaCabecera): array
     {
@@ -52,12 +53,20 @@ class WebhookWhatsAppServicio
             throw new RuntimeException("Organización {$orgId} no encontrada para webhook de WhatsApp.");
         }
 
-        // 1. Validación de firma criptográfica
+        // 1. Validación estricta fail-closed de firma criptográfica X-Hub-Signature-256
+        $firmaLimpia = trim($firmaCabecera);
+        if ($firmaLimpia === '' || !str_starts_with($firmaLimpia, 'sha256=') || strlen($firmaLimpia) < 15) {
+            throw new RuntimeException("Firma de webhook inválida (HMAC-SHA256 no coincide o cabecera ausente/malformada).");
+        }
+
         $secretos = $this->configRepo->descifrarSecretos($config);
-        $webhookSecret = $secretos['webhook_secret'] ?? '';
+        $webhookSecret = trim((string) ($secretos['webhook_secret'] ?? ''));
+        if ($webhookSecret === '') {
+            throw new RuntimeException("Firma de webhook inválida (HMAC-SHA256 no coincide: secreto de tenant no configurado).");
+        }
 
         $adaptador = $this->fabricaProveedores->obtenerPorCodigo($config->proveedorCodigo);
-        if (!$adaptador->validarFirmaWebhook($rawPayload, $firmaCabecera, $webhookSecret)) {
+        if (!$adaptador->validarFirmaWebhook($rawPayload, $firmaLimpia, $webhookSecret)) {
             throw new RuntimeException("Firma de webhook inválida (HMAC-SHA256 no coincide).");
         }
 
@@ -68,90 +77,125 @@ class WebhookWhatsAppServicio
 
         $eventosProcesados = 0;
         $eventosDuplicados = 0;
+        $eventosFueraDeOrdenIgnorados = 0;
 
-        $entries = $data['entry'] ?? [];
-        foreach ($entries as $entry) {
-            $changes = $entry['changes'] ?? [];
-            foreach ($changes as $change) {
-                $val = $change['value'] ?? [];
-
-                // A. Actualizaciones de estado de entrega (DLR - Status Updates)
-                $statuses = $val['statuses'] ?? [];
-                foreach ($statuses as $st) {
-                    $wamid = (string) ($st['id'] ?? '');
-                    $statusName = (string) ($st['status'] ?? '');
-                    $timestamp = isset($st['timestamp']) ? date('Y-m-d H:i:s', (int) $st['timestamp']) : date('Y-m-d H:i:s');
-                    $eventId = "status_{$wamid}_{$statusName}";
-
-                    // Deduplicación idempotente
-                    $esNuevo = $this->webhookRepo->registrarEvento($orgId, $eventId, 'message_status', $wamid, $st);
-                    if (!$esNuevo) {
-                        $eventosDuplicados++;
-                        continue;
-                    }
-
-                    $msg = $this->mensajeRepo->buscarPorWamid($wamid);
-                    if ($msg && $msg->organizacionId === $orgId) {
-                        $nuevoEstado = match ($statusName) {
-                            'sent'      => EstadoMensaje::ENVIADO,
-                            'delivered' => EstadoMensaje::ENTREGADO,
-                            'read'      => EstadoMensaje::LEIDO,
-                            'failed'    => EstadoMensaje::FALLIDO,
-                            default     => null
-                        };
-
-                        if ($nuevoEstado !== null) {
-                            // Actualización monotónica estricta
-                            $this->mensajeRepo->actualizarEstadoMonotonico(
-                                id: $msg->id,
-                                orgId: $orgId,
-                                nuevoEstado: $nuevoEstado,
-                                wamid: $wamid,
-                                costoCalculado: $msg->costoEstimadoUsd
-                            );
-                        }
-                    }
-
-                    $this->webhookRepo->marcarProcesado($orgId, $eventId);
-                    $eventosProcesados++;
-                }
-
-                // B. Mensajes entrantes de clientes (Inbound Messages)
-                $messages = $val['messages'] ?? [];
-                foreach ($messages as $inMsg) {
-                    $inMsgId = (string) ($inMsg['id'] ?? '');
-                    $from = (string) ($inMsg['from'] ?? '');
-                    $textBody = $inMsg['text']['body'] ?? '';
-                    $timestamp = isset($inMsg['timestamp']) ? date('Y-m-d H:i:s', (int) $inMsg['timestamp']) : date('Y-m-d H:i:s');
-                    $eventId = "inbound_{$inMsgId}";
-
-                    $esNuevo = $this->webhookRepo->registrarEvento($orgId, $eventId, 'messages', $inMsgId, $inMsg);
-                    if (!$esNuevo) {
-                        $eventosDuplicados++;
-                        continue;
-                    }
-
-                    // Normalizar teléfono
-                    $telefonoE164 = str_starts_with($from, '+') ? $from : '+' . $from;
-
-                    // Procesar palabra clave de Opt-out automático (BAJA, STOP, CANCELAR)
-                    $textoLimpio = strtoupper(trim($textBody));
-                    if (in_array($textoLimpio, ['BAJA', 'CANCELAR', 'STOP', 'DETENER', 'DESUSCRIBIR'], true)) {
-                        // Buscar cliente o registrar revocación por número
-                        $this->procesarOptOutInbound($orgId, $telefonoE164, $inMsgId);
-                    }
-
-                    $this->webhookRepo->marcarProcesado($orgId, $eventId);
-                    $eventosProcesados++;
-                }
-            }
+        $transaccionPropia = false;
+        if (!$this->pdo->inTransaction()) {
+            $this->pdo->beginTransaction();
+            $transaccionPropia = true;
         }
 
-        return [
-            'exito'              => true,
-            'eventos_procesados' => $eventosProcesados,
-            'eventos_duplicados' => $eventosDuplicados
-        ];
+        try {
+            $entries = $data['entry'] ?? [];
+            foreach ($entries as $entry) {
+                $changes = $entry['changes'] ?? [];
+                foreach ($changes as $change) {
+                    $val = $change['value'] ?? [];
+
+                    // A. Actualizaciones de estado de entrega (DLR - Status Updates)
+                    $statuses = $val['statuses'] ?? [];
+                    foreach ($statuses as $st) {
+                        $wamid = trim((string) ($st['id'] ?? ''));
+                        $statusName = strtolower(trim((string) ($st['status'] ?? '')));
+                        if ($wamid === '' || $statusName === '') {
+                            continue;
+                        }
+
+                        $eventId = "status_{$wamid}_{$statusName}";
+
+                        // Deduplicación idempotente atómica
+                        $esNuevo = $this->webhookRepo->registrarEvento($orgId, $eventId, 'message_status', $wamid, $st);
+                        if (!$esNuevo) {
+                            $eventosDuplicados++;
+                            continue;
+                        }
+
+                        // Bloqueo pesimista sobre la fila del mensaje para serializar webhooks concurrentes
+                        $stmtLockMsg = $this->pdo->prepare("
+                            SELECT `id`, `organizacion_id`, `estado`, `peso_estado`, `costo_estimado_usd`
+                            FROM `comunicacion_mensajes`
+                            WHERE `wamid` = :wamid AND `organizacion_id` = :org_id
+                            LIMIT 1
+                            FOR UPDATE
+                        ");
+                        $stmtLockMsg->execute(['wamid' => $wamid, 'org_id' => $orgId]);
+                        $filaMsg = $stmtLockMsg->fetch(\PDO::FETCH_ASSOC);
+
+                        if ($filaMsg) {
+                            $nuevoEstado = match ($statusName) {
+                                'sent'      => EstadoMensaje::ENVIADO,
+                                'delivered' => EstadoMensaje::ENTREGADO,
+                                'read'      => EstadoMensaje::LEIDO,
+                                'failed'    => EstadoMensaje::FALLIDO,
+                                default     => null
+                            };
+
+                            if ($nuevoEstado !== null) {
+                                $transicionado = $this->mensajeRepo->actualizarEstadoMonotonico(
+                                    id: (int) $filaMsg['id'],
+                                    orgId: $orgId,
+                                    nuevoEstado: $nuevoEstado,
+                                    wamid: $wamid,
+                                    costoCalculado: (float) ($filaMsg['costo_estimado_usd'] ?? 0.0)
+                                );
+                                if (!$transicionado) {
+                                    $eventosFueraDeOrdenIgnorados++;
+                                }
+                            }
+                        }
+
+                        $this->webhookRepo->marcarProcesado($orgId, $eventId);
+                        $eventosProcesados++;
+                    }
+
+                    // B. Mensajes entrantes de clientes (Inbound Messages)
+                    $messages = $val['messages'] ?? [];
+                    foreach ($messages as $inMsg) {
+                        $inMsgId = trim((string) ($inMsg['id'] ?? ''));
+                        if ($inMsgId === '') {
+                            continue;
+                        }
+                        $from = (string) ($inMsg['from'] ?? '');
+                        $textBody = $inMsg['text']['body'] ?? '';
+                        $eventId = "inbound_{$inMsgId}";
+
+                        $esNuevo = $this->webhookRepo->registrarEvento($orgId, $eventId, 'messages', $inMsgId, $inMsg);
+                        if (!$esNuevo) {
+                            $eventosDuplicados++;
+                            continue;
+                        }
+
+                        // Normalizar teléfono
+                        $telefonoE164 = str_starts_with($from, '+') ? $from : '+' . $from;
+
+                        // Procesar palabra clave de Opt-out automático (BAJA, STOP, CANCELAR)
+                        $textoLimpio = strtoupper(trim((string) $textBody));
+                        if (in_array($textoLimpio, ['BAJA', 'CANCELAR', 'STOP', 'DETENER', 'DESUSCRIBIR'], true)) {
+                            $this->procesarOptOutInbound($orgId, $telefonoE164, $inMsgId);
+                        }
+
+                        $this->webhookRepo->marcarProcesado($orgId, $eventId);
+                        $eventosProcesados++;
+                    }
+                }
+            }
+
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->commit();
+            }
+
+            return [
+                'exito'                            => true,
+                'eventos_procesados'               => $eventosProcesados,
+                'eventos_duplicados'               => $eventosDuplicados,
+                'eventos_fuera_de_orden_ignorados' => $eventosFueraDeOrdenIgnorados,
+            ];
+        } catch (\Throwable $e) {
+            if ($transaccionPropia && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     private function procesarOptOutInbound(int $orgId, string $telefono, string $eventId): void

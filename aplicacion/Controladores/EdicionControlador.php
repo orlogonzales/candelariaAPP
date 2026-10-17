@@ -657,6 +657,8 @@ class EdicionControlador
 
             if ($formato === 'csv') {
                 $contenido = $this->reporteServicio->exportarCsv($tipo, $reporteData);
+                $GLOBALS['__ultimo_codigo_http_api'] = 200;
+                http_response_code(200);
                 if (php_sapi_name() === 'cli') {
                     return $contenido;
                 }
@@ -674,6 +676,8 @@ class EdicionControlador
 
             if ($formato === 'xlsx') {
                 $contenido = $this->reporteServicio->exportarXlsx($tipo, $reporteData);
+                $GLOBALS['__ultimo_codigo_http_api'] = 200;
+                http_response_code(200);
                 if (php_sapi_name() === 'cli') {
                     return $contenido;
                 }
@@ -691,6 +695,8 @@ class EdicionControlador
 
             if ($formato === 'xml') {
                 $contenido = $this->reporteServicio->exportarXmlSpreadsheetMl($tipo, $reporteData);
+                $GLOBALS['__ultimo_codigo_http_api'] = 200;
+                http_response_code(200);
                 if (php_sapi_name() === 'cli') {
                     return $contenido;
                 }
@@ -716,6 +722,8 @@ class EdicionControlador
                 $tenantInfo = $stmtOrg->fetch(PDO::FETCH_ASSOC) ?: [];
 
                 $contenido = $this->reporteServicio->exportarPdf($tipo, $reporteData, $tenantInfo, $edicionInfo);
+                $GLOBALS['__ultimo_codigo_http_api'] = 200;
+                http_response_code(200);
                 if (php_sapi_name() === 'cli') {
                     return $contenido;
                 }
@@ -849,6 +857,7 @@ class EdicionControlador
 
     private function responderExito(mixed $datos = null, string $mensaje = 'Operación exitosa', int $codigo = 200): string
     {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         if (!headers_sent()) {
             http_response_code($codigo);
             header('Content-Type: application/json; charset=utf-8');
@@ -863,6 +872,7 @@ class EdicionControlador
 
     private function responderError(string $mensaje, int $codigo = 400, array $detalles = []): string
     {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         if (!headers_sent()) {
             http_response_code($codigo);
             header('Content-Type: application/json; charset=utf-8');
@@ -877,6 +887,11 @@ class EdicionControlador
 
     private function responderJson(array $payload): string
     {
+        $codigo = (int) ($payload['codigo'] ?? 200);
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
+        if (!headers_sent()) {
+            http_response_code($codigo);
+        }
         header('Content-Type: application/json; charset=utf-8');
         return json_encode($payload, JSON_UNESCAPED_UNICODE);
     }
