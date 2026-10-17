@@ -783,8 +783,9 @@ function resolverConfiguracionEndpointPositiva(
             break;
         case '/api/v1/operaciones/offline/validar-online':
             $post = [
-                'token_qr' => 'TOKEN_VALIDO',
-                'tipo'     => 'BOLETO',
+                'token_qr'   => (string) $f['reservaDocId'],
+                'edicion_id' => $f['edicionAId'],
+                'tipo'       => 'BOLETO',
             ];
             break;
         case '/api/v1/operaciones/offline/sincronizar':

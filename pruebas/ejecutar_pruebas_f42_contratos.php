@@ -665,6 +665,7 @@ $fallosRechazoSinAuth = [];
 $fallosRechazoRbac = [];
 $fallosEjecucionRuntime = [];
 $fallosCodigoOpenApi = [];
+$fallosResultadoNegocio = [];
 $conteoRechazoSinAuth = 0;
 $conteoRechazoRbac = 0;
 $conteoEjecucionRuntime = 0;
@@ -987,6 +988,31 @@ try {
             }
         }
 
+        // Validación semántica del resultado de negocio según directiva DT-V12-005
+        $resultadoNegocioOk = false;
+        if (in_array($tipoRespuestaDetectado, ['OPENAPI_JSON', 'OPENAPI_YAML', 'TEXT_CHALLENGE', 'PDF_DOCUMENT', 'CSV_EXPORT', 'BINARY_STREAM'], true)) {
+            // Respuestas documentadas binarias o especiales: el formato válido y código HTTP 200 garantizan el resultado de negocio
+            $resultadoNegocioOk = ($codigoRuntime === 200 && $formatoValido);
+        } elseif ($tipoRespuestaDetectado === 'JSON_ENVELOPE') {
+            if (in_array($codigoRuntime, [200, 201], true)) {
+                // Toda mutación o consulta exitosa exige estrictamente exito === true en el envelope JSON
+                $resultadoNegocioOk = is_array($jsonRuntime) && ($jsonRuntime['exito'] ?? false) === true;
+            } elseif ($codigoRuntime === 405) {
+                // Los 5 endpoints DELETE de gobernanza exigen estrictamente exito === false y código 405
+                $rutas405Gobernanza = [
+                    '/api/v1/usuarios/{id}',
+                    '/api/v1/clientes/{id}',
+                    '/api/v1/crm/oportunidades/{id}',
+                    '/api/v1/crm/interacciones/{id}',
+                    '/api/v1/crm/origenes/{id}',
+                ];
+                $resultadoNegocioOk = is_array($jsonRuntime)
+                    && ($jsonRuntime['exito'] ?? true) === false
+                    && in_array($patron, $rutas405Gobernanza, true)
+                    && $metodoHttp === 'DELETE';
+            }
+        }
+
         // Verificar que el código HTTP obtenido en runtime esté documentado en OpenAPI responses
         $respuestasDocumentadas = array_map('strval', array_keys($contrato['responses'] ?? []));
         $codigoDocumentadoEnOpenApi = in_array((string) $codigoRuntime, $respuestasDocumentadas, true);
@@ -997,14 +1023,17 @@ try {
         if (!$codigoDocumentadoEnOpenApi) {
             $fallosCodigoOpenApi[] = "{$idPrueba} {$llave} devolvió HTTP {$codigoRuntime} no listado en OpenAPI [" . implode(',', $respuestasDocumentadas) . "]";
         }
+        if (!$resultadoNegocioOk) {
+            $fallosResultadoNegocio[] = "{$idPrueba} {$llave} -> HTTP {$codigoRuntime} sin resultado de negocio conforme: " . substr($cuerpoRuntime, 0, 140);
+        }
 
-        $endpointPasado = $rechazoSinAuthOk && $rechazoRbacOk && $formatoValido && $codigoDocumentadoEnOpenApi;
+        $endpointPasado = $rechazoSinAuthOk && $rechazoRbacOk && $formatoValido && $codigoDocumentadoEnOpenApi && $resultadoNegocioOk;
 
         // Aserción nominal individual para cada uno de los 269 endpoints
         assertF42C(
             $endpointPasado,
-            "3.EP.{$indiceEndpoint} [{$idPrueba}]: {$metodoHttp} {$patron} ({$nombreControlador}) -> HTTP {$codigoRuntime} | Auth: {$esquemaSeguridad} | OpenAPI 1:1",
-            !$endpointPasado ? "SinAuthOK=" . ($rechazoSinAuthOk ? '1' : '0') . " RbacOK=" . ($rechazoRbacOk ? '1' : '0') . " FormatoOK=" . ($formatoValido ? '1' : '0') . " EnOpenApi=" . ($codigoDocumentadoEnOpenApi ? '1' : '0') : ''
+            "3.EP.{$indiceEndpoint} [{$idPrueba}]: {$metodoHttp} {$patron} ({$nombreControlador}) -> HTTP {$codigoRuntime} | Negocio: " . ($resultadoNegocioOk ? 'OK' : 'FAIL') . " | Auth: {$esquemaSeguridad} | OpenAPI 1:1",
+            !$endpointPasado ? "SinAuthOK=" . ($rechazoSinAuthOk ? '1' : '0') . " RbacOK=" . ($rechazoRbacOk ? '1' : '0') . " FormatoOK=" . ($formatoValido ? '1' : '0') . " EnOpenApi=" . ($codigoDocumentadoEnOpenApi ? '1' : '0') . " NegocioOK=" . ($resultadoNegocioOk ? '1' : '0') : ''
         );
 
         $escenarioDescripcion = match ($esquemaSeguridad) {
@@ -1031,6 +1060,7 @@ try {
                 '2_endpoint_documentado'                 => true,
                 '3_endpoint_validado_estructuralmente'   => true,
                 '4_endpoint_ejecutado_certificado_runtime' => $endpointPasado,
+                '5_resultado_negocio_verificado'         => $resultadoNegocioOk,
             ],
             'escenario_ejecutado'          => $escenarioDescripcion,
             'autenticacion_utilizada'      => $autenticacionUtilizada,
@@ -1043,11 +1073,13 @@ try {
             'codigo_http_obtenido'         => $codigoRuntime,
             'codigo_http_sin_auth'         => $codigoSinAuth,
             'codigo_http_sin_permiso_rbac' => $codigoSinPermisoRbac,
+            'resultado_negocio_ok'         => $resultadoNegocioOk,
             'validacion_respuesta_openapi' => [
                 'codigo_documentado_en_openapi' => $codigoDocumentadoEnOpenApi,
                 'codigos_openapi_declarados'    => $respuestasDocumentadas,
                 'tipo_respuesta'                => $tipoRespuestaDetectado,
                 'claves_sobre_verificadas'      => $clavesSobreVerificadas,
+                'resultado_negocio_exito'       => $resultadoNegocioOk,
                 'conforme_contrato_openapi'     => $formatoValido && $codigoDocumentadoEnOpenApi,
             ],
             'validacion_errores_aplicables'=> [
@@ -1078,6 +1110,12 @@ try {
         count($fallosEjecucionRuntime) === 0 && count($fallosCodigoOpenApi) === 0 && $conteoEjecucionRuntime === 269,
         "3.AG.2: Control agregado: 100% de los 269 endpoints ejecutan en base aislada sin errores 500 y con código HTTP documentado 1:1 en OpenAPI",
         implode(' | ', array_slice(array_merge($fallosEjecucionRuntime, $fallosCodigoOpenApi), 0, 5))
+    );
+
+    assertF42C(
+        count($fallosResultadoNegocio) === 0 && count($matrizCertificacion) === 269,
+        "3.AG.3: Control agregado: 100% de los 269 endpoints certifican resultado de negocio semántico conforme (264 positivos con exito=true y 5 DELETE con HTTP 405 de inmutabilidad)",
+        implode(' | ', array_slice($fallosResultadoNegocio, 0, 5))
     );
 
     // ==========================================================================
@@ -1178,8 +1216,13 @@ try {
         "4.5: Protección CSRF activa: operación mutable autenticada sin token CSRF es rechazada con HTTP 403"
     );
 
-    // 4.6 Prohibición de eliminación física por gobernanza (HTTP 405)
-    $resDeleteProhibido = ejecutarAccionEnBaseAislada(
+    // ==============================================================================
+    // 4.6 a 4.10: PROHIBICIÓN CONTRACTUAL DE BORRADO FÍSICO (HTTP 405) E INMUTABILIDAD EN BD
+    // ==============================================================================
+    echo "\n--- Sub-bloque 4.A: Inmutabilidad Relacional de los 5 DELETE Bloqueados (HTTP 405) ---\n";
+
+    // 4.6: DELETE /api/v1/usuarios/{id} -> HTTP 405 y persistencia intacta
+    $resDelUsr = ejecutarAccionEnBaseAislada(
         patron: '/api/v1/usuarios/{id}',
         metodoHttp: 'DELETE',
         accion: [\Aplicacion\Controladores\UsuarioControlador::class, 'eliminar'],
@@ -1193,9 +1236,205 @@ try {
         tokenCsrf: $tokenCsrfMaestro,
         reemplazosRuta: ['id' => (string) $usuarioSinPermId]
     );
+    $usrExiste = (int) $pdoAislado->query("SELECT COUNT(*) FROM `usuarios` WHERE `id` = {$usuarioSinPermId}")->fetchColumn();
     assertF42C(
-        $resDeleteProhibido['codigo_http'] === 405,
-        "4.6: Gobernanza de integridad: DELETE /api/v1/usuarios/{id} bloquea el borrado físico con HTTP 405 Method Not Allowed"
+        $resDelUsr['codigo_http'] === 405 && $usrExiste === 1,
+        "4.6: Inmutabilidad relacional: DELETE /api/v1/usuarios/{id} bloquea borrado físico con HTTP 405 y el registro en `usuarios` permanece intacto (COUNT=1)"
+    );
+
+    // 4.7: DELETE /api/v1/clientes/{id} -> HTTP 405 y persistencia intacta
+    $resDelCli = ejecutarAccionEnBaseAislada(
+        patron: '/api/v1/clientes/{id}',
+        metodoHttp: 'DELETE',
+        accion: [\Aplicacion\Controladores\ClienteControlador::class, 'eliminar'],
+        authMock: $authValidoMock,
+        authzMock: $authzValidoMock,
+        authClienteMock: $authClienteValidoMock,
+        slugTenant: $slugTenantA,
+        edicionId: $edicionAId,
+        tokenAdminBearer: $tokenAdminPlano,
+        tokenClienteCookie: '',
+        tokenCsrf: $tokenCsrfMaestro,
+        reemplazosRuta: ['id' => (string) $clienteAId]
+    );
+    $cliExiste = (int) $pdoAislado->query("SELECT COUNT(*) FROM `clientes` WHERE `id` = {$clienteAId}")->fetchColumn();
+    assertF42C(
+        $resDelCli['codigo_http'] === 405 && $cliExiste === 1,
+        "4.7: Inmutabilidad relacional: DELETE /api/v1/clientes/{id} bloquea borrado físico con HTTP 405 y el registro en `clientes` permanece intacto (COUNT=1)"
+    );
+
+    // 4.8: DELETE /api/v1/crm/oportunidades/{id} -> HTTP 405 y persistencia intacta
+    $resDelOpo = ejecutarAccionEnBaseAislada(
+        patron: '/api/v1/crm/oportunidades/{id}',
+        metodoHttp: 'DELETE',
+        accion: [\Aplicacion\Controladores\OportunidadControlador::class, 'eliminar'],
+        authMock: $authValidoMock,
+        authzMock: $authzValidoMock,
+        authClienteMock: $authClienteValidoMock,
+        slugTenant: $slugTenantA,
+        edicionId: $edicionAId,
+        tokenAdminBearer: $tokenAdminPlano,
+        tokenClienteCookie: '',
+        tokenCsrf: $tokenCsrfMaestro,
+        reemplazosRuta: ['id' => (string) $f['oportunidadId']]
+    );
+    $opoExiste = (int) $pdoAislado->query("SELECT COUNT(*) FROM `crm_oportunidades` WHERE `id` = {$f['oportunidadId']}")->fetchColumn();
+    assertF42C(
+        $resDelOpo['codigo_http'] === 405 && $opoExiste === 1,
+        "4.8: Inmutabilidad relacional: DELETE /api/v1/crm/oportunidades/{id} bloquea borrado físico con HTTP 405 y la oportunidad en `crm_oportunidades` permanece intacta (COUNT=1)"
+    );
+
+    // 4.9: DELETE /api/v1/crm/interacciones/{id} -> HTTP 405 y persistencia intacta
+    $resDelInt = ejecutarAccionEnBaseAislada(
+        patron: '/api/v1/crm/interacciones/{id}',
+        metodoHttp: 'DELETE',
+        accion: [\Aplicacion\Controladores\InteraccionControlador::class, 'eliminar'],
+        authMock: $authValidoMock,
+        authzMock: $authzValidoMock,
+        authClienteMock: $authClienteValidoMock,
+        slugTenant: $slugTenantA,
+        edicionId: $edicionAId,
+        tokenAdminBearer: $tokenAdminPlano,
+        tokenClienteCookie: '',
+        tokenCsrf: $tokenCsrfMaestro,
+        reemplazosRuta: ['id' => (string) $f['interaccionId']]
+    );
+    $intExiste = (int) $pdoAislado->query("SELECT COUNT(*) FROM `crm_interacciones` WHERE `id` = {$f['interaccionId']}")->fetchColumn();
+    assertF42C(
+        $resDelInt['codigo_http'] === 405 && $intExiste === 1,
+        "4.9: Inmutabilidad relacional: DELETE /api/v1/crm/interacciones/{id} bloquea borrado físico con HTTP 405 y el registro append-only en `crm_interacciones` permanece intacto (COUNT=1)"
+    );
+
+    // 4.10: DELETE /api/v1/crm/origenes/{id} -> HTTP 405 y persistencia intacta
+    $resDelOri = ejecutarAccionEnBaseAislada(
+        patron: '/api/v1/crm/origenes/{id}',
+        metodoHttp: 'DELETE',
+        accion: [\Aplicacion\Controladores\OrigenComercialControlador::class, 'eliminar'],
+        authMock: $authValidoMock,
+        authzMock: $authzValidoMock,
+        authClienteMock: $authClienteValidoMock,
+        slugTenant: $slugTenantA,
+        edicionId: $edicionAId,
+        tokenAdminBearer: $tokenAdminPlano,
+        tokenClienteCookie: '',
+        tokenCsrf: $tokenCsrfMaestro,
+        reemplazosRuta: ['id' => (string) $f['origenId']]
+    );
+    $oriExiste = (int) $pdoAislado->query("SELECT COUNT(*) FROM `origenes_comerciales` WHERE `id` = {$f['origenId']}")->fetchColumn();
+    assertF42C(
+        $resDelOri['codigo_http'] === 405 && $oriExiste === 1,
+        "4.10: Inmutabilidad relacional: DELETE /api/v1/crm/origenes/{id} bloquea borrado físico con HTTP 405 y el origen en `origenes_comerciales` permanece intacto (COUNT=1)"
+    );
+
+    // ==============================================================================
+    // 4.11 a 4.21: ASERCIONES DE PERSISTENCIA RELACIONAL DE OPERACIONES CRÍTICAS
+    // ==============================================================================
+    echo "\n--- Sub-bloque 4.B: Persistencia Relacional Directa de Operaciones Críticas en MySQL ---\n";
+
+    // 4.11: Persistencia de creación de cliente (POST /api/v1/clientes)
+    $stmtCliPos = $pdoAislado->query("
+        SELECT c.id, c.estado_comercial 
+        FROM `clientes` c 
+        JOIN `personas` p ON c.persona_id = p.id 
+        WHERE p.numero_documento = '88990011' AND c.organizacion_id = {$orgAId}
+    ");
+    $cliPosFila = $stmtCliPos->fetch(PDO::FETCH_ASSOC);
+    $cliCreadoId = (int) ($cliPosFila['id'] ?? 0);
+    assertF42C(
+        is_array($cliPosFila) && ($cliPosFila['estado_comercial'] ?? '') === 'PROSPECTO' && $cliCreadoId > 0,
+        "4.11: Persistencia relacional: POST /api/v1/clientes persistió cliente #{$cliCreadoId} con estado inicial 'PROSPECTO'"
+    );
+
+    // 4.12: Persistencia de actualización de estado de cliente (PATCH /api/v1/clientes/{id}/estado)
+    $stmtCliEst = $pdoAislado->query("SELECT `estado_comercial` FROM `clientes` WHERE `id` = {$f['clienteCambioEstadoId']}");
+    $cliEstVal = (string) $stmtCliEst->fetchColumn();
+    assertF42C(
+        $cliEstVal === 'CLIENTE',
+        "4.12: Persistencia relacional: PATCH /api/v1/clientes/{id}/estado actualizó exitosamente `estado_comercial` a 'CLIENTE'"
+    );
+
+    // 4.13: Persistencia de oferta de ítem comercial (POST /api/v1/catalogo/ofertas/items)
+    $stmtOftItm = $pdoAislado->query("
+        SELECT COUNT(*) FROM `ofertas_items_edicion` 
+        WHERE `edicion_id` = {$edicionAId} AND `item_comercial_id` = {$f['itemParaOfertarId']}
+    ");
+    $oftItmCount = (int) $stmtOftItm->fetchColumn();
+    assertF42C(
+        $oftItmCount >= 1,
+        "4.13: Persistencia relacional: POST /api/v1/catalogo/ofertas/items persistió oferta en `ofertas_items_edicion` para ítem #{$f['itemParaOfertarId']}"
+    );
+
+    // 4.14: Persistencia de emisión de cotización (POST /api/v1/cotizaciones/{id}/emitir)
+    $stmtCotEmi = $pdoAislado->query("SELECT `estado` FROM `cotizaciones` WHERE `id` = {$f['cotizacionParaEmitirId']}");
+    $cotEmiVal = (string) $stmtCotEmi->fetchColumn();
+    assertF42C(
+        $cotEmiVal === 'EMITIDA',
+        "4.14: Persistencia relacional: POST /api/v1/cotizaciones/{id}/emitir persistió transición a estado 'EMITIDA' en cotización #{$f['cotizacionParaEmitirId']}"
+    );
+
+    // 4.15: Persistencia de liquidación de venta (POST /api/v1/ventas/{id}/liquidar)
+    $stmtVtaLiq = $pdoAislado->query("SELECT `estado` FROM `ventas` WHERE `id` = {$f['ventaParaLiquidarId']}");
+    $vtaLiqVal = (string) $stmtVtaLiq->fetchColumn();
+    assertF42C(
+        $vtaLiqVal === 'LIQUIDADA',
+        "4.15: Persistencia relacional: POST /api/v1/ventas/{id}/liquidar persistió estado 'LIQUIDADA' en venta #{$f['ventaParaLiquidarId']}"
+    );
+
+    // 4.16: Persistencia de reserva generada desde venta (POST /api/v1/reservas/desde-venta/{ventaId})
+    $stmtRsvGen = $pdoAislado->query("SELECT COUNT(*) FROM `reservas` WHERE `venta_id` = {$f['ventaSinReservaId']}");
+    $rsvGenCount = (int) $stmtRsvGen->fetchColumn();
+    assertF42C(
+        $rsvGenCount >= 1,
+        "4.16: Persistencia relacional: POST /api/v1/reservas/desde-venta/{ventaId} persistió registro en `reservas` vinculado a venta #{$f['ventaSinReservaId']}"
+    );
+
+    // 4.17: Persistencia de check-in de asistencia operativa (POST /api/v1/operaciones/salidas/{id}/checkin)
+    $stmtAsis = $pdoAislado->query("
+        SELECT `estado_asistencia` FROM `operacion_asistencias` 
+        WHERE `salida_id` = {$f['salidaId']} AND `participante_id` = {$f['participanteId']}
+    ");
+    $asisVal = (string) $stmtAsis->fetchColumn();
+    assertF42C(
+        $asisVal === 'PRESENTE',
+        "4.17: Persistencia relacional: POST /api/v1/operaciones/salidas/{id}/checkin persistió `estado_asistencia` = 'PRESENTE' en `operacion_asistencias`"
+    );
+
+    // 4.18: Persistencia de inscripción folclórica (POST /api/v1/folclore/ediciones/{edicionId}/inscripciones)
+    $stmtInsc = $pdoAislado->query("
+        SELECT COUNT(*) FROM `edicion_conjunto_inscripciones` 
+        WHERE `edicion_id` = {$edicionAId} AND `conjunto_id` = {$f['conjuntoParaInscribirId']}
+    ");
+    $inscCount = (int) $stmtInsc->fetchColumn();
+    assertF42C(
+        $inscCount >= 1,
+        "4.18: Persistencia relacional: POST /api/v1/folclore/ediciones/{edicionId}/inscripciones persistió inscripción en `edicion_conjunto_inscripciones`"
+    );
+
+    // 4.19: Persistencia de seguimiento de turno folclórico (PUT /api/v1/folclore/seguimiento/turnos/{id}/estado)
+    $stmtTrn = $pdoAislado->query("SELECT `estado_turno` FROM `folclore_orden_presentacion` WHERE `id` = {$f['turnoParaSeguimientoId']}");
+    $trnVal = (string) $stmtTrn->fetchColumn();
+    assertF42C(
+        $trnVal === 'EN_PREPARACION',
+        "4.19: Persistencia relacional: PUT /api/v1/folclore/seguimiento/turnos/{id}/estado persistió `estado_turno` = 'EN_PREPARACION' en `folclore_orden_presentacion`"
+    );
+
+    // 4.20: Persistencia de consentimiento Ley 29733 (POST /api/v1/clientes/{id}/consentimientos)
+    $stmtCons = $pdoAislado->query("
+        SELECT COUNT(*) FROM `consentimientos_cliente` 
+        WHERE `cliente_id` = {$clienteAId} AND `canal` = 'WEB'
+    ");
+    $consCount = (int) $stmtCons->fetchColumn();
+    assertF42C(
+        $consCount >= 1,
+        "4.20: Persistencia relacional: POST /api/v1/clientes/{id}/consentimientos persistió registro de consentimiento Ley 29733 en `consentimientos_cliente`"
+    );
+
+    // 4.21: Persistencia de ciclo de vida de edición (PUT /api/v1/ediciones/{id}/estado)
+    $stmtEdEst = $pdoAislado->query("SELECT `estado` FROM `ediciones_candelaria` WHERE `id` = {$f['edicionCambioEstadoId']}");
+    $edEstVal = (string) $stmtEdEst->fetchColumn();
+    assertF42C(
+        $edEstVal === 'OPERACION',
+        "4.21: Persistencia relacional: PUT /api/v1/ediciones/{id}/estado persistió transición a 'OPERACION' en `ediciones_candelaria`"
     );
 
 } finally {
@@ -1235,10 +1474,12 @@ $totalValidadosEstructuralmente = count(array_filter($matrizCertificacion, fn($x
 $totalEjecutadosYCertificados = count(array_filter($matrizCertificacion, fn($x) => $x['categorias_certificacion']['4_endpoint_ejecutado_certificado_runtime'] === true));
 $totalObservados = count(array_filter($matrizCertificacion, fn($x) => $x['resultado'] !== 'PASS'));
 
+$totalResultadosNegocioValidados = count(array_filter($matrizCertificacion, fn($x) => ($x['categorias_certificacion']['5_resultado_negocio_verificado'] ?? false) === true));
+
 $documentoMatriz = [
     'proyecto'                           => 'CandelariaAPP',
     'version'                            => '1.2.0',
-    'directiva'                          => 'DT-V12-003 (Auditoría Final de Cobertura Contractual 1:1)',
+    'directiva'                          => 'DT-V12-005 (Auditoría Final de Cobertura Contractual 1:1, Efectos de Persistencia y Semántica de Negocio)',
     'generado_en'                        => date('Y-m-d H:i:s'),
     'base_datos_ejecucion_aislada'       => $nombreBdAislada . ' (destruida post-ejecución)',
     'reconciliacion_v11_v12'             => [
@@ -1253,6 +1494,15 @@ $documentoMatriz = [
         ],
         'total_operaciones_v12'                => 269,
         'rutas_eliminadas_o_incompatibles'     => 0,
+    ],
+    'resumen_categorias_dt_v12_005'      => [
+        '1_total_inventariados_en_enrutador'       => $totalInventariados,
+        '2_total_documentados_en_openapi'          => $totalDocumentados,
+        '3_total_validados_estructuralmente'       => $totalValidadosEstructuralmente,
+        '4_total_ejecutados_y_certificados_runtime'=> $totalEjecutadosYCertificados,
+        '5_total_resultados_negocio_validados'     => $totalResultadosNegocioValidados,
+        'total_pendientes_u_omitidos_skip'         => 0,
+        'total_fallidos_u_observados'              => $totalObservados,
     ],
     'resumen_categorias_dt_v12_003'      => [
         '1_total_inventariados_en_enrutador'       => $totalInventariados,
@@ -1280,8 +1530,9 @@ assertF42C(
     file_exists($rutaMatriz)
     && $documentoMatriz['total_certificados_1a1'] === 269
     && $documentoMatriz['total_observados'] === 0
+    && $totalResultadosNegocioValidados === 269
     && ($resumenCodigosHttp['500'] ?? 0) === 0,
-    "3.AG.3: Matriz auditable pruebas/matriz_certificacion_contratos_v12.json generada con 269/269 PASS, 0 SKIP, 0 FAIL y 0 respuestas HTTP 500"
+    "3.AG.4: Matriz auditable pruebas/matriz_certificacion_contratos_v12.json generada con 269/269 PASS, 0 SKIP, 0 FAIL y 0 respuestas HTTP 500"
 );
 
 // ==============================================================================
