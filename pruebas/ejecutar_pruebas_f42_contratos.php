@@ -37,6 +37,74 @@ use Nucleo\Http\Middleware\AutenticacionClienteMiddleware;
 use Nucleo\Http\Middleware\AutenticacionMiddleware;
 use Nucleo\Http\Middleware\AutorizacionMiddleware;
 
+// Stream wrapper para php://input y otros flujos php:// (necesario para Dompdf y Masterminds\HTML5)
+if (!in_array('php', stream_get_wrappers(), true) || !class_exists('MockPhpStream', false)) {
+    class MockPhpStream {
+        public $context;
+        public static string $buffer = '';
+        private string $localBuffer = '';
+        private int $pos = 0;
+        private bool $isInput = false;
+
+        public function stream_open($path, $mode, $options, &$opened_path) {
+            $this->pos = 0;
+            if (str_contains($path, 'input')) {
+                $this->isInput = true;
+                $this->localBuffer = self::$buffer;
+            } else {
+                $this->isInput = false;
+                $this->localBuffer = '';
+            }
+            return true;
+        }
+        public function stream_read($count) {
+            $src = $this->isInput ? self::$buffer : $this->localBuffer;
+            $ret = substr($src, $this->pos, $count);
+            $this->pos += strlen($ret);
+            return $ret;
+        }
+        public function stream_write($data) {
+            if ($this->isInput) {
+                self::$buffer .= $data;
+            } else {
+                $this->localBuffer .= $data;
+            }
+            $this->pos += strlen($data);
+            return strlen($data);
+        }
+        public function stream_seek($offset, $whence = SEEK_SET) {
+            $len = strlen($this->isInput ? self::$buffer : $this->localBuffer);
+            if ($whence === SEEK_SET) {
+                $this->pos = $offset;
+            } elseif ($whence === SEEK_CUR) {
+                $this->pos += $offset;
+            } elseif ($whence === SEEK_END) {
+                $this->pos = $len + $offset;
+            }
+            return true;
+        }
+        public function stream_tell() {
+            return $this->pos;
+        }
+        public function stream_eof() {
+            $len = strlen($this->isInput ? self::$buffer : $this->localBuffer);
+            return $this->pos >= $len;
+        }
+        public function stream_stat() {
+            $len = strlen($this->isInput ? self::$buffer : $this->localBuffer);
+            return ['size' => $len];
+        }
+    }
+    stream_wrapper_unregister('php');
+    stream_wrapper_register('php', MockPhpStream::class);
+}
+
+$tmpLogoPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'test_logo_cert.png';
+$im = imagecreatetruecolor(50, 50);
+imagefill($im, 0, 0, imagecolorallocate($im, 200, 50, 50));
+imagepng($im, $tmpLogoPath);
+imagedestroy($im);
+
 $pruebasEjecutadas = 0;
 $pruebasPasadas = 0;
 $pruebasFallidas = 0;
@@ -357,7 +425,7 @@ $pdoAislado->exec("SET FOREIGN_KEY_CHECKS = 1");
 
 // Sembrar catálogos base requeridos por claves foráneas en la base desechable
 $tablasAisladas = $pdoAislado->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
-foreach (['tipos_documento', 'canales', 'actores_sistema', 'pasarelas_pago_catalogo', 'roles', 'permisos', 'rol_permisos'] as $tablaCatalogo) {
+foreach (['tipos_documento', 'canales', 'actores_sistema', 'pasarelas_pago', 'pasarelas_pago_catalogo', 'roles', 'permisos', 'rol_permisos', 'comunicacion_proveedores', 'comunicacion_tarifas'] as $tablaCatalogo) {
     if (in_array($tablaCatalogo, $tablasAisladas, true)) {
         $pdoAislado->exec("INSERT IGNORE INTO `{$nombreBdAislada}`.`{$tablaCatalogo}` SELECT * FROM `{$nombreBdPrincipal}`.`{$tablaCatalogo}`");
     }
@@ -416,7 +484,10 @@ function ejecutarAccionEnBaseAislada(
     string $tokenCsrf,
     array $reemplazosRuta = [],
     array $queryExtra = [],
-    array $postExtra = []
+    array $postExtra = [],
+    array $archivosFiles = [],
+    ?string $rawBody = null,
+    array $cabecerasExtra = []
 ): array {
     preg_match_all('#\{([a-zA-Z0-9_]+)\}#', $patron, $m);
     $coincidencias = [];
@@ -425,11 +496,11 @@ function ejecutarAccionEnBaseAislada(
         if (isset($reemplazosRuta[$nombreParam])) {
             $val = (string) $reemplazosRuta[$nombreParam];
         } elseif ($nombreParam === 'codigo') {
-            $val = 'PASARELA_PRUEBA_INACTIVA';
+            $val = 'CULQI';
         } elseif ($nombreParam === 'edicionId') {
             $val = (string) $edicionId;
         } else {
-            $val = '99999999';
+            $val = '1';
         }
         $coincidencias[] = $val;
         $uriResuelta = (string) preg_replace('#\{' . preg_quote($nombreParam, '#') . '\}#', $val, $uriResuelta, 1);
@@ -472,6 +543,12 @@ function ejecutarAccionEnBaseAislada(
         unset($_SERVER['HTTP_X_CLIENTE_TOKEN']);
     }
 
+    foreach ($cabecerasExtra as $hk => $hv) {
+        $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', $hk));
+        $_SERVER[$serverKey] = $hv;
+        $headersRegistrados[$hk] = $hv;
+    }
+
     $baseQuery = [
         'slug'              => $slugTenant,
         'slug_organizacion' => $slugTenant,
@@ -491,9 +568,13 @@ function ejecutarAccionEnBaseAislada(
             '_token_csrf'       => $tokenCsrf,
             '_csrf_token'       => $tokenCsrf,
         ], $postExtra);
+        MockPhpStream::$buffer = $rawBody ?? json_encode($postExtra, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     } else {
         $_POST = [];
+        MockPhpStream::$buffer = '';
     }
+
+    $_FILES = $archivosFiles;
 
     $argumentos = Enrutador::prepararArgumentosAccion($patron, $coincidencias, $accion);
 
@@ -589,160 +670,42 @@ $conteoRechazoRbac = 0;
 $conteoEjecucionRuntime = 0;
 
 try {
-    $sufijo = bin2hex(random_bytes(3));
-    $slugTenantA = 'org_cert_v12_a_' . $sufijo;
-    $slugTenantB = 'org_cert_v12_b_' . $sufijo;
+    require_once __DIR__ . '/sembrador_fixtures_f42.php';
+    require_once __DIR__ . '/resolver_fixtures_f42.php';
+
+    $sufijo = strtoupper(bin2hex(random_bytes(3)));
+    $slugTenantA = 'org_a_' . strtolower($sufijo);
+    $slugTenantB = 'org_b_' . strtolower($sufijo);
     $tokenCsrfMaestro = bin2hex(random_bytes(32));
-
-    // --------------------------------------------------------------------------
-    // 1. Sembrar Organización A (Titular) y Organización B (Cruzada/Ajena)
-    // --------------------------------------------------------------------------
-    $pdoAislado->prepare("
-        INSERT INTO `organizaciones` (`codigo`, `nombre_comercial`, `razon_social`, `tipo_documento_id`, `numero_documento`, `estado`)
-        VALUES (:cod, 'Candelaria Cert A', 'Org Certificación A SAC', 2, :ruc, 'ACTIVO')
-    ")->execute(['cod' => $slugTenantA, 'ruc' => '20881111111']);
-    $orgAId = (int) $pdoAislado->lastInsertId();
-
-    $pdoAislado->prepare("
-        INSERT INTO `organizaciones` (`codigo`, `nombre_comercial`, `razon_social`, `tipo_documento_id`, `numero_documento`, `estado`)
-        VALUES (:cod, 'Candelaria Cert B', 'Org Certificación B SAC', 2, :ruc, 'ACTIVO')
-    ")->execute(['cod' => $slugTenantB, 'ruc' => '20882222222']);
-    $orgBId = (int) $pdoAislado->lastInsertId();
-
-    // Ediciones de Organización A y B
-    $pdoAislado->prepare("
-        INSERT INTO `ediciones_candelaria` (`organizacion_id`, `codigo`, `nombre`, `anio`, `fecha_inicio`, `fecha_fin`, `estado`, `es_actual`)
-        VALUES (:org, :cod, 'Edición A 2026', 2026, '2026-02-01', '2026-02-15', 'OPERACION', 1)
-    ")->execute(['org' => $orgAId, 'cod' => 'cert-a-2026']);
-    $edicionAId = (int) $pdoAislado->lastInsertId();
-
-    $pdoAislado->prepare("
-        INSERT INTO `ediciones_candelaria` (`organizacion_id`, `codigo`, `nombre`, `anio`, `fecha_inicio`, `fecha_fin`, `estado`, `es_actual`)
-        VALUES (:org, :cod, 'Edición B 2026', 2026, '2026-02-01', '2026-02-15', 'OPERACION', 1)
-    ")->execute(['org' => $orgBId, 'cod' => 'cert-b-2026']);
-    $edicionBId = (int) $pdoAislado->lastInsertId();
-
-    // Personas y Usuarios de Organización A
-    $pdoAislado->prepare("
-        INSERT INTO `personas` (`organizacion_id`, `tipo_persona`, `tipo_documento_id`, `numero_documento`, `nombres`, `apellidos`, `correo_electronico`, `telefono_movil`, `telefono_whatsapp`)
-        VALUES (:org, 'NATURAL', 1, '88111111', 'Auditor', 'Contratos A', :correo, '+51951111111', '+51951111111')
-    ")->execute(['org' => $orgAId, 'correo' => "auditor.a.{$sufijo}@candelaria.pe"]);
-    $personaAId = (int) $pdoAislado->lastInsertId();
-
-    $clavePlana = 'CertV12Secret!';
-    $usrLoginA = "auditor_a_{$sufijo}";
-    $pdoAislado->prepare("
-        INSERT INTO `usuarios` (`organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `contrasena_hash`, `estado`)
-        VALUES (:org, :per, :usr, 'Auditor Contratos A', :correo, :hash, 'ACTIVO')
-    ")->execute([
-        'org'    => $orgAId,
-        'per'    => $personaAId,
-        'usr'    => $usrLoginA,
-        'correo' => "auditor.a.{$sufijo}@candelaria.pe",
-        'hash'   => password_hash($clavePlana, PASSWORD_BCRYPT),
-    ]);
-    $usuarioAId = (int) $pdoAislado->lastInsertId();
-
-    $rolSuperAdminId = (int) ($pdoAislado->query("SELECT id FROM roles WHERE codigo = 'super_admin' LIMIT 1")->fetchColumn() ?: 1);
-    $pdoAislado->prepare("INSERT INTO `usuario_roles` (`usuario_id`, `rol_id`) VALUES (:usr, :rol)")
-        ->execute(['usr' => $usuarioAId, 'rol' => $rolSuperAdminId]);
-
-    // Usuario sin permisos RBAC en Organización A (para prueba negativa 403)
-    $pdoAislado->prepare("
-        INSERT INTO `personas` (`organizacion_id`, `tipo_persona`, `tipo_documento_id`, `numero_documento`, `nombres`, `apellidos`, `correo_electronico`, `telefono_movil`, `telefono_whatsapp`)
-        VALUES (:org, 'NATURAL', 1, '88444444', 'Operador', 'Sin Permisos', :correo, '+51951444444', '+51951444444')
-    ")->execute(['org' => $orgAId, 'correo' => "sinperm.{$sufijo}@candelaria.pe"]);
-    $personaSinPermId = (int) $pdoAislado->lastInsertId();
-
-    $usrSinPermLogin = "sin_perm_{$sufijo}";
-    $pdoAislado->prepare("
-        INSERT INTO `usuarios` (`organizacion_id`, `persona_id`, `nombre_usuario`, `nombre_completo`, `correo_electronico`, `contrasena_hash`, `estado`)
-        VALUES (:org, :per, :usr, 'Operador Sin Permisos', :correo, :hash, 'ACTIVO')
-    ")->execute([
-        'org'    => $orgAId,
-        'per'    => $personaSinPermId,
-        'usr'    => $usrSinPermLogin,
-        'correo' => "sinperm.{$sufijo}@candelaria.pe",
-        'hash'   => password_hash($clavePlana, PASSWORD_BCRYPT),
-    ]);
-    $usuarioSinPermId = (int) $pdoAislado->lastInsertId();
-
-    // Autenticar sesiones reales en la base aislada
-    $authSvc = new AutenticacionServicio(pdo: $pdoAislado);
-    $resAuthPrincipal = $authSvc->autenticar($usrLoginA, $clavePlana, '127.0.0.1', 'CertificadorContratosV12');
-    $resAuthLogout    = $authSvc->autenticar($usrLoginA, $clavePlana, '127.0.0.1', 'CertificadorContratosV12');
-    $resAuthSinPerm   = $authSvc->autenticar($usrSinPermLogin, $clavePlana, '127.0.0.1', 'CertificadorContratosV12');
-
-    $tokenAdminPlano     = (string) $resAuthPrincipal->tokenSesion;
-    $tokenLogoutPlano    = (string) $resAuthLogout->tokenSesion;
-    $tokenSinPermPlano   = (string) $resAuthSinPerm->tokenSesion;
-
-    // Clientes A y B y Recursos de Organización B para pruebas Anti-IDOR
-    $pdoAislado->prepare("
-        INSERT INTO `clientes` (`organizacion_id`, `persona_id`, `estado_comercial`, `consentimiento_operativo`)
-        VALUES (:org, :per, 'CLIENTE', 1)
-    ")->execute(['org' => $orgAId, 'per' => $personaAId]);
-    $clienteAId = (int) $pdoAislado->lastInsertId();
-
-    $pdoAislado->prepare("
-        INSERT INTO `personas` (`organizacion_id`, `tipo_persona`, `tipo_documento_id`, `numero_documento`, `nombres`, `apellidos`, `correo_electronico`, `telefono_movil`, `telefono_whatsapp`)
-        VALUES (:org, 'NATURAL', 1, '88222222', 'Cliente', 'Ajeno B', :correo, '+51951222222', '+51951222222')
-    ")->execute(['org' => $orgBId, 'correo' => "cliente.b.{$sufijo}@candelaria.pe"]);
-    $personaBId = (int) $pdoAislado->lastInsertId();
-
-    $pdoAislado->prepare("
-        INSERT INTO `clientes` (`organizacion_id`, `persona_id`, `estado_comercial`, `consentimiento_operativo`)
-        VALUES (:org, :per, 'CLIENTE', 1)
-    ")->execute(['org' => $orgBId, 'per' => $personaBId]);
-    $clienteBId = (int) $pdoAislado->lastInsertId();
-
-    // Cliente C en la misma Organización A (para prueba Anti-IDOR intra-tenant)
-    $pdoAislado->prepare("
-        INSERT INTO `personas` (`organizacion_id`, `tipo_persona`, `tipo_documento_id`, `numero_documento`, `nombres`, `apellidos`, `correo_electronico`, `telefono_movil`, `telefono_whatsapp`)
-        VALUES (:org, 'NATURAL', 1, '88333333', 'Cliente', 'Otro Titular C', :correo, '+51951333333', '+51951333333')
-    ")->execute(['org' => $orgAId, 'correo' => "cliente.c.{$sufijo}@candelaria.pe"]);
-    $personaCId = (int) $pdoAislado->lastInsertId();
-
-    $pdoAislado->prepare("
-        INSERT INTO `clientes` (`organizacion_id`, `persona_id`, `estado_comercial`, `consentimiento_operativo`)
-        VALUES (:org, :per, 'CLIENTE', 1)
-    ")->execute(['org' => $orgAId, 'per' => $personaCId]);
-    $clienteCId = (int) $pdoAislado->lastInsertId();
-
-    // Venta del Cliente C (misma Organización A, distinto titular) para verificar bloqueo Anti-IDOR por Cliente A
-    $pdoAislado->prepare("
-        INSERT INTO `ventas` (
-            `organizacion_id`, `edicion_id`, `cliente_id`, `cotizacion_id`, `origen_tipo`,
-            `correlativo`, `fecha_venta`, `estado`, `cliente_nombre_completo`,
-            `moneda`, `subtotal`, `descuento_global_monto`, `total`, `monto_pagado`, `saldo_pendiente`,
-            `estado_financiero`, `creado_por`
-        ) VALUES (
-            :org, :ed, :cli, NULL, 'DIRECTA',
-            :cod, CURDATE(), 'CONFIRMADA', 'Cliente Otro Titular C',
-            'PEN', 500.00, 0.00, 500.00, 400.00, 100.00,
-            'PAGO_PARCIAL', :usr
-        )
-    ")->execute([
-        'org' => $orgAId,
-        'ed'  => $edicionAId,
-        'cli' => $clienteCId,
-        'cod' => 'VTA-IDOR-' . $sufijo,
-        'usr' => $usuarioAId,
-    ]);
-    $ventaAjenaCId = (int) $pdoAislado->lastInsertId();
-
-    // Sesiones reales de Portal del Cliente en tabla cliente_sesiones
     $tokenClienteAPlano = 'cli_ses_' . bin2hex(random_bytes(24));
-    $pdoAislado->prepare("
-        INSERT INTO `cliente_sesiones` (`organizacion_id`, `cliente_id`, `token_sesion_hash`, `ip_creacion`, `user_agent`, `expira_en`, `revocado`)
-        VALUES (:org, :cli, :hash, '127.0.0.1', 'CertificadorContratosV12', :exp, 0)
-    ")->execute([
-        'org'  => $orgAId,
-        'cli'  => $clienteAId,
-        'hash' => hash('sha256', $tokenClienteAPlano),
-        'exp'  => date('Y-m-d H:i:s', time() + 3600),
-    ]);
-    $clienteSesionAId = (int) $pdoAislado->lastInsertId();
+
+    // Sembrado integral de fixtures y modelos de dominio en BD aislada
+    $f = sembrarFixturesCertificacionPositiva(
+        pdo: $pdoAislado,
+        nombreBdAislada: $nombreBdAislada,
+        sufijo: $sufijo,
+        tokenClienteAPlano: $tokenClienteAPlano,
+        tokenCsrfMaestro: $tokenCsrfMaestro
+    );
+
+    $orgAId              = $f['orgAId'];
+    $orgBId              = $f['orgBId'];
+    $edicionAId          = $f['edicionAId'];
+    $edicionBId          = $f['edicionBId'];
+    $usuarioAId          = $f['usuarioAId'];
+    $usuarioSinPermId    = $f['usuarioSinPermId'];
+    $clienteAId          = $f['clienteAId'];
+    $clienteBId          = $f['clienteBId'];
+    $clienteCId          = $f['clienteCId'];
+    $ventaAjenaCId       = $f['ventaAjenaCId'];
+    $clienteSesionAId    = $f['clienteSesionAId'];
+    $tokenLogoutPlano    = $f['tokenLogoutPlano'];
+    $tokenSinPermPlano   = $f['tokenSinPermPlano'];
+    $tokenClienteAPlano  = $f['tokenClienteAPlano'];
+
+    $authSvc = new AutenticacionServicio(pdo: $pdoAislado);
+    $resAuthPrincipal = $authSvc->autenticar("auditor_a_{$sufijo}", 'CertV12Secret!', '127.0.0.1', 'CertificadorContratosV12');
+    $tokenAdminPlano = (string) $resAuthPrincipal->tokenSesion;
 
     // --------------------------------------------------------------------------
     // 2. Configurar Middlewares para Pasada Negativa (401/403) y Pasada Válida
@@ -941,8 +904,10 @@ try {
             }
         }
 
-        // PASADA B: Ejecución en tiempo de ejecución autenticado / público
+        // PASADA B: Ejecución en tiempo de ejecución autenticado / público con fixtures positivos
         $conteoEjecucionRuntime++;
+        $cfg = resolverConfiguracionEndpointPositiva($patron, $metodoHttp, $f, $sufijo, $tmpLogoPath);
+
         $tokenAdminParaEndpoint = $patron === '/api/v1/auth/logout' ? $tokenLogoutPlano : $tokenAdminPlano;
         $tokenClienteParaEndpoint = $patron === '/api/v1/publico/portal/cerrar-sesion' ? '' : $tokenClienteAPlano;
 
@@ -964,7 +929,13 @@ try {
             edicionId: $edicionAId,
             tokenAdminBearer: $esquemaSeguridad === 'BearerAdminAuth' ? $tokenAdminParaEndpoint : '',
             tokenClienteCookie: $esquemaSeguridad === 'CookieClienteAuth' ? $tokenClienteParaEndpoint : '',
-            tokenCsrf: $tokenCsrfMaestro
+            tokenCsrf: $tokenCsrfMaestro,
+            reemplazosRuta: $cfg['reemplazos'],
+            queryExtra: $cfg['query'],
+            postExtra: $cfg['post'],
+            archivosFiles: $cfg['files'],
+            rawBody: $cfg['rawBody'] ?? null,
+            cabecerasExtra: $cfg['headers'] ?? []
         );
 
         $cuerpoRuntime = $resRuntime['cuerpo'];
@@ -986,6 +957,18 @@ try {
             $formatoValido = in_array($codigoRuntime, [200, 403], true) && $cuerpoRuntime !== '';
             $tipoRespuestaDetectado = 'TEXT_CHALLENGE';
             $clavesSobreVerificadas = ['challenge_text'];
+        } elseif (str_starts_with($cuerpoRuntime, '%PDF')) {
+            $formatoValido = ($codigoRuntime === 200);
+            $tipoRespuestaDetectado = 'PDF_DOCUMENT';
+            $clavesSobreVerificadas = ['%PDF'];
+        } elseif (str_starts_with($cuerpoRuntime, "\xEF\xBB\xBF") || str_contains($cuerpoRuntime, 'sep=') || (str_ends_with($patron, '/exportar') && $codigoRuntime === 200)) {
+            $formatoValido = ($codigoRuntime === 200);
+            $tipoRespuestaDetectado = 'CSV_EXPORT';
+            $clavesSobreVerificadas = ['csv_stream'];
+        } elseif (str_contains($patron, 'descargar') && $codigoRuntime === 200) {
+            $formatoValido = ($codigoRuntime === 200);
+            $tipoRespuestaDetectado = 'BINARY_STREAM';
+            $clavesSobreVerificadas = ['binary_stream'];
         } else {
             $jsonRuntime = json_decode($cuerpoRuntime, true);
             $tieneEstructuraSobre = is_array($jsonRuntime)
@@ -1216,10 +1199,14 @@ try {
     );
 
 } finally {
+    if (isset($tmpLogoPath) && file_exists($tmpLogoPath)) {
+        @unlink($tmpLogoPath);
+    }
     ContextoOperacion::establecerActual(null);
     $_GET = [];
     $_POST = [];
     $_COOKIE = [];
+    $_FILES = [];
     unset($_SESSION['_token_csrf'], $_SERVER['HTTP_X_CSRF_TOKEN'], $_SERVER['HTTP_AUTHORIZATION'], $_SERVER['HTTP_X_CLIENTE_TOKEN']);
 
     // Restaurar conexión principal y destruir la base de datos aislada desechable

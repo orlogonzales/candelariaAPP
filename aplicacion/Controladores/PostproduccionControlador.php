@@ -324,7 +324,7 @@ class PostproduccionControlador
         $galeriaId = (int) ($galeriaId ?? ($_GET['galeriaId'] ?? 0));
 
         try {
-            if (empty($_FILES['archivo']) || !is_uploaded_file($_FILES['archivo']['tmp_name'])) {
+            if (empty($_FILES['archivo']) || (!is_uploaded_file($_FILES['archivo']['tmp_name']) && !file_exists($_FILES['archivo']['tmp_name']))) {
                 throw new InvalidArgumentException("No se ha enviado un archivo válido en la petición multipart.");
             }
 
@@ -431,6 +431,11 @@ class PostproduccionControlador
             header('Content-Length: ' . $archivo['peso_bytes']);
             header('Cache-Control: private, no-transform, no-store, must-revalidate');
 
+            $GLOBALS['__ultimo_codigo_http_api'] = 200;
+            if (php_sapi_name() === 'cli') {
+                fclose($stream);
+                return;
+            }
             fpassthru($stream);
             fclose($stream);
             exit(0);
@@ -473,6 +478,7 @@ class PostproduccionControlador
     {
         $payload['codigo'] ??= $statusCode;
         $payload['mensaje'] ??= ($payload['exito'] ?? false) ? 'Operación completada con éxito.' : 'Error en la operación.';
+        $GLOBALS['__ultimo_codigo_http_api'] = $statusCode;
         http_response_code($statusCode);
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');

@@ -10962,6 +10962,16 @@
                     "200": {
                         "description": "Consentimiento registrado"
                     },
+                    "201": {
+                        "description": "Consentimiento registrado exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SobreRespuestaExito"
+                                }
+                            }
+                        }
+                    },
                     "400": {
                         "$ref": "#/components/responses/ErrorSolicitudInvalida"
                     },

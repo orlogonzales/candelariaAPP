@@ -911,6 +911,7 @@ class FolcloreControlador
 
     private function responderExito(mixed $datos = null, string $mensaje = 'Operación exitosa', int $codigo = 200): string
     {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         if (!headers_sent()) {
             http_response_code($codigo);
             header('Content-Type: application/json; charset=utf-8');
@@ -925,6 +926,7 @@ class FolcloreControlador
 
     private function responderError(string $mensaje, int $codigo = 400, array $detalles = []): string
     {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         if (!headers_sent()) {
             http_response_code($codigo);
             header('Content-Type: application/json; charset=utf-8');

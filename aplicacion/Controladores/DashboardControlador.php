@@ -248,6 +248,7 @@ class DashboardControlador
 
             if ($formato === 'csv') {
                 $contenido = $this->analiticaServicio->exportarCsv($orgId, $_GET);
+                $GLOBALS['__ultimo_codigo_http_api'] = 200;
                 if (php_sapi_name() === 'cli') {
                     return $contenido;
                 }
@@ -260,11 +261,15 @@ class DashboardControlador
                     header('Content-Length: ' . strlen($contenido));
                 }
                 echo $contenido;
+                if (php_sapi_name() === 'cli') {
+                    return $contenido;
+                }
                 exit;
             }
 
             if ($formato === 'xlsx') {
                 $contenido = $this->analiticaServicio->exportarXlsx($orgId, $_GET);
+                $GLOBALS['__ultimo_codigo_http_api'] = 200;
                 if (php_sapi_name() === 'cli') {
                     return $contenido;
                 }

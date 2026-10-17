@@ -327,6 +327,7 @@ class UsuarioControlador
 
             // 4. Crear registro en usuarios
             $hash = password_hash($contrasena, PASSWORD_DEFAULT);
+            $estadoUsuario = isset($datos['estado']) && in_array($datos['estado'], ['ACTIVO', 'INACTIVO', 'BLOQUEADO'], true) ? (string) $datos['estado'] : 'ACTIVO';
             $usuario = new Usuario(
                 id: null,
                 organizacionId: $orgId,
@@ -336,7 +337,7 @@ class UsuarioControlador
                 correoElectronico: $correo,
                 contrasenaHash: $hash,
                 telefonoWhatsapp: !empty($datos['telefono_whatsapp']) ? trim((string) $datos['telefono_whatsapp']) : null,
-                estado: in_array(($datos['estado'] ?? 'ACTIVO'), ['ACTIVO', 'INACTIVO', 'BLOQUEADO'], true) ? $datos['estado'] : 'ACTIVO'
+                estado: $estadoUsuario
             );
 
             $usuarioId = $this->usuarioRepo->crear($usuario);
@@ -697,6 +698,7 @@ class UsuarioControlador
 
     private function responderJson(bool $exito, int $codigo, string $mensaje, mixed $datos = null): string
     {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         if (!headers_sent()) {
             http_response_code($codigo);
             header('Content-Type: application/json; charset=utf-8');

@@ -191,11 +191,16 @@ class DocumentoControlador
         header('Pragma: public');
 
         echo $binarioPdf;
+        $GLOBALS['__ultimo_codigo_http_api'] = 200;
+        if (php_sapi_name() === 'cli') {
+            return;
+        }
         exit;
     }
 
     private function manejarExcepcion(Throwable $e): void
     {
+        error_log("[PDF TRACE] " . $e->getMessage() . "\n" . $e->getTraceAsString());
         $codigo = 500;
         if ($e instanceof InvalidArgumentException) {
             $codigo = 400;
@@ -203,6 +208,7 @@ class DocumentoControlador
             $codigo = 403;
         }
 
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         http_response_code($codigo);
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');

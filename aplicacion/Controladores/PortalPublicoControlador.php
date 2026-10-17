@@ -472,6 +472,10 @@ class PortalPublicoControlador
             header('Pragma: public');
 
             echo $res['binario_pdf'];
+            $GLOBALS['__ultimo_codigo_http_api'] = 200;
+            if (php_sapi_name() === 'cli') {
+                return;
+            }
             exit;
         } catch (Throwable $e) {
             $this->manejarExcepcion($e);
@@ -522,6 +526,10 @@ class PortalPublicoControlador
             header('Pragma: public');
 
             echo $res['binario_pdf'];
+            $GLOBALS['__ultimo_codigo_http_api'] = 200;
+            if (php_sapi_name() === 'cli') {
+                return;
+            }
             exit;
         } catch (Throwable $e) {
             $this->manejarExcepcion($e);
@@ -663,6 +671,10 @@ class PortalPublicoControlador
             header('Pragma: public');
 
             echo $res['binario_pdf'];
+            $GLOBALS['__ultimo_codigo_http_api'] = 200;
+            if (php_sapi_name() === 'cli') {
+                return;
+            }
             exit;
         } catch (Throwable $e) {
             $this->manejarExcepcion($e);
@@ -866,6 +878,11 @@ class PortalPublicoControlador
             header('Content-Length: ' . $archivo['peso_bytes']);
             header('Cache-Control: private, no-transform, max-age=86400');
 
+            $GLOBALS['__ultimo_codigo_http_api'] = 200;
+            if (php_sapi_name() === 'cli') {
+                fclose($stream);
+                return;
+            }
             fpassthru($stream);
             fclose($stream);
             exit(0);
@@ -967,6 +984,7 @@ class PortalPublicoControlador
     {
         $datos['codigo'] ??= $status;
         $datos['mensaje'] ??= ($datos['exito'] ?? false) ? 'Operación completada con éxito.' : 'Error en la solicitud.';
+        $GLOBALS['__ultimo_codigo_http_api'] = $status;
         http_response_code($status);
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');

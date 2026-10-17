@@ -96,6 +96,7 @@ class ComunicacionControlador
 
     private function setCodigoHttp(int $codigo): void
     {
+        $GLOBALS['__ultimo_codigo_http_api'] = $codigo;
         if (!headers_sent()) {
             http_response_code($codigo);
         }
