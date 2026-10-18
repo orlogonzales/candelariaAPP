@@ -23,10 +23,32 @@ class CandelariaApp {
     }
 
     inicializar() {
+        this.sincronizarSidebarResponsivo();
         this.inicializarTooltipsSidebar();
         this.observarMutacionesMenu();
         this.sincronizarModoTema();
         console.info('[CandelariaAPP] Infraestructura JavaScript y UI/UX inicializadas.');
+    }
+
+    /**
+     * Garantiza que en viewports móviles y tablets (<= 1199px) el menú lateral
+     * inicie colapsado sin esperar al evento tardío window.load de activos externos.
+     */
+    sincronizarSidebarResponsivo() {
+        const appNavbar = document.querySelector('.app-navbar');
+        const semiNav = document.querySelector('.semi-side-nav');
+        if (!appNavbar) return;
+
+        const aplicarColapsoMovil = () => {
+            if (window.innerWidth <= 1199) {
+                appNavbar.classList.add('side-nav-toggle');
+                if (semiNav) {
+                    semiNav.classList.add('semi-nav-toggle');
+                }
+            }
+        };
+
+        aplicarColapsoMovil();
     }
 
     /**
@@ -188,16 +210,43 @@ const CandelariaUI = {
 };
 
 /**
+ * Normaliza la construcción de rutas relativas/absolutas eliminando barras duplicadas.
+ * Soporta despliegues en raíz ('', '/'), URLs absolutas ('http://127.0.0.1:8080/')
+ * y subdirectorios ('/app.candelaria/').
+ */
+function construirUrlCandelaria(ruta = '', baseOverride = undefined) {
+    const rawBase = baseOverride !== undefined
+        ? String(baseOverride ?? '')
+        : String((typeof window !== 'undefined' && window.CANDELARIA_BASE_URL) ?? '');
+    const baseLimpia = rawBase.trim().replace(/\/+$/, '');
+    const rutaLimpia = String(ruta ?? '').trim().replace(/^\/+/, '');
+    if (!rutaLimpia) {
+        return baseLimpia || '/';
+    }
+    return `${baseLimpia}/${rutaLimpia}`;
+}
+
+if (typeof window !== 'undefined') {
+    window.construirUrlCandelaria = construirUrlCandelaria;
+}
+
+/**
  * Cliente HTTP ligero basado en Fetch API para arquitectura API-First.
  */
 class CandelariaClienteApi {
     constructor(urlBase = '') {
         const raiz = window.CANDELARIA_BASE_URL || window.location.origin;
-        this.urlBase = urlBase || (raiz.replace(/\/$/, '') + '/api/v1');
+        this.urlBase = urlBase
+            ? String(urlBase).replace(/\/+$/, '')
+            : construirUrlCandelaria('api/v1', raiz);
+    }
+
+    static construirUrl(ruta = '', baseOverride = undefined) {
+        return construirUrlCandelaria(ruta, baseOverride);
     }
 
     async peticion(endpoint, opciones = {}) {
-        const url = `${this.urlBase}/${endpoint.replace(/^\//, '')}`;
+        const url = `${this.urlBase}/${String(endpoint ?? '').replace(/^\/+/, '')}`;
         const metodo = (opciones.metodo || 'GET').toUpperCase();
 
         const encabezados = {

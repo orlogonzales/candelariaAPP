@@ -9,11 +9,14 @@ document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
     // 1. Constantes y URLs de API
-    const BASE_URL = window.CANDELARIA_BASE_URL || '/';
-    const URL_API_PAGOS = BASE_URL + 'api/v1/pagos';
-    const URL_API_VENTAS = BASE_URL + 'api/v1/ventas';
-    const URL_API_CUENTAS = BASE_URL + 'api/v1/cuentas-bancarias';
-    const URL_API_PASARELAS = BASE_URL + 'api/v1/pasarelas';
+    const construirRuta = typeof window.construirUrlCandelaria === 'function'
+        ? window.construirUrlCandelaria
+        : (ruta) => ((window.CANDELARIA_BASE_URL || '').replace(/\/+$/, '') + '/' + String(ruta).replace(/^\/+/, ''));
+    const BASE_URL = construirRuta('');
+    const URL_API_PAGOS = construirRuta('api/v1/pagos');
+    const URL_API_VENTAS = construirRuta('api/v1/ventas');
+    const URL_API_CUENTAS = construirRuta('api/v1/cuentas-bancarias');
+    const URL_API_PASARELAS = construirRuta('api/v1/pasarelas');
     const CSRF_TOKEN = window.CANDELARIA_CSRF_TOKEN || '';
 
     // Headers predeterminados
@@ -314,6 +317,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (p.estado === 'APROBADO') {
+                if (window.CANDELARIA_PERMISOS_DOCUMENTOS?.recibos_pdf) {
+                    const urlReciboPdf = construirRuta(`api/v1/documentos/recibo/${p.id}/pdf?descargar=1`);
+                    accionesHtml += `
+                        <a href="${urlReciboPdf}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success ms-1 btn-descargar-recibo-pdf" data-id="${p.id}" title="Descargar Recibo de Caja PDF">
+                            <i class="fa-solid fa-receipt"></i>
+                        </a>
+                    `;
+                }
                 const disponibleReembolso = parseFloat(p.monto_cobrado_cliente || 0) - parseFloat(p.monto_reembolsado_acumulado || 0);
                 if (disponibleReembolso > 0) {
                     accionesHtml += `

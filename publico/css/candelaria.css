@@ -174,3 +174,38 @@ body.dark .marca-plataforma-insignia {
 .app-navbar, .main-side-nav, .app-content {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ------------------------------------------------------------------------------
+ * H-06: COLAPSO RESPONSIVO DEL SIDEBAR EN DISPOSITIVOS MÓVILES Y TABLETS
+ * Evita que .main-side-nav se superponga al contenido principal cuando
+ * .side-nav-toggle está activo en pantallas <= 1199px y <= 576px.
+ * ------------------------------------------------------------------------------ */
+@media screen and (max-width: 1199px) {
+    .app-wrapper:not(.app-wrapper.sidebar-horizontal) .app-navbar.side-nav-toggle .main-side-nav {
+        transform: translateX(-120%) !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    .app-wrapper:not(.app-wrapper.sidebar-horizontal) .app-navbar:not(.side-nav-toggle) .main-side-nav {
+        transform: translateX(0) !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        z-index: 1005;
+    }
+}
+
+@media screen and (max-width: 576px) {
+    .app-wrapper:not(.app-wrapper.sidebar-horizontal) .app-navbar.side-nav-toggle .semi-side-nav,
+    .app-wrapper:not(.app-wrapper.sidebar-horizontal) .app-navbar .semi-side-nav.semi-nav-toggle {
+        transform: translateX(-120%) !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+
+    .app-wrapper:not(.app-wrapper.sidebar-horizontal) .app-navbar.side-nav-toggle ~ .app-content {
+        padding-left: 0 !important;
+        width: 100% !important;
+    }
+}
+

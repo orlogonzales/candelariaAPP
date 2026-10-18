@@ -8,7 +8,9 @@
 document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
-    const URL_API_POST = (window.CANDELARIA_BASE_URL || '/') + 'api/v1/postproduccion';
+    const URL_API_POST = typeof window.construirUrlCandelaria === 'function'
+        ? window.construirUrlCandelaria('api/v1/postproduccion')
+        : ((window.CANDELARIA_BASE_URL || '').replace(/\/+$/, '') + '/api/v1/postproduccion');
 
     // Modales Bootstrap
     const modalNuevoPryEl = document.getElementById('modalNuevoProyecto');

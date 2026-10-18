@@ -46,12 +46,34 @@
     <?php
     $contextoOperacionActual = \Nucleo\Http\ContextoOperacion::actual();
     $csrfTokenActual = $contextoOperacionActual?->metadatos['csrf_token'] ?? '';
+    $permisosDocumentosJs = [
+        'cotizaciones_pdf' => false,
+        'contratos_pdf'    => false,
+        'recibos_pdf'      => false,
+        'boletos_pdf'      => false,
+    ];
+    if ($contextoOperacionActual !== null && $contextoOperacionActual->usuarioId !== null) {
+        try {
+            $authzMetas = new \Aplicacion\Autorizacion\AutorizacionServicio();
+            $usrIdMetas = (int) $contextoOperacionActual->usuarioId;
+            $permisosDocumentosJs = [
+                'cotizaciones_pdf' => $authzMetas->tienePermiso($usrIdMetas, 'documentos.cotizaciones.descargar'),
+                'contratos_pdf'    => $authzMetas->tienePermiso($usrIdMetas, 'documentos.contratos.descargar'),
+                'recibos_pdf'      => $authzMetas->tienePermiso($usrIdMetas, 'documentos.recibos.descargar')
+                    || $authzMetas->tienePermiso($usrIdMetas, 'documentos.recibos.emitir'),
+                'boletos_pdf'      => $authzMetas->tienePermiso($usrIdMetas, 'documentos.boletos.descargar'),
+            ];
+        } catch (\Throwable $e) {
+            // Falla cerrada si la base de datos no está disponible en vistas estáticas
+        }
+    }
     ?>
     <meta name="csrf-token" content="<?= escapar_html($csrfTokenActual) ?>">
     <meta name="url-base" content="<?= url_base() ?>">
     <script>
         window.CANDELARIA_BASE_URL = "<?= url_base() ?>";
         window.CANDELARIA_CSRF_TOKEN = "<?= escapar_html($csrfTokenActual) ?>";
+        window.CANDELARIA_PERMISOS_DOCUMENTOS = <?= json_encode($permisosDocumentosJs, JSON_UNESCAPED_UNICODE) ?>;
     </script>
 </head>
 <body class="light">

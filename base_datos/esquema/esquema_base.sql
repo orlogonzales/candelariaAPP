@@ -2890,15 +2890,15 @@ ON DUPLICATE KEY UPDATE `nombre` = VALUES(`nombre`), `descripcion` = VALUES(`des
 
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
-WHERE r.codigo = 'ADMINISTRADOR' AND p.modulo_id IN (13, 24);
+WHERE r.codigo IN ('ADMINISTRADOR', 'superadmin_plataforma', 'admin_organizacion') AND p.modulo_id IN (13, 24);
 
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
-WHERE r.codigo IN ('VENTAS', 'CAJERO', 'COORDINADOR_VENTAS') AND p.modulo_id = 13;
+WHERE r.codigo IN ('VENTAS', 'CAJERO', 'COORDINADOR_VENTAS', 'operador_produccion') AND p.codigo IN ('documentos.cotizaciones.descargar', 'documentos.boletos.descargar');
 
 INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id FROM `roles` r CROSS JOIN `permisos` p
-WHERE r.codigo IN ('COORDINADOR') AND p.modulo_id = 24;
+WHERE r.codigo IN ('COORDINADOR', 'operador_produccion') AND p.codigo IN ('postproduccion.proyectos.ver', 'postproduccion.archivos.subir', 'postproduccion.archivos.descargar', 'postproduccion.entregas.gestionar');
 
 -- ------------------------------------------------------------------------------
 -- 85. TABLA `edicion_cierres` (CONGELAMIENTO FINANCIERO Y AUDITORÍA DE CIERRE)
@@ -2964,7 +2964,7 @@ INSERT IGNORE INTO `rol_permisos` (`rol_id`, `permiso_id`)
 SELECT r.id, p.id
 FROM `roles` r
 CROSS JOIN `permisos` p
-WHERE r.codigo = 'ADMINISTRADOR'
+WHERE r.codigo IN ('ADMINISTRADOR', 'superadmin_plataforma', 'admin_organizacion')
   AND p.codigo IN ('ediciones.cerrar', 'ediciones.reabrir_excepcional');
 
 INSERT INTO `migraciones_control` (`migracion`, `lote`) VALUES
