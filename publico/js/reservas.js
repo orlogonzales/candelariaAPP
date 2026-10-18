@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
     // 1. Constantes y Endpoints
-    const URL_API_RESERVAS = window.CANDELARIA_BASE_URL + 'api/v1/reservas';
+    const URL_API_RESERVAS = typeof window.construirUrlCandelaria === 'function'
+        ? window.construirUrlCandelaria('api/v1/reservas')
+        : ((window.CANDELARIA_BASE_URL || '').replace(/\/+$/, '') + '/api/v1/reservas');
     const CSRF_TOKEN = window.CANDELARIA_CSRF_TOKEN || '';
 
     // Elementos DOM principales
@@ -158,6 +160,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     <button type="button" class="btn btn-sm btn-outline-primary btnVerDetalle" data-id="${r.id}" title="Ver Detalle 360">
                         <i class="fa-solid fa-eye"></i>
                     </button>
+                    ${(r.estado !== 'CANCELADA' && window.CANDELARIA_PERMISOS_DOCUMENTOS?.boletos_pdf) ? `
+                    <a href="${typeof window.construirUrlCandelaria === 'function' ? window.construirUrlCandelaria(`api/v1/documentos/boleto/${r.id}/pdf?formato=A4&descargar=1`) : `/api/v1/documentos/boleto/${r.id}/pdf?formato=A4&descargar=1`}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-dark ms-1 btnDescargarBoletoPdf" data-id="${r.id}" title="Descargar Boleto QR Oficial (PDF A4)">
+                        <i class="fa-solid fa-qrcode"></i>
+                    </a>
+                    ` : ''}
                     ${r.estado !== 'CANCELADA' ? `
                     <button type="button" class="btn btn-sm btn-outline-danger btnCancelarReserva ms-1" data-id="${r.id}" data-correlativo="${escaparHtml(r.correlativo)}" title="Cancelar Reserva">
                         <i class="fa-solid fa-ban"></i>

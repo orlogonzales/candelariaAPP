@@ -17,20 +17,27 @@ return [
     'minutos_bloqueo'           => (int) entorno('AUTH_MINUTOS_BLOQUEO', 15),
 
     // Políticas de Expiración y Ciclo de Vida de Sesión
-    'timeout_inactividad_segundos'  => (int) entorno('AUTH_TIMEOUT_INACTIVIDAD', 7200), // 2 horas
+    'timeout_inactividad_segundos'  => (int) entorno('AUTH_TIMEOUT_INACTIVIDAD', entorno('SESION_DURACION', 7200)), // 2 horas
     'tiempo_vida_absoluto_segundos' => (int) entorno('AUTH_TIEMPO_VIDA_ABSOLUTO', 86400), // 24 horas
 
     // Configuración de Cookies de Sesión
     'cookie' => [
-        'nombre'   => (string) entorno('AUTH_COOKIE_NOMBRE', 'candelaria_sesion'),
+        'nombre'   => (string) entorno('AUTH_COOKIE_NOMBRE', entorno('SESION_NOMBRE', 'candelaria_sesion')),
         'ruta'     => '/',
         'dominio'  => entorno('AUTH_COOKIE_DOMINIO', null),
         'httponly' => true,
-        'samesite' => 'Lax',
-        // 'Secure' solo se activa si HTTPS está explícitamente presente o en entorno producción
-        'seguro'   => (bool) entorno(
-            'AUTH_COOKIE_SECURE',
-            (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || entorno('APP_ENV') === 'produccion'
+        'samesite' => (string) entorno('AUTH_COOKIE_SAMESITE', entorno('SESION_SAMESITE', 'Lax')),
+        // 'Secure' se activa si HTTPS está explícitamente presente o en entorno producción
+        'seguro'   => filter_var(
+            entorno(
+                'AUTH_COOKIE_SECURE',
+                entorno(
+                    'SESION_SEGURA',
+                    (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                    || in_array(strtolower((string) entorno('APP_ENV')), ['produccion', 'production'], true)
+                )
+            ),
+            FILTER_VALIDATE_BOOLEAN
         ),
     ],
 

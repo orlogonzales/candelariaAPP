@@ -124,11 +124,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                     </a>
                 </li>
 
+                <?php if ($puedeVerOrg || $puedeVerConfigGeneral || $puedeVerUsuarios): ?>
                 <li class="nav-item">
                     <a href="#" class="nav-link <?= $esConfig ? 'active' : '' ?>" data-target="menuConfiguracion" title="CONFIGURACIÓN Y PLATAFORMA" aria-label="Configuración y Plataforma" data-bs-toggle="tooltip" data-bs-placement="right">
                         <i class="fa-solid fa-sliders" aria-hidden="true"></i>
                     </a>
                 </li>
+                <?php endif; ?>
             </ul>
 
             <span class="bg-primary-800 h-45 w-45 d-flex-center b-r-30 position-relative mx-auto" title="Usuario de Gestión">
@@ -140,18 +142,20 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
         <!-- 2. Barra Lateral Desplegable (Main-Side-Nav) -->
         <div class="main-side-nav">
             <div>
-                <a class="logo d-inline-block px-3 py-2 text-decoration-none" href="<?= url_base() ?>">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="text-danger f-s-24"><i class="fa-solid fa-fire-flame-curved"></i></span>
-                        <div class="d-flex flex-column">
-                            <span class="f-s-18 f-w-700 text-dark tracking-wide">CANDELARIA<span class="text-danger">APP</span></span>
-                            <span class="f-s-11 text-muted text-uppercase"><?= escapar_html($nombreOrgDisplay) ?></span>
+                <div class="d-flex align-items-center justify-content-between pe-3">
+                    <a class="logo d-inline-block px-3 py-2 text-decoration-none" href="<?= url_base() ?>">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-danger f-s-24"><i class="fa-solid fa-fire-flame-curved"></i></span>
+                            <div class="d-flex flex-column">
+                                <span class="f-s-18 f-w-700 text-dark tracking-wide">CANDELARIA<span class="text-danger">APP</span></span>
+                                <span class="f-s-11 text-muted text-uppercase"><?= escapar_html($nombreOrgDisplay) ?></span>
+                            </div>
                         </div>
-                    </div>
-                </a>
-                <span class="w-30 h-30 d-none bg-gradient-danger b-r-8 cursor-pointer side-toggle">
-                    <i class="fa-solid fa-xmark f-s-18"></i>
-                </span>
+                    </a>
+                    <span class="w-30 h-30 d-xl-none d-inline-flex align-items-center justify-content-center bg-gradient-danger text-white b-r-8 cursor-pointer side-toggle" title="Cerrar menú">
+                        <i class="fa-solid fa-xmark f-s-18"></i>
+                    </span>
+                </div>
                 <div class="side-search p-3">
                     <div class="position-relative">
                         <input aria-label="Buscar" class="form-control py-2 b-r-18" placeholder="Buscar módulo..." type="search">
@@ -170,11 +174,13 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                                 <span class="badge bg-gradient-danger badge-dashboard badge-notification ms-2">V1</span>
                             </a>
                         </li>
+                        <?php if ($puedeVerUsuarios): ?>
                         <li class="no-sub">
                             <a href="<?= url_base('usuarios') ?>" id="navPrincipalUsuarios" class="<?= $seccionActual === 'usuarios' ? 'active' : '' ?>">
                                 <i class="fa-solid fa-users-gear me-2 text-secondary"></i> Padrón de Usuarios
                             </a>
                         </li>
+                        <?php endif; ?>
                         <?php if ($puedeVerEdiciones): ?>
                         <li class="no-sub">
                             <a href="<?= url_base('ediciones') ?>" id="navPrincipalEdiciones" class="<?= $seccionActual === 'ediciones' ? 'active' : '' ?>">
@@ -329,9 +335,6 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
 
                     <!-- Menú: Agenda -->
                     <ul class="main-menu" id="menuAgenda" style="display: none;">
-                        <li class="no-sub">
-                            <a href="#"><i class="fa-solid fa-calendar-days me-2 text-secondary"></i> Citas y Reuniones Puno</a>
-                        </li>
                         <?php if ($puedeVerFolclore): ?>
                         <li class="no-sub">
                             <a href="<?= url_base('folclore') ?>" class="<?= $seccionActual === 'folclore' ? 'active' : '' ?>">
@@ -404,15 +407,6 @@ $nombreOrgDisplay = $orgOperativa?->nombreComercial ?: 'CandelariaAPP';
                             </ul>
                         </li>
                         <?php endif; ?>
-                        <li>
-                            <a aria-expanded="true" data-bs-toggle="collapse" href="#subConfig">
-                                <i class="fa-solid fa-sliders me-2 text-secondary"></i> Parámetros
-                            </a>
-                            <ul class="collapse show" id="subConfig">
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Catálogo Comercial</a></li>
-                                <li><a href="#"><i class="fa-solid fa-circle f-s-8 me-2 text-secondary"></i> Auditoría de Operaciones</a></li>
-                            </ul>
-                        </li>
                     </ul>
                 </div>
             </div>

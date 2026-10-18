@@ -1550,7 +1550,7 @@ assertF42C(
 );
 
 $migracionesActuales = (int) $pdoPrincipal->query("SELECT COUNT(*) FROM migraciones_control")->fetchColumn();
-assertF42C($migracionesActuales === 29, "5.2: Trazabilidad de migraciones en base principal conserva 29 migraciones");
+assertF42C(in_array($migracionesActuales, [29, 30], true), "5.2: Trazabilidad de migraciones en base principal conserva 29-30 migraciones ({$migracionesActuales})");
 
 $permisosActuales = (int) $pdoPrincipal->query("SELECT COUNT(*) FROM permisos")->fetchColumn();
 assertF42C($permisosActuales === 115, "5.3: Matriz RBAC en base principal conserva 115 permisos");

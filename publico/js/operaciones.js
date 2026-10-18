@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', function () {
     'use strict';
 
     // 1. Endpoints y Configuración Base
-    const URL_API_OPERACIONES = window.CANDELARIA_BASE_URL + 'api/v1/operaciones';
+    const URL_API_OPERACIONES = typeof window.construirUrlCandelaria === 'function'
+        ? window.construirUrlCandelaria('api/v1/operaciones')
+        : ((window.CANDELARIA_BASE_URL || '').replace(/\/+$/, '') + '/api/v1/operaciones');
     const CSRF_TOKEN = window.CANDELARIA_CSRF_TOKEN || '';
 
     // Elementos DOM Principales

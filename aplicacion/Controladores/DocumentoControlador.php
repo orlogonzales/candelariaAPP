@@ -67,7 +67,7 @@ class DocumentoControlador
     {
         try {
             $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, true);
-            $this->verificarAlgunPermiso(['documentos.cotizaciones.descargar', 'cotizaciones.ver'], $contexto);
+            $this->verificarAlgunPermiso(['documentos.cotizaciones.descargar'], $contexto);
 
             $cotizacionId = (int) ($params['id'] ?? $_GET['id'] ?? 0);
             if ($cotizacionId <= 0) {
@@ -90,7 +90,7 @@ class DocumentoControlador
     {
         try {
             $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, true);
-            $this->verificarAlgunPermiso(['documentos.contratos.descargar', 'ventas.ver'], $contexto);
+            $this->verificarAlgunPermiso(['documentos.contratos.descargar'], $contexto);
 
             $ventaId = (int) ($params['id'] ?? $_GET['id'] ?? 0);
             if ($ventaId <= 0) {
@@ -114,7 +114,7 @@ class DocumentoControlador
     {
         try {
             $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, true);
-            $this->verificarAlgunPermiso(['documentos.recibos.descargar', 'documentos.recibos.emitir', 'pagos.ver'], $contexto);
+            $this->verificarAlgunPermiso(['documentos.recibos.descargar', 'documentos.recibos.emitir'], $contexto);
 
             $pagoId = (int) ($params['id'] ?? $_GET['id'] ?? 0);
             if ($pagoId <= 0) {
@@ -137,7 +137,7 @@ class DocumentoControlador
     {
         try {
             $contexto = $this->authMiddleware->procesar($_SERVER, $_COOKIE, true);
-            $this->verificarAlgunPermiso(['documentos.boletos.descargar', 'reservas.ver'], $contexto);
+            $this->verificarAlgunPermiso(['documentos.boletos.descargar'], $contexto);
 
             $reservaId = (int) ($params['reservaId'] ?? $params['id'] ?? $_GET['id'] ?? 0);
             if ($reservaId <= 0) {

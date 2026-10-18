@@ -776,10 +776,19 @@ class ModuloCotizaciones {
                 : '<span class="text-muted f-s-12">-</span>';
 
             // Botones de acción contextual
+            const puedeDescargarCotPdf = Boolean(window.CANDELARIA_PERMISOS_DOCUMENTOS?.cotizaciones_pdf);
+            const urlPdfCot = typeof window.construirUrlCandelaria === 'function'
+                ? window.construirUrlCandelaria(`api/v1/documentos/cotizacion/${c.id}/pdf?descargar=1`)
+                : `/api/v1/documentos/cotizacion/${c.id}/pdf?descargar=1`;
             let botonesAcciones = `
                 <button type="button" class="btn btn-outline-info btn-sm py-1 px-2 me-1" title="Ver Detalle 360" onclick="window.moduloCotizaciones.abrirDetalle360(${c.id})">
                     <i class="fa-solid fa-eye"></i>
                 </button>
+                ${puedeDescargarCotPdf ? `
+                <a href="${urlPdfCot}" target="_blank" rel="noopener" class="btn btn-outline-danger btn-sm py-1 px-2 me-1 btn-descargar-cotizacion-pdf" data-id="${c.id}" title="Descargar Cotización PDF Oficial">
+                    <i class="fa-solid fa-file-pdf"></i>
+                </a>
+                ` : ''}
             `;
 
             if (c.estado === 'BORRADOR') {

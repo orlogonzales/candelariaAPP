@@ -182,11 +182,12 @@ if (!$itemId) {
     $stmtCat->execute(['org_id' => $orgId]);
     $catId = $stmtCat->fetchColumn();
     if (!$catId) {
-        $stmtInsCat = $pdo->prepare("INSERT INTO categorias_items (organizacion_id, codigo, nombre, estado) VALUES (:org_id, 'CAT-TEST-01', 'Categoría Test', 'ACTIVO')");
+        $stmtInsCat = $pdo->prepare("INSERT INTO categorias_items (organizacion_id, codigo, nombre, estado) VALUES (:org_id, 'CAT_TEST_01', 'Categoría Test', 'ACTIVO')");
         $stmtInsCat->execute(['org_id' => $orgId]);
         $catId = (int) $pdo->lastInsertId();
     } else {
         $catId = (int) $catId;
+        $pdo->exec("UPDATE categorias_items SET codigo = UPPER(REPLACE(codigo, '-', '_')) WHERE id = {$catId}");
     }
 
     $stmtInsItem = $pdo->prepare("
@@ -201,6 +202,9 @@ if (!$itemId) {
     $stmtCat = $pdo->prepare("SELECT categoria_id FROM items_comerciales WHERE id = :id");
     $stmtCat->execute(['id' => $itemId]);
     $catId = (int) $stmtCat->fetchColumn();
+    if ($catId > 0) {
+        $pdo->exec("UPDATE categorias_items SET codigo = UPPER(REPLACE(codigo, '-', '_')) WHERE id = {$catId}");
+    }
 }
 
 // Asegurar oferta y tarifa de ítem en la edición

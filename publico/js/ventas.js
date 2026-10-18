@@ -332,6 +332,10 @@ class ModuloVentas {
             // Botones de acción según permisos y estado
             const puedeCancelar = window.CANDELARIA_PERMISOS?.cancelar && v.estado === 'CONFIRMADA';
             const puedeAnular = window.CANDELARIA_PERMISOS?.anular && v.estado === 'CONFIRMADA';
+            const puedeDescargarContratoPdf = Boolean(window.CANDELARIA_PERMISOS_DOCUMENTOS?.contratos_pdf) && v.estado === 'CONFIRMADA';
+            const urlContratoPdf = typeof window.construirUrlCandelaria === 'function'
+                ? window.construirUrlCandelaria(`api/v1/documentos/contrato/${v.id}/pdf?descargar=1`)
+                : `/api/v1/documentos/contrato/${v.id}/pdf?descargar=1`;
 
             tr.innerHTML = `
                 <td class="f-w-600 text-dark">
@@ -348,16 +352,29 @@ class ModuloVentas {
                 <td class="text-center">${badgeEstado}</td>
                 <td class="text-center"><span class="badge bg-light text-dark border">${parseInt(v.total_lineas || 0, 10)}</span></td>
                 <td class="text-end">
-                    <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
-                            <i class="fa-solid fa-ellipsis-vertical"></i>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm b-r-10 border-0">
-                            <li>
-                                <button class="dropdown-item py-2 btn-ver-detalle" data-id="${v.id}">
-                                    <i class="fa-solid fa-eye text-primary me-2"></i> Ver Detalle 360
-                                </button>
-                            </li>
+                    <div class="d-inline-flex align-items-center gap-1">
+                        ${puedeDescargarContratoPdf ? `
+                        <a href="${urlContratoPdf}" target="_blank" rel="noopener" class="btn btn-outline-danger btn-sm btn-descargar-contrato-pdf" data-id="${v.id}" title="Descargar Contrato de Servicios Turísticos (PDF)">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </a>
+                        ` : ''}
+                        <div class="dropdown d-inline-block">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm b-r-10 border-0">
+                                <li>
+                                    <button class="dropdown-item py-2 btn-ver-detalle" data-id="${v.id}">
+                                        <i class="fa-solid fa-eye text-primary me-2"></i> Ver Detalle 360
+                                    </button>
+                                </li>
+                                ${puedeDescargarContratoPdf ? `
+                                <li>
+                                    <a class="dropdown-item py-2 text-danger" href="${urlContratoPdf}" target="_blank" rel="noopener">
+                                        <i class="fa-solid fa-file-pdf me-2"></i> Descargar Contrato PDF
+                                    </a>
+                                </li>
+                                ` : ''}
                             ${puedeCancelar ? `
                             <li>
                                 <button class="dropdown-item py-2 text-warning btn-cancelar-venta" data-id="${v.id}" data-correlativo="${this.escaparHtml(v.correlativo)}" data-version="${v.version_bloqueo}">
@@ -372,7 +389,8 @@ class ModuloVentas {
                                 </button>
                             </li>
                             ` : ''}
-                        </ul>
+                            </ul>
+                        </div>
                     </div>
                 </td>
             `;
